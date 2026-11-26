@@ -1,0 +1,51 @@
+The four findings of the owner's two outside reviews of 365adee (Codex: gate2-code-365adee.txt;
+the second was pasted into the session). Fake Jira only; no Jira call.
+
+== BEFORE: scripts, tests and snapshots extracted from 365adee
+1a overwritten edit, own history entry not yet listed
+  exit 0; writes ['CC-1', 'CC-2']; owner note kept False; FAILED left False
+  written  CC-1  IDs unchanged: AC1, AC2, AC3, AC4, TC1, TC2, TC3, TC4, TC5
+  written  CC-2  IDs unchanged: AC1, AC2, AC3, AC4, TC1, TC2, TC3, TC4, TC5
+  2 written, 0 refused
+1b control: both history entries listed
+  exit 1; writes ['CC-1']; owner note kept False; FAILED left True
+  FAILED   CC-1: the history shows 2 description changes where one was written: another edit arrived during the write and may be overwritten. Read the ticket's History in Jira, which keeps each version, before restoring anything; check the ticket and its History in Jira against C:\Users\johnh\AppData\Local\Temp\tmpezuu0f8u\CC-1.before.json, and put back only what this write took out
+2 ticket closed just before the PUT
+  exit 0; writes ['CC-1', 'CC-2']; FAILED left False
+  written  CC-1  IDs unchanged: AC1, AC2, AC3, AC4, TC1, TC2, TC3, TC4, TC5
+  written  CC-2  IDs unchanged: AC1, AC2, AC3, AC4, TC1, TC2, TC3, TC4, TC5
+  2 written, 0 refused
+3 clean dry run over a copy of the committed snapshot folder
+  files before 81 (APPROVED among them: no); exit 0; files after 0
+  20 open ticket(s) read: 0 ticket(s) left to change, 0 refused
+4 dry run after apply
+  apply exit 0
+  old search result: exit 0; 2 open ticket(s) read: 2 ticket(s) left to change, 0 refused
+  current: exit 0; 2 open ticket(s) read: 0 ticket(s) left to change, 0 refused
+exit 0
+
+In case 4 above the dry run wrote to a new folder, so it exits 0 while counting 2 tickets left.
+With the approved folder, as run by hand: exit 1, the same count.
+
+== AFTER: HEAD 56fae437b4cdb5c4536838ffe72c0214f78c35c4
+1a overwritten edit, this write's history entry not listed
+  exit 1; writes ['CC-1']; owner note kept False; FAILED left True
+  FAILED   CC-1: the one new description change in the history is not shown to be this write: it does not go from the text read before the write to the text read after it, so another edit may be overwritten. Read the ticket's History in Jira, which keeps each version, before restoring anything; check the ticket and its History in Jira against C:\Users\johnh\AppData\Local\Temp\tmp5no7o0z9\CC-1.before.json, and put back only what this write took out
+1b same edit, the owner's history entry not listed
+  exit 1; writes ['CC-1']; owner note kept False; FAILED left True
+  FAILED   CC-1: the one new description change in the history is not shown to be this write: it does not go from the text read before the write to the text read after it, so another edit may be overwritten. Read the ticket's History in Jira, which keeps each version, before restoring anything; check the ticket and its History in Jira against C:\Users\johnh\AppData\Local\Temp\tmpx8st1_a3\CC-1.before.json, and put back only what this write took out
+1c same edit, both listed
+  exit 1; writes ['CC-1']; owner note kept False; FAILED left True
+  FAILED   CC-1: the history shows 2 description changes where one was written: another edit arrived during the write and may be overwritten. Read the ticket's History in Jira, which keeps each version, before restoring anything; check the ticket and its History in Jira against C:\Users\johnh\AppData\Local\Temp\tmp_j9mlig0\CC-1.before.json, and put back only what this write took out
+2 ticket closed just before the PUT
+  exit 1; writes ['CC-1']; owner note kept False; FAILED left True
+  FAILED   CC-1: the ticket reads as closed after the write: a closed ticket may have been changed; check the ticket and its History in Jira against C:\Users\johnh\AppData\Local\Temp\tmpxb1jrz_8\CC-1.before.json, and put back only what this write took out
+3 `--dry-run` with no --out, every ticket already edited
+  default folder: C:\Users\johnh\AppData\Local\Temp\jira-gate-line
+  committed files 81, all unchanged: True; exit 0; writes []
+  20 open ticket(s) read: 0 ticket(s) left to change, 0 refused
+4 dry run after apply, search still returning the old text
+  apply exit 0
+  old search result, approved folder: exit 0; 2 open ticket(s) read: 0 ticket(s) left to change, 0 refused
+  old search result, new folder: exit 0; 2 open ticket(s) read: 0 ticket(s) left to change, 0 refused
+exit 0

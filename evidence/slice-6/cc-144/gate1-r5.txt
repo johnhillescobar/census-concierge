@@ -1,0 +1,1691 @@
+CC-144, Gate 1 on the fix round: tests and mutation check.
+
+Reviewed head 85ed3e9905b021cebc79a096f89e69389ce6dddc, branch cc-144/gate-line, ticket diff base e323eaa.
+New work under test: 599a57d..85ed3e9 of scripts/jira_gate_line.py and api/tests/test_jira_gate_line.py
+(commit 22c6ab8; the f0606e2 merge is not under test).
+
+HEAD moved during this gate, not by this gate: at 22:27:37 commit 4b8fbee ("remove this ticket's STATE.md")
+appeared on the branch. STATE.md had shown as modified from 20:46:41. `git diff 85ed3e9 HEAD -- scripts api`
+is empty, and of the files hashed before the first run (scripts, api/src, evidence, docs, budgets.toml)
+only that deleted STATE.md differs at the end.
+
+Uncommitted at the end, from this gate: api/tests/test_jira_gate_line.py (sha256 689362c04d3284afd9ff3d581e793e84f4a174c9d97ba5fec8596a1ab4b0342c) and this file.
+scripts/ is byte-identical to 85ed3e9. The untracked gate2-*.txt and fix5-matrix-after.txt files were not
+touched. Nothing was committed or pushed.
+
+How runs were isolated: the stand-in Jira only; no Jira or network access; ATLASSIAN_EMAIL and
+ATLASSIAN_API_TOKEN unset, ATLASSIAN_SITE=blocked.invalid, no .env in the worktree; a pytest plugin that
+refuses non-loopback sockets and urlopen; TEMP pointed into the session scratchpad, so no run wrote to the
+default snapshot folder; no bytecode written. One mutation at a time; each file restored from the bytes
+read just before.
+
+GOOD: reverting the behaviour made a covering test fail. BAD: the tests passed anyway (or, in the first
+Gate 1 set and the new-work set, a case errored, the network was reached for, or a name was broken).
+
+================================================================================================
+COUNTS
+
+                                          first result            final, on the final test file
+new work, product (599a57d..85ed3e9)      38 GOOD, 9 BAD of 47    47 GOOD, 0 BAD of 47
+  plus one mutant with no observable effect, survived both times, not counted
+stand-in Jira, behaviour it models         4 GOOD, 8 BAD of 12     7 GOOD, 5 BAD of 12
+stand-in Jira, fields nothing reads        0 GOOD, 5 BAD of 5      0 GOOD, 5 BAD of 5
+mutate_fixes.py                                                    8 GOOD, 0 BAD
+mutate_gate2.py                                                   25 GOOD, 0 BAD
+mutate_r2.py                                                       4 GOOD, 0 BAD
+mutate_three.py                                                   21 GOOD, 0 BAD
+mutate_four.py                                                    15 GOOD, 0 BAD
+fix_message.py (its one mutation)                                  1 GOOD, 0 BAD
+gate1_run.py, 81 checks of 75 mutations   77 GOOD, 4 BAD          81 GOOD, 0 BAD
+stand-in survivor + product regression                             2 GOOD, 0 BAD of 2 (end of this file)
+
+Cases of new, changed or added tests: 152; every one is failed by at least one single product mutation
+(187 mutations, each against the whole file; section D).
+Not in that 152: two older tests strengthened in this gate (test_a_reworded_copy_refuses_the_whole_ticket,
+one new case; test_a_write_jira_did_not_keep_stops_the_run, one new assertion). Their mutations are in
+section C. The gate test file goes from 263 to 282 cases.
+
+================================================================================================
+SURVIVORS IN THE NEW WORK (first run) AND WHAT COVERS EACH NOW. Only the test file changed.
+
+1. a CC key need not end in a number
+2. the listed key is checked only after the ticket has been asked for
+     new test test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about (4 cases; the stand-in for
+     the client fails the test if anything is asked); a manifest case "a CC key that is a path"
+3. a description need not be of type doc
+4. a document's content need only be there
+     two more cases in test_a_description_that_is_not_a_document_is_never_counted_as_clean
+5. a closed ticket's description is judged too
+     new test test_a_closed_ticket_is_dropped_whatever_its_description_holds
+6. a ticket that cannot be judged is still counted among those read
+     (the named test passed; other tests failed only through an unbound name)
+     the not-a-document test now asserts "0 open ticket(s) read"
+7. a reply that names no ticket is accepted
+     fault "no key" at all four issue reads of test_a_reply_that_cannot_be_used_never_leads_to_written
+8. the message about a description Jira does not hold does not send the reader to History first
+     the old assertion looked for "History", which the restore sentence also holds; it now looks for
+     "before restoring anything"
+9. only the two issue reads, not the history, are covered before the write
+     fault "unreadable" at the three reads before the write, same test
+
+SURVIVORS IN THE STAND-IN
+Covered now: the text shows no code, bold or italic mark (3). New test
+test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it. Its first version took its cases
+from MARKUP, the dict the revert edits, so each revert removed its own case and all three still survived
+(section A2). The cases are listed literally now.
+
+Still surviving (10). None is counted as passed.
+- an empty description reads as empty text, not null: the product refuses null and "" alike; only the type
+  name inside the refusal message differs.
+- the search returns descriptions, as before / accepts whatever fields are asked for: the correct product
+  neither reads a description from the search nor asks for another field. With each reverted TOGETHER
+  with the product regression it is there for, tests still fail (end of this file).
+- history ids made from the key and the count; history hands out its own entries, not copies: test-side
+  hygiene; no current test's outcome depends on either.
+- five sets of fields added to match Jira's reply shapes that the product never reads (issue id, search id
+  and fields, history page startAt/maxResults/isLast, entry author/created, item field/fieldtype/from/to).
+  No product test can fail on a field nothing reads. They are fidelity only, and no test pins them.
+
+================================================================================================
+THE EARLIER SETS: WHAT WAS RE-POINTED
+
+Each script was imported unchanged by a wrapper (scratchpad g5/earlier.py, g5/gate1_head.py) that replaces
+only the entries below. No script restored from git or from a .gate1-backup file.
+mutate_gate2: "apply does not ask for the status": the call around the same query string changed.
+mutate_three: "the history baseline is taken after the last read": same three reads, indented in a try.
+  "a change to any field counts": the fieldId filter is in a list comprehension.
+  "a manifest key need not be an issue key": the check is _is_cc now; the manifest's call is removed.
+mutate_four: "the description is read before the text...": re-indented. "the dry run uses what the search
+  returns" and "the earlier set is removed before the tickets are read": _read_each returns two values.
+fix_message.py: not run as a script (it runs on import, and one mode rewrites the test file). Its NEW and
+  OLD strings were swapped through mutate_three's runner, as recorded in review4-fixes.txt.
+gate1_run.py: main() not called (it writes over the pinned gate1.txt and requires HEAD 9fff1e4). Its 75
+  labels and 81 mutation/test pairs match gate1.txt exactly. 18 entries re-pointed, each marked in
+  section C with the reason. Two need a word:
+  - "the dry-run command touches the writing client": the injected PUT is now well formed, because the dry
+    run reads through the same client and the stand-in must record the PUT as a write.
+  - "an approved directory fails a dry run that has nothing to write": the old anchor still APPLIED but no
+    longer reverted that behaviour (it moved an unrelated line, so it was BAD with every test passing).
+    The behaviour now lives in the approved-folder branch; that return is what is removed.
+The first pass of gate1_run.py at this head also had three real gaps. All three behaviours were still
+failed by some other test, but not by the test the set names:
+  - "a reworded metric contract is not recognised": the sentence check also refused every case. Added a
+    case in which only the opening words show the copy.
+  - "what Jira stored is not read back" and "the read-back compares IDs and not the text": the history proof
+    also stopped test_a_write_jira_did_not_keep_stops_the_run. It now asserts the read-back's message.
+  The earlier fix-round transcripts did not rerun this set (review4-fixes.txt says so).
+
+================================================================================================
+NOT RERUN
+
+- gate1.txt's BEFORE section (20 probes): it measures the test files as committed at 9fff1e4, before the
+  first gate added tests. At this head it would measure something else.
+- gate1.txt's mutant with no effect "the read-back no longer compares IDs": cannot be rebuilt; the
+  read-back has no ID comparison left to remove. Its other two such mutants were rerun and still survive.
+- gate1.txt's "53 cases, 0 never failed" accounting was not recomputed for those cases as a group. The
+  accounting in section D covers the new work's tests.
+- the pre-flight timing script: not a mutation set.
+- full `make check`, web tests, types, make eval, make demo: not part of this gate and not run. Run at the
+  end instead: both gate test files, check_budgets.py, check_invariants.py --base origin/main (local ref,
+  no fetch), ruff on the changed file (output at the end of this file).
+
+================================================================================================
+RUN INCIDENTS
+
+- The first start of the new-work set stopped at an anchor that matched twice, before writing anything.
+  The anchor was narrowed and the whole set started again against the committed test file.
+- The first start of the stand-in set ran under a 170 s outer `timeout`, which killed it in the middle of
+  a mutation and left the test file mutated. The file had no uncommitted change before that run
+  (git diff --quiet), the only difference was the injected mutation, and it was restored from HEAD. The
+  set was then rerun from the start with no outer timeout. No later run was killed.
+
+================================================================================================
+PRODUCT DEFECT FOUND (scripts/ not changed)
+
+Low. _fields() calls reply.get(), so a reply that is valid JSON but not an object raises AttributeError.
+_write() catches TypeError (what the old api(...)["fields"] raised) but not AttributeError. If such a reply
+arrives after the PUT, --apply ends in a traceback in place of its FAILED line. The run stays stopped: the
+FAILED file written before the PUT remains. Real Jira has not been seen to send such a reply.
+Probe (copies of both revisions of the script, a fake client that answers the issue read after the PUT
+with a JSON list):
+  599a57d returned 1 | FAILED   CC-1: the write could not be confirmed (TypeError: list indices must be ...
+  85ed3e9 raised AttributeError 'list' object has no attribute 'get'
+  85ed3e9 FAILED file: CC-1: a write was started and not confirmed; check the ticket and its History ...
+
+
+================================================================================================
+A. FIRST RESULTS, against the test file as committed at the reviewed head
+
+---- new work, first run ----
+BASELINE (nothing reverted) 263 passed, 1 warning in 3.35s
+REVERTED: a ticket of any project counts as CC
+  GOOD  [test_a_ticket_from_another_project_is_not_snapshotted, test_an_approved_set_that_lists_another_project_writes_nothing, test_a_manifest_that_names_other_files_removes_nothing[a key from another project]]
+        3 failed, 1 warning in 0.47s
+        whole file: 3 failed, 260 passed, 1 warning in 3.39s
+REVERTED: a CC key need not end in a number
+  BAD   [test_a_manifest_that_names_other_files_removes_nothing]
+        8 passed, 1 warning in 0.74s
+        whole file: 263 passed, 1 warning in 2.69s
+REVERTED: the manifest accepts a key of any project again
+  GOOD  [test_an_approved_set_that_lists_another_project_writes_nothing, test_a_manifest_that_names_other_files_removes_nothing[a key from another project]]
+        2 failed, 1 warning in 0.88s
+        whole file: 2 failed, 261 passed, 1 warning in 3.17s
+REVERTED: the dry run does not check the project of a listed ticket
+  GOOD  [test_a_ticket_from_another_project_is_not_snapshotted]
+        1 failed, 1 warning in 0.90s
+        whole file: 1 failed, 262 passed, 1 warning in 3.09s
+REVERTED: the listed key is checked only after the ticket has been asked for
+  BAD   [test_a_ticket_from_another_project_is_not_snapshotted]
+        1 passed, 1 warning in 0.67s
+        whole file: 263 passed, 1 warning in 3.31s
+REVERTED: a description need not be an object
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        2 failed, 2 passed, 1 warning in 0.94s
+        whole file: 2 failed, 261 passed, 1 warning in 3.22s
+REVERTED: a description need not be of type doc
+  BAD   [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        4 passed, 1 warning in 0.59s
+        whole file: 263 passed, 1 warning in 2.96s
+REVERTED: a document need not have a content list
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        1 failed, 3 passed, 1 warning in 0.74s
+        whole file: 1 failed, 262 passed, 1 warning in 3.39s
+REVERTED: a document's content need only be there
+  BAD   [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        4 passed, 1 warning in 0.66s
+        whole file: 263 passed, 1 warning in 3.81s
+REVERTED: a description of any kind is taken as read
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        4 failed, 1 warning in 0.93s
+        whole file: 4 failed, 259 passed, 1 warning in 3.67s
+REVERTED: an empty description cannot be judged
+  GOOD  [test_an_empty_description_is_a_ticket_without_the_wording]
+        1 failed, 1 warning in 1.01s
+        whole file: 1 failed, 262 passed, 1 warning in 3.88s
+REVERTED: a closed ticket's description is judged too
+  BAD   [test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted]
+        1 passed, 1 warning in 0.99s
+        whole file: 263 passed, 1 warning in 4.05s
+REVERTED: a ticket that cannot be judged ends the dry run
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        6 failed, 1 warning in 1.27s
+        whole file: 6 failed, 257 passed, 1 warning in 3.70s
+REVERTED: a ticket that cannot be judged is dropped without a word
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        6 failed, 1 warning in 1.17s
+        whole file: 6 failed, 257 passed, 1 warning in 3.09s
+REVERTED: a ticket that cannot be judged is still counted among those read
+  BAD   [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        4 passed, 1 warning in 0.63s
+        whole file: 2 failed, 261 passed, 1 warning in 3.51s
+REVERTED: the count of tickets read includes the ones that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        1 failed, 1 warning in 0.91s
+        whole file: 1 failed, 262 passed, 1 warning in 3.32s
+REVERTED: the refused set leaves out the tickets that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        6 failed, 1 warning in 1.10s
+        whole file: 6 failed, 257 passed, 1 warning in 3.32s
+REVERTED: the refused set leaves out the tickets the rule refused
+  GOOD  [test_a_ticket_the_dry_run_refused_is_still_reported_by_apply, test_a_reworded_copy_refuses_the_whole_ticket]
+        9 failed, 1 warning in 1.65s
+        whole file: 33 failed, 230 passed, 1 warning in 4.89s
+REVERTED: a ticket that cannot be judged is not printed
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        4 failed, 1 passed, 1 warning in 2.99s
+        whole file: 4 failed, 259 passed, 1 warning in 9.25s
+REVERTED: a ticket that cannot be judged is not in the refused count
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        5 failed, 1 warning in 1.10s
+        whole file: 5 failed, 258 passed, 1 warning in 12.39s
+REVERTED: a ticket that cannot be judged does not fail the dry run
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        6 failed, 1 warning in 1.57s
+        whole file: 6 failed, 257 passed, 1 warning in 9.14s
+REVERTED: the manifest forgets the tickets that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        1 failed, 1 warning in 0.97s
+        whole file: 1 failed, 262 passed, 1 warning in 5.50s
+REVERTED: a reply is not checked to be about the ticket asked for
+  GOOD  [test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        16 failed, 94 passed, 1 warning in 3.22s
+        whole file: 16 failed, 247 passed, 1 warning in 4.88s
+REVERTED: a reply that names no ticket is accepted
+  BAD   [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        14 passed, 1 warning in 1.18s
+        whole file: 263 passed, 1 warning in 4.43s
+REVERTED: the ticket read is not checked for its key
+  GOOD  [test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        7 failed, 103 passed, 1 warning in 3.91s
+        whole file: 7 failed, 256 passed, 1 warning in 3.99s
+REVERTED: the text read is not checked for its key
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        2 failed, 10 passed, 1 warning in 1.26s
+        whole file: 2 failed, 261 passed, 1 warning in 4.45s
+REVERTED: the refusal does not say which key answered
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written]
+        5 failed, 8 passed, 1 warning in 1.40s
+        whole file: 5 failed, 258 passed, 1 warning in 4.32s
+REVERTED: the text read is not checked at all
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_no_text_before_and_after_with_an_empty_history_entry_writes_nothing]
+        4 failed, 9 passed, 1 warning in 1.40s
+        whole file: 4 failed, 259 passed, 1 warning in 4.09s
+REVERTED: a text that is not a string is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_no_text_before_and_after_with_an_empty_history_entry_writes_nothing]
+        3 failed, 10 passed, 1 warning in 1.64s
+        whole file: 3 failed, 260 passed, 1 warning in 5.14s
+REVERTED: an empty or blank text is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        1 failed, 11 passed, 1 warning in 1.63s
+        whole file: 1 failed, 262 passed, 1 warning in 4.56s
+REVERTED: a text of blanks only is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        1 failed, 11 passed, 1 warning in 1.28s
+        whole file: 1 failed, 262 passed, 1 warning in 3.60s
+REVERTED: only the last description change of an entry is kept
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.04s
+        whole file: 2 failed, 261 passed, 1 warning in 4.34s
+REVERTED: only the first description change of an entry is kept
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.26s
+        whole file: 2 failed, 261 passed, 1 warning in 3.82s
+REVERTED: an entry met on two pages counts twice
+  GOOD  [test_a_history_entry_met_on_two_pages_counts_once]
+        1 failed, 1 warning in 1.09s
+        whole file: 1 failed, 262 passed, 1 warning in 3.53s
+REVERTED: only the last change of each new entry is counted
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.21s
+        whole file: 2 failed, 261 passed, 1 warning in 4.11s
+REVERTED: entries from before the write count as new
+  GOOD  [test_a_history_longer_than_one_page_is_read_to_the_end]
+        1 failed, 1 passed, 1 warning in 1.24s
+        whole file: 1 failed, 262 passed, 1 warning in 4.06s
+REVERTED: the history proof is stricter than the two texts (the limit is closed silently)
+  GOOD  [test_limit_another_history_entry_with_the_same_two_texts_passes_for_this_write]
+        1 failed, 1 warning in 1.26s
+        whole file: 1 failed, 262 passed, 1 warning in 3.76s
+REVERTED: after the write the ticket is read before the history, as it was
+  GOOD  [test_a_write_reads_the_ticket_itself_last, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it, test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        6 failed, 94 passed, 1 warning in 3.53s
+        whole file: 7 failed, 256 passed, 1 warning in 3.99s
+REVERTED: after the write the ticket is read first of the three
+  GOOD  [test_a_write_reads_the_ticket_itself_last, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it, test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        7 failed, 93 passed, 1 warning in 3.29s
+        whole file: 8 failed, 255 passed, 1 warning in 5.15s
+REVERTED: after the write the history is read before the text
+  GOOD  [test_a_write_reads_the_ticket_itself_last]
+        1 failed, 1 warning in 1.44s
+        whole file: 2 failed, 261 passed, 1 warning in 3.90s
+REVERTED: before the write the text is read before the history
+  GOOD  [test_a_write_reads_the_ticket_itself_last]
+        1 failed, 1 warning in 1.23s
+        whole file: 5 failed, 258 passed, 1 warning in 14.79s
+REVERTED: the message about a description Jira does not hold does not send the reader to History first
+  BAD   [test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        3 passed, 1 warning in 2.33s
+        whole file: 263 passed, 1 warning in 9.63s
+REVERTED: an unusable reply before a write ends the run with a traceback
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        12 failed, 97 passed, 1 warning in 9.50s
+        whole file: 13 failed, 250 passed, 1 warning in 14.28s
+REVERTED: a ticket refused for an unusable reply is not counted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        12 failed, 97 passed, 1 warning in 6.84s
+        whole file: 13 failed, 250 passed, 1 warning in 11.33s
+REVERTED: a ticket refused for an unusable reply is not reported
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        12 failed, 97 passed, 1 warning in 8.76s
+        whole file: 12 failed, 251 passed, 1 warning in 13.35s
+REVERTED: the first unusable reply ends the run
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        11 failed, 97 passed, 1 warning in 7.92s
+        whole file: 11 failed, 252 passed, 1 warning in 9.77s
+REVERTED: only the two issue reads, not the history, are covered before the write
+  BAD   [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        12 passed, 1 warning in 1.19s
+        whole file: 263 passed, 1 warning in 11.79s
+
+=== no observable effect (not counted) ===
+REVERTED: an entry with no description change is kept, with an empty list
+  SURVIVED  whole file; its empty list adds nothing to the new changes, and its id is in `earlier` or adds nothing
+        263 passed, 1 warning in 11.23s
+TOTAL: 47 mutations, 38 GOOD, 9 BAD
+survivors: ['a CC key need not end in a number', 'the listed key is checked only after the ticket has been asked for', 'a description need not be of type doc', "a document's content need only be there", "a closed ticket's description is judged too", 'a ticket that cannot be judged is still counted among those read', 'a reply that names no ticket is accepted', 'the message about a description Jira does not hold does not send the reader to History first', 'only the two issue reads, not the history, are covered before the write']
+cases in the file never failed by this set: 191 of 263
+
+---- stand-in Jira, first run ----
+BASELINE (nothing reverted) 263 passed, 1 warning in 4.64s
+
+== stand-in, modelled behaviour
+REVERTED: the text shows no link
+  GOOD
+        1 failed, 262 passed, 1 warning in 3.82s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the text shows no code mark
+  BAD
+        263 passed, 1 warning in 3.43s
+REVERTED: the text shows no bold mark
+  BAD
+        263 passed, 1 warning in 5.47s
+REVERTED: the text shows no italic mark
+  BAD
+        263 passed, 1 warning in 3.87s
+REVERTED: the text is the visible text only, as before
+  GOOD
+        1 failed, 262 passed, 1 warning in 4.44s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: an empty description reads as empty text, not null
+  BAD
+        263 passed, 1 warning in 4.28s
+REVERTED: a reply carries no key
+  GOOD
+        213 failed, 50 passed, 1 warning in 18.00s
+          test_a_byte_order_mark_does_not_hide_an_approval
+          test_a_change_to_another_field_during_a_write_does_not_stop_the_run
+          test_a_confirmed_write_leaves_no_stop_file
+          test_a_dry_run_and_an_apply_asked_at_once_write_nothing
+          test_a_dry_run_leaves_the_files_to_restore_from_alone
+          test_a_dry_run_only_reads_and_writes_both_sides
+          and 51 more test(s)
+REVERTED: a moved ticket keeps answering with its old key
+  GOOD
+        12 failed, 251 passed, 1 warning in 4.86s
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+          test_a_ticket_that_moved_after_its_write_is_not_reported_done
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the search returns descriptions, as before
+  BAD
+        263 passed, 1 warning in 4.12s
+REVERTED: the search accepts whatever fields are asked for
+  BAD
+        263 passed, 1 warning in 3.76s
+REVERTED: history ids are made from the key and the count, as before
+  BAD
+        263 passed, 1 warning in 4.39s
+REVERTED: the history hands out its own entries, not copies
+  BAD
+        263 passed, 1 warning in 3.88s
+SUBTOTAL: 12 reverts, 4 GOOD, 8 BAD
+survivors: ['the text shows no code mark', 'the text shows no bold mark', 'the text shows no italic mark', 'an empty description reads as empty text, not null', 'the search returns descriptions, as before', 'the search accepts whatever fields are asked for', 'history ids are made from the key and the count, as before', 'the history hands out its own entries, not copies']
+
+== stand-in, fields nothing reads
+REVERTED: an issue reply has no id
+  BAD
+        263 passed, 1 warning in 4.21s
+REVERTED: a search result has no id and no fields
+  BAD
+        263 passed, 1 warning in 4.84s
+REVERTED: a history page has only values and total
+  BAD
+        263 passed, 1 warning in 4.39s
+REVERTED: a history entry has no author and no created
+  BAD
+        263 passed, 1 warning in 3.93s
+REVERTED: a history item has only fieldId and the two texts
+  BAD
+        263 passed, 1 warning in 4.19s
+SUBTOTAL: 5 reverts, 0 GOOD, 5 BAD
+survivors: ['an issue reply has no id', 'a search result has no id and no fields', 'a history page has only values and total', 'a history entry has no author and no created', 'a history item has only fieldId and the two texts']
+
+================================================================================================
+A2. stand-in Jira against the FIRST version of the added tests: the code, bold
+and italic reverts still survive, because the added test read its cases from MARKUP.
+(The other sets' runs against that version: new work 47 GOOD, 0 BAD; mutate_* all GOOD.)
+
+---- stand-in Jira, intermediate run ----
+BASELINE (nothing reverted) 281 passed, 1 warning in 9.56s
+
+== stand-in, modelled behaviour
+REVERTED: the text shows no link
+  GOOD
+        1 failed, 280 passed, 1 warning in 11.90s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the text shows no code mark
+  BAD
+        280 passed, 1 warning in 10.40s
+REVERTED: the text shows no bold mark
+  BAD
+        280 passed, 1 warning in 11.99s
+REVERTED: the text shows no italic mark
+  BAD
+        280 passed, 1 warning in 14.85s
+REVERTED: the text is the visible text only, as before
+  GOOD
+        4 failed, 277 passed, 1 warning in 15.53s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+          test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it
+REVERTED: an empty description reads as empty text, not null
+  BAD
+        281 passed, 1 warning in 13.56s
+REVERTED: a reply carries no key
+  GOOD
+        225 failed, 56 passed, 1 warning in 64.03s (0:01:04)
+          test_a_byte_order_mark_does_not_hide_an_approval
+          test_a_change_to_another_field_during_a_write_does_not_stop_the_run
+          test_a_closed_ticket_is_dropped_whatever_its_description_holds
+          test_a_confirmed_write_leaves_no_stop_file
+          test_a_dry_run_and_an_apply_asked_at_once_write_nothing
+          test_a_dry_run_leaves_the_files_to_restore_from_alone
+          and 53 more test(s)
+REVERTED: a moved ticket keeps answering with its old key
+  GOOD
+        12 failed, 269 passed, 1 warning in 14.78s
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+          test_a_ticket_that_moved_after_its_write_is_not_reported_done
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the search returns descriptions, as before
+  BAD
+        281 passed, 1 warning in 12.89s
+REVERTED: the search accepts whatever fields are asked for
+  BAD
+        281 passed, 1 warning in 10.09s
+REVERTED: history ids are made from the key and the count, as before
+  BAD
+        281 passed, 1 warning in 13.05s
+REVERTED: the history hands out its own entries, not copies
+  BAD
+        281 passed, 1 warning in 15.20s
+SUBTOTAL: 12 reverts, 4 GOOD, 8 BAD
+survivors: ['the text shows no code mark', 'the text shows no bold mark', 'the text shows no italic mark', 'an empty description reads as empty text, not null', 'the search returns descriptions, as before', 'the search accepts whatever fields are asked for', 'history ids are made from the key and the count, as before', 'the history hands out its own entries, not copies']
+
+== stand-in, fields nothing reads
+REVERTED: an issue reply has no id
+  BAD
+        281 passed, 1 warning in 14.15s
+REVERTED: a search result has no id and no fields
+  BAD
+        281 passed, 1 warning in 14.74s
+REVERTED: a history page has only values and total
+  BAD
+        281 passed, 1 warning in 5.48s
+REVERTED: a history entry has no author and no created
+  BAD
+        281 passed, 1 warning in 5.87s
+REVERTED: a history item has only fieldId and the two texts
+  BAD
+        281 passed, 1 warning in 5.26s
+SUBTOTAL: 5 reverts, 0 GOOD, 5 BAD
+survivors: ['an issue reply has no id', 'a search result has no id and no fields', 'a history page has only values and total', 'a history entry has no author and no created', 'a history item has only fieldId and the two texts']
+
+================================================================================================
+B. FINAL RUNS, all against the final test file
+
+---- new work ----
+BASELINE (nothing reverted) 282 passed, 1 warning in 4.05s
+REVERTED: a ticket of any project counts as CC
+  GOOD  [test_a_ticket_from_another_project_is_not_snapshotted, test_an_approved_set_that_lists_another_project_writes_nothing, test_a_manifest_that_names_other_files_removes_nothing[a key from another project]]
+        3 failed, 1 warning in 1.30s
+        whole file: 4 failed, 278 passed, 1 warning in 4.76s
+REVERTED: a CC key need not end in a number
+  GOOD  [test_a_manifest_that_names_other_files_removes_nothing, test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about]
+        4 failed, 9 passed, 1 warning in 1.51s
+        whole file: 4 failed, 278 passed, 1 warning in 4.81s
+REVERTED: the manifest accepts a key of any project again
+  GOOD  [test_an_approved_set_that_lists_another_project_writes_nothing, test_a_manifest_that_names_other_files_removes_nothing[a key from another project]]
+        2 failed, 1 warning in 1.37s
+        whole file: 2 failed, 280 passed, 1 warning in 3.87s
+REVERTED: the dry run does not check the project of a listed ticket
+  GOOD  [test_a_ticket_from_another_project_is_not_snapshotted, test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about]
+        5 failed, 1 warning in 1.75s
+        whole file: 5 failed, 277 passed, 1 warning in 4.15s
+REVERTED: the listed key is checked only after the ticket has been asked for
+  GOOD  [test_a_ticket_from_another_project_is_not_snapshotted, test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about]
+        4 failed, 1 passed, 1 warning in 2.35s
+        whole file: 4 failed, 278 passed, 1 warning in 4.19s
+REVERTED: a description need not be an object
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        2 failed, 4 passed, 1 warning in 1.36s
+        whole file: 2 failed, 280 passed, 1 warning in 3.98s
+REVERTED: a description need not be of type doc
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        1 failed, 5 passed, 1 warning in 1.32s
+        whole file: 1 failed, 281 passed, 1 warning in 4.66s
+REVERTED: a document need not have a content list
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        2 failed, 4 passed, 1 warning in 1.41s
+        whole file: 2 failed, 280 passed, 1 warning in 5.70s
+REVERTED: a document's content need only be there
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        1 failed, 5 passed, 1 warning in 4.54s
+        whole file: 1 failed, 281 passed, 1 warning in 12.86s
+REVERTED: a description of any kind is taken as read
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        6 failed, 1 warning in 3.50s
+        whole file: 6 failed, 276 passed, 1 warning in 10.16s
+REVERTED: an empty description cannot be judged
+  GOOD  [test_an_empty_description_is_a_ticket_without_the_wording]
+        1 failed, 1 warning in 1.05s
+        whole file: 1 failed, 281 passed, 1 warning in 11.98s
+REVERTED: a closed ticket's description is judged too
+  GOOD  [test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted, test_a_closed_ticket_is_dropped_whatever_its_description_holds]
+        1 failed, 1 passed, 1 warning in 0.96s
+        whole file: 1 failed, 281 passed, 1 warning in 7.99s
+REVERTED: a ticket that cannot be judged ends the dry run
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        8 failed, 1 warning in 3.17s
+        whole file: 12 failed, 270 passed, 1 warning in 11.28s
+REVERTED: a ticket that cannot be judged is dropped without a word
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        8 failed, 1 warning in 1.61s
+        whole file: 12 failed, 270 passed, 1 warning in 4.41s
+REVERTED: a ticket that cannot be judged is still counted among those read
+  GOOD  [test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        6 failed, 1 warning in 1.65s
+        whole file: 12 failed, 270 passed, 1 warning in 4.25s
+REVERTED: the count of tickets read includes the ones that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        1 failed, 1 warning in 1.36s
+        whole file: 7 failed, 275 passed, 1 warning in 14.05s
+REVERTED: the refused set leaves out the tickets that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        8 failed, 1 warning in 1.89s
+        whole file: 12 failed, 270 passed, 1 warning in 11.10s
+REVERTED: the refused set leaves out the tickets the rule refused
+  GOOD  [test_a_ticket_the_dry_run_refused_is_still_reported_by_apply, test_a_reworded_copy_refuses_the_whole_ticket]
+        10 failed, 1 warning in 1.40s
+        whole file: 34 failed, 248 passed, 1 warning in 13.85s
+REVERTED: a ticket that cannot be judged is not printed
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        6 failed, 1 passed, 1 warning in 1.22s
+        whole file: 10 failed, 272 passed, 1 warning in 9.03s
+REVERTED: a ticket that cannot be judged is not in the refused count
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean]
+        7 failed, 1 warning in 2.22s
+        whole file: 7 failed, 275 passed, 1 warning in 12.17s
+REVERTED: a ticket that cannot be judged does not fail the dry run
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_description_that_is_not_a_document_is_never_counted_as_clean, test_a_ticket_from_another_project_is_not_snapshotted]
+        8 failed, 1 warning in 1.47s
+        whole file: 12 failed, 270 passed, 1 warning in 11.21s
+REVERTED: the manifest forgets the tickets that could not be judged
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        1 failed, 1 warning in 2.32s
+        whole file: 1 failed, 281 passed, 1 warning in 10.40s
+REVERTED: a reply is not checked to be about the ticket asked for
+  GOOD  [test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        20 failed, 97 passed, 1 warning in 8.89s
+        whole file: 20 failed, 262 passed, 1 warning in 14.87s
+REVERTED: a reply that names no ticket is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted]
+        4 failed, 17 passed, 1 warning in 2.31s
+        whole file: 4 failed, 278 passed, 1 warning in 14.89s
+REVERTED: the ticket read is not checked for its key
+  GOOD  [test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        9 failed, 108 passed, 1 warning in 9.18s
+        whole file: 9 failed, 273 passed, 1 warning in 11.11s
+REVERTED: the text read is not checked for its key
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        4 failed, 15 passed, 1 warning in 1.87s
+        whole file: 4 failed, 278 passed, 1 warning in 11.40s
+REVERTED: the refusal does not say which key answered
+  GOOD  [test_a_ticket_that_answers_under_another_key_is_not_snapshotted, test_a_reply_that_cannot_be_used_never_leads_to_written]
+        5 failed, 15 passed, 1 warning in 3.17s
+        whole file: 5 failed, 277 passed, 1 warning in 10.06s
+REVERTED: the text read is not checked at all
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_no_text_before_and_after_with_an_empty_history_entry_writes_nothing]
+        4 failed, 16 passed, 1 warning in 2.12s
+        whole file: 4 failed, 278 passed, 1 warning in 11.32s
+REVERTED: a text that is not a string is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_no_text_before_and_after_with_an_empty_history_entry_writes_nothing]
+        3 failed, 17 passed, 1 warning in 1.94s
+        whole file: 3 failed, 279 passed, 1 warning in 10.00s
+REVERTED: an empty or blank text is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        1 failed, 18 passed, 1 warning in 2.68s
+        whole file: 1 failed, 281 passed, 1 warning in 10.84s
+REVERTED: a text of blanks only is accepted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        1 failed, 18 passed, 1 warning in 1.75s
+        whole file: 1 failed, 281 passed, 1 warning in 9.43s
+REVERTED: only the last description change of an entry is kept
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.34s
+        whole file: 2 failed, 280 passed, 1 warning in 11.58s
+REVERTED: only the first description change of an entry is kept
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.15s
+        whole file: 2 failed, 280 passed, 1 warning in 9.04s
+REVERTED: an entry met on two pages counts twice
+  GOOD  [test_a_history_entry_met_on_two_pages_counts_once]
+        1 failed, 1 warning in 1.37s
+        whole file: 1 failed, 281 passed, 1 warning in 11.15s
+REVERTED: only the last change of each new entry is counted
+  GOOD  [test_a_second_description_change_in_the_same_history_entry_stops_the_run]
+        2 failed, 1 warning in 1.86s
+        whole file: 2 failed, 280 passed, 1 warning in 11.44s
+REVERTED: entries from before the write count as new
+  GOOD  [test_a_history_longer_than_one_page_is_read_to_the_end]
+        1 failed, 1 passed, 1 warning in 1.30s
+        whole file: 1 failed, 281 passed, 1 warning in 10.56s
+REVERTED: the history proof is stricter than the two texts (the limit is closed silently)
+  GOOD  [test_limit_another_history_entry_with_the_same_two_texts_passes_for_this_write]
+        1 failed, 1 warning in 1.28s
+        whole file: 1 failed, 281 passed, 1 warning in 9.88s
+REVERTED: after the write the ticket is read before the history, as it was
+  GOOD  [test_a_write_reads_the_ticket_itself_last, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it, test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        6 failed, 94 passed, 1 warning in 9.08s
+        whole file: 7 failed, 275 passed, 1 warning in 10.15s
+REVERTED: after the write the ticket is read first of the three
+  GOOD  [test_a_write_reads_the_ticket_itself_last, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it, test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        7 failed, 93 passed, 1 warning in 7.23s
+        whole file: 8 failed, 274 passed, 1 warning in 13.81s
+REVERTED: after the write the history is read before the text
+  GOOD  [test_a_write_reads_the_ticket_itself_last]
+        1 failed, 1 warning in 1.11s
+        whole file: 2 failed, 280 passed, 1 warning in 10.85s
+REVERTED: before the write the text is read before the history
+  GOOD  [test_a_write_reads_the_ticket_itself_last]
+        1 failed, 1 warning in 0.96s
+        whole file: 6 failed, 276 passed, 1 warning in 10.33s
+REVERTED: the message about a description Jira does not hold does not send the reader to History first
+  GOOD  [test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+        1 failed, 2 passed, 1 warning in 1.14s
+        whole file: 1 failed, 281 passed, 1 warning in 9.18s
+REVERTED: an unusable reply before a write ends the run with a traceback
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        17 failed, 99 passed, 1 warning in 9.63s
+        whole file: 18 failed, 264 passed, 1 warning in 14.30s
+REVERTED: a ticket refused for an unusable reply is not counted
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        17 failed, 99 passed, 1 warning in 8.22s
+        whole file: 18 failed, 264 passed, 1 warning in 13.66s
+REVERTED: a ticket refused for an unusable reply is not reported
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_a_ticket_that_moved_after_its_write_is_not_reported_done, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        17 failed, 99 passed, 1 warning in 8.68s
+        whole file: 17 failed, 265 passed, 1 warning in 13.62s
+REVERTED: the first unusable reply ends the run
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written, test_another_change_at_any_point_of_a_write_is_never_hidden_by_it]
+        16 failed, 99 passed, 1 warning in 7.20s
+        whole file: 16 failed, 266 passed, 1 warning in 7.12s
+REVERTED: only the two issue reads, not the history, are covered before the write
+  GOOD  [test_a_reply_that_cannot_be_used_never_leads_to_written]
+        1 failed, 18 passed, 1 warning in 1.59s
+        whole file: 1 failed, 281 passed, 1 warning in 4.75s
+
+=== no observable effect (not counted) ===
+REVERTED: an entry with no description change is kept, with an empty list
+  SURVIVED  whole file; its empty list adds nothing to the new changes, and its id is in `earlier` or adds nothing
+        282 passed, 1 warning in 4.12s
+TOTAL: 47 mutations, 47 GOOD, 0 BAD
+survivors: none
+cases in the file never failed by this set: 194 of 282
+
+---- stand-in Jira ----
+BASELINE (nothing reverted) 282 passed, 1 warning in 3.87s
+
+== stand-in, modelled behaviour
+REVERTED: the text shows no link
+  GOOD
+        1 failed, 281 passed, 1 warning in 4.79s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the text shows no code mark
+  GOOD
+        1 failed, 281 passed, 1 warning in 4.46s
+          test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it
+REVERTED: the text shows no bold mark
+  GOOD
+        1 failed, 281 passed, 1 warning in 4.51s
+          test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it
+REVERTED: the text shows no italic mark
+  GOOD
+        1 failed, 281 passed, 1 warning in 4.58s
+          test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it
+REVERTED: the text is the visible text only, as before
+  GOOD
+        4 failed, 278 passed, 1 warning in 4.67s
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+          test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it
+REVERTED: an empty description reads as empty text, not null
+  BAD
+        282 passed, 1 warning in 4.24s
+REVERTED: a reply carries no key
+  GOOD
+        226 failed, 56 passed, 1 warning in 20.03s
+          test_a_byte_order_mark_does_not_hide_an_approval
+          test_a_change_to_another_field_during_a_write_does_not_stop_the_run
+          test_a_closed_ticket_is_dropped_whatever_its_description_holds
+          test_a_confirmed_write_leaves_no_stop_file
+          test_a_dry_run_and_an_apply_asked_at_once_write_nothing
+          test_a_dry_run_leaves_the_files_to_restore_from_alone
+          and 53 more test(s)
+REVERTED: a moved ticket keeps answering with its old key
+  GOOD
+        12 failed, 270 passed, 1 warning in 4.77s
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+          test_a_ticket_that_moved_after_its_write_is_not_reported_done
+          test_another_change_at_any_point_of_a_write_is_never_hidden_by_it
+REVERTED: the search returns descriptions, as before
+  BAD
+        282 passed, 1 warning in 4.41s
+REVERTED: the search accepts whatever fields are asked for
+  BAD
+        282 passed, 1 warning in 3.70s
+REVERTED: history ids are made from the key and the count, as before
+  BAD
+        282 passed, 1 warning in 4.46s
+REVERTED: the history hands out its own entries, not copies
+  BAD
+        282 passed, 1 warning in 4.85s
+SUBTOTAL: 12 reverts, 7 GOOD, 5 BAD
+survivors: ['an empty description reads as empty text, not null', 'the search returns descriptions, as before', 'the search accepts whatever fields are asked for', 'history ids are made from the key and the count, as before', 'the history hands out its own entries, not copies']
+
+== stand-in, fields nothing reads
+REVERTED: an issue reply has no id
+  BAD
+        282 passed, 1 warning in 4.59s
+REVERTED: a search result has no id and no fields
+  BAD
+        282 passed, 1 warning in 4.78s
+REVERTED: a history page has only values and total
+  BAD
+        282 passed, 1 warning in 4.43s
+REVERTED: a history entry has no author and no created
+  BAD
+        282 passed, 1 warning in 4.67s
+REVERTED: a history item has only fieldId and the two texts
+  BAD
+        282 passed, 1 warning in 4.81s
+SUBTOTAL: 5 reverts, 0 GOOD, 5 BAD
+survivors: ['an issue reply has no id', 'a search result has no id and no fields', 'a history page has only values and total', 'a history entry has no author and no created', 'a history item has only fieldId and the two texts']
+
+---- earlier set mutate_fixes.py (Gate 1 fixes) ----
+REVERTED: any block with the pasted text counts as an exact copy  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted]
+  GOOD
+        5 failed, 277 deselected in 1.68s
+REVERTED: formatting marks are accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a link on the pasted words]]
+  GOOD
+        1 failed in 0.61s
+REVERTED: any inline node is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[addition0]]
+  GOOD
+        1 failed in 0.43s
+REVERTED: any block type is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a heading in place of the paragraph]]
+  GOOD
+        1 failed in 0.56s
+REVERTED: a line break makes a copy inexact  [test_a_pasted_paragraph_split_by_line_breaks_is_still_an_exact_copy]
+  GOOD
+        1 failed, 281 deselected in 0.43s
+REVERTED: a stale set stays when nothing is ready  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 280 deselected in 0.54s
+REVERTED: the earlier manifest stays behind  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 280 deselected in 0.63s
+REVERTED: discarding removes no snapshot file  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve or test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set]
+  GOOD
+        3 failed, 279 deselected in 0.63s
+TOTAL: 8 mutations, 8 GOOD, 0 BAD
+
+---- earlier set mutate_gate2.py (Gate 2 fixes) ----
+RE-POINTED: apply does not ask for the status
+REVERTED: the read-back compares visible text only  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        2 failed, 2 passed, 278 deselected in 0.72s
+REVERTED: the read-back is not compared at all  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        4 failed, 2 passed, 276 deselected in 0.91s
+REVERTED: an attribute Jira adds counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 281 deselected in 0.62s
+REVERTED: an emptied attrs counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 281 deselected in 0.60s
+REVERTED: every attribute is ignored, a card's address included  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 4 passed, 277 deselected in 0.61s
+REVERTED: already-applied is judged by visible text  [-k test_an_applied_ticket_that_has_since_lost_a_link_is_not_reported_done]
+  GOOD
+        1 failed, 281 deselected in 0.54s
+REVERTED: a transport error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        4 failed, 6 passed, 272 deselected in 1.34s
+REVERTED: a broken HTTP response escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 272 deselected in 0.89s
+REVERTED: a bad body escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 272 deselected in 0.95s
+REVERTED: the real client's exit on an HTTP error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 272 deselected in 1.10s
+REVERTED: a failed write leaves no stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped or test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 14 passed, 265 deselected in 1.04s
+REVERTED: a rerun ignores the stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 272 deselected in 0.95s
+REVERTED: apply carries on after a failed write  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 276 deselected in 0.93s
+REVERTED: a closed ticket is written  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 281 deselected in 0.44s
+REVERTED: apply does not ask for the status  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 281 deselected in 0.56s
+REVERTED: the manifest forgets the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 281 deselected in 0.51s
+REVERTED: apply does not count the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 281 deselected in 0.56s
+REVERTED: the hash anywhere in the file approves  [-k test_a_file_that_says_more_than_the_hash_is_not_an_approval]
+  GOOD
+        3 failed, 279 deselected in 0.83s
+REVERTED: an empty search is accepted  [-k test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing]
+  GOOD
+        1 failed, 281 deselected in 0.49s
+REVERTED: the number of tickets read is not printed  [-k test_a_dry_run_says_how_many_tickets_it_read]
+  GOOD
+        1 failed, 281 deselected in 0.53s
+REVERTED: a surviving pointer is accepted  [-k test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        4 failed, 278 deselected in 0.68s
+REVERTED: capitals hide a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        1 failed, 8 passed, 273 deselected in 0.53s
+REVERTED: only a copy at the start of a line is seen  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        2 failed, 7 passed, 273 deselected in 0.59s
+REVERTED: a line break hides a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket or test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        2 failed, 11 passed, 269 deselected in 0.53s
+REVERTED: a ticket with only an inexact copy is skipped  [-k test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped]
+  GOOD
+        1 failed, 281 deselected in 0.50s
+TOTAL: 25 mutations, 25 GOOD, 0 BAD
+
+---- earlier set mutate_r2.py (Gate 2 re-run fixes) ----
+REVERTED: no stop file is written before the write  [-k test_a_run_interrupted_before_the_write_is_confirmed_stays_stopped]
+  GOOD
+        2 failed, 280 deselected in 0.51s
+REVERTED: a confirmed write leaves the stop file  [-k test_a_confirmed_write_leaves_no_stop_file]
+  GOOD
+        1 failed, 281 deselected in 0.55s
+REVERTED: the failure message names no before snapshot  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 272 deselected in 1.18s
+REVERTED: a dry run touches a folder with a stop file  [-k test_a_dry_run_leaves_the_files_to_restore_from_alone]
+  GOOD
+        3 failed, 1 passed, 278 deselected in 0.64s
+TOTAL: 4 mutations, 4 GOOD, 0 BAD
+
+---- earlier set mutate_three.py (three outside findings) ----
+RE-POINTED: the history baseline is taken after the last read
+RE-POINTED: a change to any field counts
+RE-POINTED: a manifest key need not be an issue key
+REVERTED: the history is not checked after a write  [-k test_an_edit_that_arrives_during_a_write_stops_the_run or test_a_write_the_history_does_not_show_is_not_called_done]
+  GOOD
+        4 failed, 278 deselected in 0.75s
+REVERTED: two changes in the history are accepted  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 279 deselected in 0.63s
+REVERTED: a write missing from the history is accepted  [-k test_a_write_the_history_does_not_show_is_not_called_done]
+  GOOD
+        1 failed, 281 deselected in 0.49s
+REVERTED: the history baseline is taken after the last read  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 279 deselected in 0.66s
+REVERTED: only the first page of the history is read  [-k test_a_history_longer_than_one_page_is_read_to_the_end]
+  GOOD
+        1 failed, 1 passed, 280 deselected in 0.56s
+REVERTED: a change to any field counts  [-k test_a_change_to_another_field_during_a_write_does_not_stop_the_run]
+  GOOD
+        1 failed, 281 deselected in 0.52s
+REVERTED: the lock is not exclusive  [-k test_a_second_apply_of_the_same_folder_cannot_run_beside_the_first or test_a_lock_left_by_a_killed_run_blocks_until_a_person_removes_it]
+  GOOD
+        2 failed, 280 deselected in 0.56s
+REVERTED: the lock is not released  [-k test_an_apply_that_has_ended_leaves_the_folder_free]
+  GOOD
+        5 failed, 277 deselected in 0.74s
+REVERTED: the lock is released only on a normal return  [-k test_an_apply_that_has_ended_leaves_the_folder_free]
+  GOOD
+        1 failed, 4 passed, 277 deselected in 0.62s
+REVERTED: the lock is taken before the approval is read  [-k test_an_unapproved_folder_gets_no_lock_file]
+  GOOD
+        1 failed, 281 deselected in 0.68s
+REVERTED: a surviving sentence is accepted  [-k test_a_copy_with_an_altered_opening_refuses_the_ticket or test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        11 failed, 271 deselected in 1.04s
+REVERTED: a ticket with only a surviving sentence is skipped  [-k test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        1 failed, 281 deselected in 0.49s
+REVERTED: capitals hide a sentence  [-k test_the_sentence_table_is_the_five_pasted_paragraphs or test_a_copy_with_an_altered_opening_refuses_the_ticket]
+  GOOD
+        11 failed, 271 deselected in 1.24s
+REVERTED: only whole lines are compared  [-k test_the_sentence_table_is_the_five_pasted_paragraphs or test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        1 failed, 1 passed, 280 deselected in 0.60s
+REVERTED: one sentence fingerprint is missing from the table  [-k test_the_sentence_table_is_the_five_pasted_paragraphs]
+  GOOD
+        1 failed, 281 deselected in 0.44s
+REVERTED: a manifest may name any file  [-k test_a_manifest_that_names_other_files_removes_nothing or test_an_approved_manifest_that_names_other_files_writes_nothing]
+  GOOD
+        7 failed, 4 passed, 271 deselected in 1.37s
+REVERTED: a manifest key need not be an issue key  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        3 failed, 6 passed, 273 deselected in 1.17s
+REVERTED: cleanup deletes the names the manifest gives  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        8 failed, 1 passed, 273 deselected in 0.94s
+REVERTED: files are deleted as each entry is checked  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        8 failed, 1 passed, 273 deselected in 0.83s
+REVERTED: a bad manifest crashes the dry run  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        9 failed, 273 deselected in 1.18s
+REVERTED: apply trusts the names in an approved manifest  [-k test_an_approved_manifest_that_names_other_files_writes_nothing]
+  GOOD
+        2 failed, 280 deselected in 0.60s
+TOTAL: 21 mutations, 21 GOOD, 0 BAD
+
+---- earlier set mutate_four.py (four outside findings) ----
+RE-POINTED: the description is read before the text it is compared with
+RE-POINTED: the dry run uses what the search returns
+RE-POINTED: the earlier set is removed before the tickets are read
+REVERTED: one new change is accepted whatever its text  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run or test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        4 failed, 1 passed, 277 deselected in 0.65s
+REVERTED: only the text the change goes to is compared  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 279 deselected in 0.77s
+REVERTED: only the text the change goes from is compared  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 279 deselected in 0.62s
+REVERTED: a change without its old text is accepted  [-k test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        1 failed, 1 passed, 280 deselected in 0.66s
+REVERTED: a change without its new text is accepted  [-k test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        1 failed, 1 passed, 280 deselected in 0.61s
+REVERTED: the new text is kept as the old one  [-k test_approved_snapshots_are_written_and_every_id_is_kept]
+  GOOD
+        1 failed, 281 deselected in 0.62s
+REVERTED: the description is read before the text it is compared with  [-k test_an_edit_between_the_reads_before_a_write_is_never_written_over]
+  GOOD
+        1 failed, 281 deselected in 0.69s
+REVERTED: the text is read through the v3 path  [-k test_approved_snapshots_are_written_and_every_id_is_kept or test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        2 failed, 280 deselected in 0.69s
+REVERTED: the v2 read is sent through the v3 client  [-k test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        1 failed, 281 deselected in 0.49s
+REVERTED: the v2 read carries no authorization  [-k test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        1 failed, 281 deselected in 0.54s
+REVERTED: a ticket closed at the read-back is accepted  [-k test_a_ticket_that_closed_during_its_write_stops_the_run]
+  GOOD
+        2 failed, 280 deselected in 0.58s
+REVERTED: the default folder is the committed snapshot set  [-k test_the_default_snapshot_folder_is_outside_the_repository]
+  GOOD
+        1 failed, 281 deselected in 0.41s
+REVERTED: the dry run uses what the search returns  [-k test_a_search_from_before_the_apply_does_not_report_work_left or test_wording_a_ticket_holds_now_is_found_when_the_search_does_not_show_it or test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted or test_a_dry_run_only_reads_and_writes_both_sides or test_the_dry_run_command_asks_for_open_tickets_and_only_reads]
+  GOOD
+        6 failed, 276 deselected in 0.74s
+REVERTED: a ticket closed since it was listed is kept  [-k test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted]
+  GOOD
+        1 failed, 281 deselected in 0.51s
+REVERTED: the earlier set is removed before the tickets are read  [-k test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was]
+  GOOD
+        1 failed, 281 deselected in 0.54s
+TOTAL: 15 mutations, 15 GOOD, 0 BAD
+
+---- earlier mutation of fix_message.py (the recovery message) ----
+REVERTED: the failure message says to restore from before.json  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 279 deselected in 0.60s
+TOTAL: 1 mutations, 1 GOOD, 0 BAD
+
+================================================================================================
+C. THE FIRST GATE 1 SET (gate1_run.py) AT THIS HEAD
+
+---- first pass at this head (test file after the additions of the first round, before the two named tests were strengthened; one anchor not yet re-pointed) ----
+compared with gate1.txt: 75 mutations and 81 checks there, 75 and 81 in the script; only in the transcript: none; only in the script: none
+BASELINE (nothing reverted) 436 passed, 1 warning in 103.28s (0:01:43)
+REVERTED: the gate line goes at the end, not where the first pasted paragraph stood  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.64s
+REVERTED: every pasted paragraph gets a gate line of its own  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.67s
+REVERTED: a paragraph is compared with its spacing as written  [scripts/jira_gate_line.py]
+  GOOD  test_a_paragraph_is_known_by_its_text_not_its_spacing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.55s
+REVERTED: a ticket without the wording is listed as a change  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.50s
+REVERTED: a ticket that carries nothing gets the gate line too  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: a ticket with no description is not skipped  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.45s
+REVERTED: a gate line already there is not looked for  [scripts/jira_gate_line.py]
+  GOOD  test_a_gate_line_already_there_is_not_added_twice  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.39s
+REVERTED: the stale pointer line is left as it was  [scripts/jira_gate_line.py]
+  GOOD  test_the_line_pointing_at_the_removed_contract_is_shortened  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: the pointer is shortened even when the contract stays  [scripts/jira_gate_line.py]
+  GOOD  test_the_pointer_stays_while_the_contract_it_points_at_does  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: IDs are not compared before an edit  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.54s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.50s
+REVERTED: IDs are compared as a set, so a lost repeat is not noticed  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 1.38s
+REVERTED: only a lost ID refuses; an added one passes  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.75s
+REVERTED: apply does not re-check the IDs before writing  [scripts/jira_gate_line.py]
+  re-pointed: the line after the refusal() call is now the closed check
+  GOOD  test_an_approved_edit_that_would_change_the_ids_is_still_not_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.68s
+REVERTED: a reworded metric contract is not recognised  [scripts/jira_gate_line.py]
+  BAD   test_a_reworded_copy_refuses_the_whole_ticket  (0 of 8 case(s) failed)
+        8 passed, 1 warning in 0.40s
+        both test files under this mutation: 4 failed, 432 passed, 1 warning in 98.29s (0:01:38)
+REVERTED: a reworded AC/TC clearance paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 8 case(s) failed)
+        1 failed, 7 passed, 1 warning in 0.61s
+REVERTED: a reworded audit-gates paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (2 of 8 case(s) failed)
+        2 failed, 6 passed, 1 warning in 0.64s
+REVERTED: a ticket whose only copy is reworded is skipped silently  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.50s
+REVERTED: a refused ticket is snapshotted anyway  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 0.91s
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.49s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.64s
+REVERTED: a dry run exits 0 beside a refusal  [scripts/jira_gate_line.py]
+  re-pointed: the exit code is now computed from `skipped`
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 0.98s
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+REVERTED: before.md is rendered from the edited description  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_only_reads_and_writes_both_sides  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.58s
+REVERTED: readable files keep trailing spaces  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.49s
+REVERTED: readable files lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: readable files keep trailing blank lines  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: JSON snapshots lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: snapshots are written with CRLF  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.49s
+REVERTED: readable files run the blocks together  [scripts/jira_gate_line.py]
+  GOOD  test_the_readable_files_put_a_blank_line_between_blocks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.66s
+REVERTED: snapshot key order follows whatever Jira sends  [scripts/jira_gate_line.py]
+  GOOD  test_the_same_tickets_give_the_same_manifest_in_any_key_order  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: an approved snapshot directory is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_an_approved_dir_is_not_overwritten_by_a_later_dry_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.58s
+REVERTED: files of a ticket that dropped out stay behind  [scripts/jira_gate_line.py]
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.60s
+REVERTED: new snapshots clear every file in the directory, not only their own  [scripts/jira_gate_line.py]
+  re-pointed: cleanup moved into _discard
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: apply never sends the write  [scripts/jira_gate_line.py]
+  GOOD  test_approved_snapshots_are_written_and_every_id_is_kept  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.81s
+REVERTED: an APPROVED file with a byte order mark is not read  [scripts/jira_gate_line.py]
+  re-pointed: the approval is now compared whole, not split
+  GOOD  test_a_byte_order_mark_does_not_hide_an_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: no approval is asked for at all  [scripts/jira_gate_line.py]
+  re-pointed: new form of the hash check
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.82s
+REVERTED: the approval need not name these snapshots  [scripts/jira_gate_line.py]
+  re-pointed: new form of the hash check
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.70s
+  GOOD  test_new_snapshots_void_an_earlier_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.85s
+REVERTED: --apply without --approved is not refused at the command line  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.62s
+REVERTED: an unapproved directory exits 0  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.58s
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.76s
+REVERTED: approved file hashes are not checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.96s
+REVERTED: only the after.json of each ticket is hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.77s
+REVERTED: the files the owner reads (.md) are not hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (2 of 4 case(s) failed)
+        2 failed, 2 passed, 1 warning in 0.72s
+REVERTED: an approved after side need not be what the rule produces  [scripts/jira_gate_line.py]
+  GOOD  test_only_the_rule_s_own_edit_can_be_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+REVERTED: a description edited since the snapshot is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: the first refused ticket ends the run  [scripts/jira_gate_line.py]
+  re-pointed: a second refused/continue block exists now; this one is the rule's refusal
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.68s
+REVERTED: changed-since-snapshot compares text only, so a formatting edit is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_formatting_only_edit_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.63s
+REVERTED: what Jira stored is not read back  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  BAD   test_a_write_jira_did_not_keep_stops_the_run  (0 of 2 case(s) failed)
+        2 passed, 1 warning in 0.43s
+        both test files under this mutation: 10 failed, 426 passed, 1 warning in 97.13s (0:01:37)
+REVERTED: the read-back compares IDs and not the text  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  BAD   test_a_write_jira_did_not_keep_stops_the_run  (0 of 2 case(s) failed)
+        2 passed, 1 warning in 0.31s
+        both test files under this mutation: 9 failed, 427 passed, 1 warning in 97.65s (0:01:37)
+REVERTED: the run goes on after a write Jira did not keep  [scripts/jira_gate_line.py]
+  re-pointed: the stop is in the caller of _write now
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 1.52s
+REVERTED: the read-back demands the stored document be identical  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: already-written is recognised only by an identical document  [scripts/jira_gate_line.py]
+  re-pointed: the done check compares stored forms now
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.42s
+REVERTED: an already-written ticket is not recognised on a second apply  [scripts/jira_gate_line.py]
+  re-pointed: the done check compares stored forms now
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: a second dry run lists tickets with nothing left to change  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: a dry run with nothing to change still writes a snapshot set  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.62s
+REVERTED: an approved directory fails a dry run that has nothing to write  [scripts/jira_gate_line.py]
+  BAD   test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (0 of 1 case(s) failed)
+        1 passed, 1 warning in 0.26s
+        both test files under this mutation: 436 passed, 1 warning in 97.67s (0:01:37)
+REVERTED: the real hash of the metric contract is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.55s
+REVERTED: the real hash of the CC-104 metric contract variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: the real hash of the AC/TC clearance paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+REVERTED: the real hash of the CC-104 clearance variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: the real hash of the audit-gates paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+REVERTED: the line to be written differs from the one in the snapshots  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: the query takes Done tickets too  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.50s
+REVERTED: the dry run asks Jira for the wrong field  [scripts/jira_gate_line.py]
+  re-pointed: the search now asks for the status; each description is read from its own record
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.82s
+REVERTED: the dry-run command touches the writing client  [scripts/jira_gate_line.py]
+  re-pointed: new call line; the injected PUT is well formed so the stand-in records it as a write (the dry run now reads through the same client)
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.62s
+REVERTED: --out is ignored  [scripts/jira_gate_line.py]
+  re-pointed: new call line
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.84s
+REVERTED: the manifest records no IDs  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.52s
+REVERTED: the printed approval hash is not the manifest's  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.65s
+REVERTED: the apply command is given the read client  [scripts/jira_gate_line.py]
+  re-pointed: apply is now given _jira
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.58s
+REVERTED: credentials are not loaded from .env  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.52s
+REVERTED: --dry-run and --apply may be given together  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_and_an_apply_asked_at_once_write_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.52s
+REVERTED: a command is asked of PASS rows only (the rule before this change)  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (6 of 8 case(s) failed)
+        6 failed, 2 passed, 1 warning in 1.77s
+REVERTED: a PASS row may omit its command  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (2 of 8 case(s) failed)
+        2 failed, 6 passed, 1 warning in 2.00s
+REVERTED: the command is asked only when closing, not by the form check  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (4 of 8 case(s) failed)
+        4 failed, 4 passed, 1 warning in 1.83s
+REVERTED: a command of only spaces counts as named  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 2.05s
+REVERTED: a row that names its command is still reported unnamed  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 1.91s
+REVERTED: an amended row is asked for a command too  [scripts/closure.py]
+  GOOD  test_a_row_the_owner_removed_from_scope_needs_no_command  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.93s
+REVERTED: a row status outside the five is accepted  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+REVERTED: an unfinished row fails the invariants' form check  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+
+=== Mutants with no observable effect in the first run (not counted above) ===
+REVERTED: the read-back no longer compares IDs  [scripts/jira_gate_line.py]
+  NOT RERUN: there is no ID comparison left in the read-back to remove (it compares the stored forms of the whole documents)
+REVERTED: the APPROVED existence check is removed  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; reading the missing file raises OSError, which apply turns into the same exit 2 with nothing written; only the message differs
+        281 passed, 1 warning in 4.03s
+REVERTED: content is assigned even when nothing was replaced  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; differs only for a description with no content key, which carries nothing and is never listed or written
+        281 passed, 1 warning in 3.74s
+AFTER (everything restored) 436 passed, 1 warning in 98.07s (0:01:38)
+TOTAL: 75 mutations (71 with every check GOOD), 81 mutation/test checks, 77 GOOD, 4 BAD
+survivors: ['a reworded metric contract is not recognised -> test_a_reworded_copy_refuses_the_whole_ticket', 'what Jira stored is not read back -> test_a_write_jira_did_not_keep_stops_the_run', 'the read-back compares IDs and not the text -> test_a_write_jira_did_not_keep_stops_the_run', 'an approved directory fails a dry run that has nothing to write -> test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing']
+
+---- final pass ----
+compared with gate1.txt: 75 mutations and 81 checks there, 75 and 81 in the script; only in the transcript: none; only in the script: none
+BASELINE (nothing reverted) 437 passed, 1 warning in 97.58s (0:01:37)
+REVERTED: the gate line goes at the end, not where the first pasted paragraph stood  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+REVERTED: every pasted paragraph gets a gate line of its own  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: a paragraph is compared with its spacing as written  [scripts/jira_gate_line.py]
+  GOOD  test_a_paragraph_is_known_by_its_text_not_its_spacing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+REVERTED: a ticket without the wording is listed as a change  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: a ticket that carries nothing gets the gate line too  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.51s
+REVERTED: a ticket with no description is not skipped  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+REVERTED: a gate line already there is not looked for  [scripts/jira_gate_line.py]
+  GOOD  test_a_gate_line_already_there_is_not_added_twice  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.46s
+REVERTED: the stale pointer line is left as it was  [scripts/jira_gate_line.py]
+  GOOD  test_the_line_pointing_at_the_removed_contract_is_shortened  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: the pointer is shortened even when the contract stays  [scripts/jira_gate_line.py]
+  GOOD  test_the_pointer_stays_while_the_contract_it_points_at_does  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+REVERTED: IDs are not compared before an edit  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.67s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.86s
+REVERTED: IDs are compared as a set, so a lost repeat is not noticed  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 1.52s
+REVERTED: only a lost ID refuses; an added one passes  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: apply does not re-check the IDs before writing  [scripts/jira_gate_line.py]
+  re-pointed: the line after the refusal() call is now the closed check
+  GOOD  test_an_approved_edit_that_would_change_the_ids_is_still_not_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.50s
+REVERTED: a reworded metric contract is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 9 case(s) failed)
+        1 failed, 8 passed, 1 warning in 0.63s
+REVERTED: a reworded AC/TC clearance paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 9 case(s) failed)
+        1 failed, 8 passed, 1 warning in 0.54s
+REVERTED: a reworded audit-gates paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (2 of 9 case(s) failed)
+        2 failed, 7 passed, 1 warning in 0.57s
+REVERTED: a ticket whose only copy is reworded is skipped silently  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: a refused ticket is snapshotted anyway  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (9 of 9 case(s) failed)
+        9 failed, 1 warning in 0.76s
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.66s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: a dry run exits 0 beside a refusal  [scripts/jira_gate_line.py]
+  re-pointed: the exit code is now computed from `skipped`
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (9 of 9 case(s) failed)
+        9 failed, 1 warning in 0.97s
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.47s
+REVERTED: before.md is rendered from the edited description  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_only_reads_and_writes_both_sides  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: readable files keep trailing spaces  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.65s
+REVERTED: readable files lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.59s
+REVERTED: readable files keep trailing blank lines  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.65s
+REVERTED: JSON snapshots lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+REVERTED: snapshots are written with CRLF  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.58s
+REVERTED: readable files run the blocks together  [scripts/jira_gate_line.py]
+  GOOD  test_the_readable_files_put_a_blank_line_between_blocks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: snapshot key order follows whatever Jira sends  [scripts/jira_gate_line.py]
+  GOOD  test_the_same_tickets_give_the_same_manifest_in_any_key_order  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.49s
+REVERTED: an approved snapshot directory is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_an_approved_dir_is_not_overwritten_by_a_later_dry_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.63s
+REVERTED: files of a ticket that dropped out stay behind  [scripts/jira_gate_line.py]
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: new snapshots clear every file in the directory, not only their own  [scripts/jira_gate_line.py]
+  re-pointed: cleanup moved into _discard
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.68s
+REVERTED: apply never sends the write  [scripts/jira_gate_line.py]
+  GOOD  test_approved_snapshots_are_written_and_every_id_is_kept  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: an APPROVED file with a byte order mark is not read  [scripts/jira_gate_line.py]
+  re-pointed: the approval is now compared whole, not split
+  GOOD  test_a_byte_order_mark_does_not_hide_an_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+REVERTED: no approval is asked for at all  [scripts/jira_gate_line.py]
+  re-pointed: new form of the hash check
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.76s
+REVERTED: the approval need not name these snapshots  [scripts/jira_gate_line.py]
+  re-pointed: new form of the hash check
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.57s
+  GOOD  test_new_snapshots_void_an_earlier_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: --apply without --approved is not refused at the command line  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.79s
+REVERTED: an unapproved directory exits 0  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.59s
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.82s
+REVERTED: approved file hashes are not checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.76s
+REVERTED: only the after.json of each ticket is hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.87s
+REVERTED: the files the owner reads (.md) are not hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (2 of 4 case(s) failed)
+        2 failed, 2 passed, 1 warning in 0.70s
+REVERTED: an approved after side need not be what the rule produces  [scripts/jira_gate_line.py]
+  GOOD  test_only_the_rule_s_own_edit_can_be_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: a description edited since the snapshot is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.62s
+REVERTED: the first refused ticket ends the run  [scripts/jira_gate_line.py]
+  re-pointed: a second refused/continue block exists now; this one is the rule's refusal
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: changed-since-snapshot compares text only, so a formatting edit is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_formatting_only_edit_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.46s
+REVERTED: what Jira stored is not read back  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.61s
+REVERTED: the read-back compares IDs and not the text  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 0.53s
+REVERTED: the run goes on after a write Jira did not keep  [scripts/jira_gate_line.py]
+  re-pointed: the stop is in the caller of _write now
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.59s
+REVERTED: the read-back demands the stored document be identical  [scripts/jira_gate_line.py]
+  re-pointed: the read-back compares stored forms now
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.55s
+REVERTED: already-written is recognised only by an identical document  [scripts/jira_gate_line.py]
+  re-pointed: the done check compares stored forms now
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.59s
+REVERTED: an already-written ticket is not recognised on a second apply  [scripts/jira_gate_line.py]
+  re-pointed: the done check compares stored forms now
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: a second dry run lists tickets with nothing left to change  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.74s
+REVERTED: a dry run with nothing to change still writes a snapshot set  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+REVERTED: an approved directory fails a dry run that has nothing to write  [scripts/jira_gate_line.py]
+  re-pointed: the old anchor still applied but only moved an unrelated line; the approved-folder branch now has its own nothing-to-write return, which is what is removed here
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+REVERTED: the real hash of the metric contract is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+REVERTED: the real hash of the CC-104 metric contract variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.63s
+REVERTED: the real hash of the AC/TC clearance paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.45s
+REVERTED: the real hash of the CC-104 clearance variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.57s
+REVERTED: the real hash of the audit-gates paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: the line to be written differs from the one in the snapshots  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.42s
+REVERTED: the query takes Done tickets too  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+REVERTED: the dry run asks Jira for the wrong field  [scripts/jira_gate_line.py]
+  re-pointed: the search now asks for the status; each description is read from its own record
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+REVERTED: the dry-run command touches the writing client  [scripts/jira_gate_line.py]
+  re-pointed: new call line; the injected PUT is well formed so the stand-in records it as a write (the dry run now reads through the same client)
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+REVERTED: --out is ignored  [scripts/jira_gate_line.py]
+  re-pointed: new call line
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: the manifest records no IDs  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.55s
+REVERTED: the printed approval hash is not the manifest's  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.66s
+REVERTED: the apply command is given the read client  [scripts/jira_gate_line.py]
+  re-pointed: apply is now given _jira
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.61s
+REVERTED: credentials are not loaded from .env  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+REVERTED: --dry-run and --apply may be given together  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_and_an_apply_asked_at_once_write_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+REVERTED: a command is asked of PASS rows only (the rule before this change)  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (6 of 8 case(s) failed)
+        6 failed, 2 passed, 1 warning in 2.20s
+REVERTED: a PASS row may omit its command  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (2 of 8 case(s) failed)
+        2 failed, 6 passed, 1 warning in 1.94s
+REVERTED: the command is asked only when closing, not by the form check  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (4 of 8 case(s) failed)
+        4 failed, 4 passed, 1 warning in 2.02s
+REVERTED: a command of only spaces counts as named  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 1.98s
+REVERTED: a row that names its command is still reported unnamed  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 1.95s
+REVERTED: an amended row is asked for a command too  [scripts/closure.py]
+  GOOD  test_a_row_the_owner_removed_from_scope_needs_no_command  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 2.01s
+REVERTED: a row status outside the five is accepted  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.32s
+REVERTED: an unfinished row fails the invariants' form check  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+
+=== Mutants with no observable effect in the first run (not counted above) ===
+REVERTED: the read-back no longer compares IDs  [scripts/jira_gate_line.py]
+  NOT RERUN: there is no ID comparison left in the read-back to remove (it compares the stored forms of the whole documents)
+REVERTED: the APPROVED existence check is removed  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; reading the missing file raises OSError, which apply turns into the same exit 2 with nothing written; only the message differs
+        282 passed, 1 warning in 4.23s
+REVERTED: content is assigned even when nothing was replaced  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; differs only for a description with no content key, which carries nothing and is never listed or written
+        282 passed, 1 warning in 3.79s
+AFTER (everything restored) 437 passed, 1 warning in 98.74s (0:01:38)
+TOTAL: 75 mutations (75 with every check GOOD), 81 mutation/test checks, 81 GOOD, 0 BAD
+survivors: none
+
+================================================================================================
+D. CASES OF NEW, CHANGED OR ADDED TESTS THAT NO MUTATION FAILS
+
+---- accounting ----
+187 single product mutations, each against the whole file
+cases of new, changed or added tests: 152; failed by at least one single mutation: 152; never failed by a single mutation: 0
+REVERTED TOGETHER: every check after the write is removed, and the reply's key and text are not judged
+  fails 0 of the cases above that were still unfailed; 102 failed, 180 passed, 1 warning in 17.98s
+REVERTED TOGETHER: every check before the write is removed (key, closed, changed, text)
+  fails 0 of the cases above that were still unfailed; 89 failed, 193 passed, 1 warning in 7.58s
+REVERTED TOGETHER: no write is ever called done
+  fails 0 of the cases above that were still unfailed; 88 failed, 194 passed, 1 warning in 7.65s
+never failed, singly or together: 0
+
+================================================================================================
+E. STAND-IN SURVIVORS WITH THEIR PRODUCT REGRESSIONS, AND CLOSING CHECKS
+
+---- combined ----
+REVERTED TOGETHER: [stand-in] the search returns descriptions, as before  +  [product] the dry run uses what the search returns
+  GOOD  the product regression is still caught
+        20 failed, 262 passed, 1 warning in 5.04s
+REVERTED TOGETHER: [stand-in] the search accepts whatever fields are asked for  +  [product] the dry run asks Jira for the wrong field
+  GOOD  the product regression is still caught
+        1 failed, 281 passed, 1 warning in 4.58s
+
+---- checks on the final tree (nothing reverted) ----
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+exit 0
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget log matches values
+  ok    eval phrasing in api/src
+  ok    closure manifests
+  ok    budget increases
+  ok    new regex
+  ok    new exemptions
+  ok    protocol weakened
+  ok    metric records rewritten
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+$ uv run ruff format --check / ruff check (test file)
+1 file already formatted
+All checks passed!
+exit 0
+
+---- both gate test files, final tree ----
+437 passed, 1 warning in 109.22s (0:01:49)
+
+Section D's three "REVERTED TOGETHER" runs were meant for cases that no single mutation fails. None was
+left, so they add nothing.
+
+git status --short at the end:
+ M api/tests/test_jira_gate_line.py
+?? evidence/slice-6/cc-144/fix5-matrix-after.txt
+?? evidence/slice-6/cc-144/gate1-r5.txt
+?? evidence/slice-6/cc-144/gate2-code-365adee.txt
+?? evidence/slice-6/cc-144/gate2-codex-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-cursor-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-owner-review.txt

@@ -409,11 +409,11 @@ def test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants(
 ) -> None:
     (tmp_path / "evidence" / "closure").mkdir(parents=True)
     manifest_file = tmp_path / "evidence" / "closure" / "CC-1.toml"
-    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "mostly"\n')
+    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "mostly"\ncommand = "pytest"\n')
     monkeypatch.setattr(ci, "ROOT", tmp_path)
     monkeypatch.setattr(ci, "EVIDENCE", tmp_path / "evidence")
     assert ci.check_closure_manifests()
-    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "NOT RUN"\n')
+    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "NOT RUN"\ncommand = "pytest"\n')
     assert ci.check_closure_manifests() == []
 
 
@@ -823,6 +823,23 @@ def test_a_pass_cannot_rest_on_evidence_that_is_not_pinned(repo: Path) -> None:
     # a row still being worked may cite a plain path: only a PASS is a claim
     open_row = row(repo, status="UNKNOWN", evidence=["gate1.txt"])
     assert blocked(repo, manifest(repo, open_row), readiness=False) == []
+
+
+@pytest.mark.parametrize("status", ["PASS", "NOT RUN", "FAIL", "UNKNOWN"])
+@pytest.mark.parametrize("readiness", [True, False])
+def test_a_row_that_names_no_command_is_rejected(repo: Path, status: str, readiness: bool) -> None:
+    for unnamed in ("", "   ", None):
+        body = manifest(repo, row(repo, status=status, command=unnamed))
+        found = blocked(repo, body, readiness=readiness)
+        assert found.count("AC1: missing command") == 1
+    named = blocked(repo, manifest(repo, row(repo, status=status)), readiness=readiness)
+    assert not any("missing command" in line for line in named)
+
+
+def test_a_row_the_owner_removed_from_scope_needs_no_command(repo: Path) -> None:
+    amendment = {"id": "AC1", "date": "2026-11-25", "owner": "o", "reason": "r", "destination": "d"}
+    removed = {"id": "AC1", "status": "AMENDED"}
+    assert blocked(repo, manifest(repo, removed, amendment=[amendment])) == []
 
 
 def test_a_manifest_must_declare_which_ids_it_covers(repo: Path) -> None:

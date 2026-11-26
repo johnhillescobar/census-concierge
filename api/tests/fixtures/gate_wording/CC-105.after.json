@@ -1,0 +1,96 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nReturn the requested child membership or accurately disclose unavailable coverage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% exact requested coverage on supported positive cases; >=95% correct relation/unsupported classification on independent negative controls. Superset-as-exact and partial-as-complete fixtures fail 100% of the time. No inflation by declaring supported cases unavailable.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-119; feeds CC-131 and CC-42.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nVerify child-geography coverage for places spanning multiple parents",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Scope and ownership\nParent enumeration alone is insufficient. Verify requested child membership: all tracts in containing counties may include territory outside a city. Preserve containment, intersection and clipped/allocation meanings as distinct. General crosswalks stay CC-77.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Acceptance criteria\nAC1. Use published county-or-part relationships where supported, recording every parent and resolved child selection.\nAC2. Compare actual coverage with requested relation; no county superset or parent count may pass as exact city coverage.\nAC3. Unsupported exact membership or clipping is explicitly limited with grounded alternatives; no fabricated allocation. Record a CC-77 dependency where necessary.\nAC4. Repeat-test multi-parent and single-parent controls with metadata-derived unseen cases, including partial legs and duplicate prevention.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Test cases\nTC1. Multi-county place with exact supported membership.\nTC2. County extends beyond the named place: superset rejected as exact coverage.\nTC3. Single-county control has no extra legs.\nTC4. Partial API failure exposes missing coverage.\nTC5. Intersection versus clipped estimates remain distinguishable.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependencies\nCC-104 -> CC-106 -> CC-119; CC-133 coverage oracle.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

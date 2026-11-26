@@ -1,0 +1,207 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nImprove joint understanding across grounded single-turn dimensions.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=98% joint single-turn interpretation overall and >=95% in every included category; supported determinate coverage >=95%, determinate accuracy >=98%. Same-case reconciliation ablation must show improvement when baseline is below target, with no category/latency regression. Do not claim final follow-up/compute execution accuracy before those stories land.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-105, CC-119, CC-129, CC-130; feeds CC-42.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nRuntime understanding mechanism",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Scope and ownership\nWithin the current loop, make interpretation inspectable and grounded. This is model interpretation plus deterministic fact validation, not another planner or validator stack. Own missing nearest-supported-candidate behavior deferred from CC-114 (t15) as a separate CC-3 story, without reopening CC-114.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Acceptance criteria\nAC1. Model reports measure/universe, level/scope/coverage, time/product, selection intent, operation, explicit/default/inferred provenance and unresolved assumptions. Metadata discovery can precede ID selection.\nAC2. Model reconciles the structured interpretation with the original request and retrieved facts in a bounded loop before final execution. Preserve requested intent and revision reasons; unsupported execution cannot rewrite user intent to obtain a pass.\nAC3. Missing/contradictory metadata or material ambiguity yields structured feedback and at most two semantic repair attempts within existing turn/tool/latency caps. Exhaustion yields an explicit limitation or grounded candidate result; no fabricated confidence guarantee.\nAC4. Unknown or unavailable combinations expose applicable, grounded alternatives and provenance, including the nearest-supported-candidate case deferred by CC-114. Do not imply a candidate answers the unavailable request. Level-incomplete refusals retain their separate no-URL contract.\nAC5. Evaluate reconciliation with an ablation at the same repeats against independent expected interpretations under CC-133. Retain a mechanism only if measured benefits justify latency/cost. Self-review or repeated agreement alone is never proof.\nAC6. Publish supported capability scope and record unresolved limitations. Existing model/tool budgets remain; no automatic stronger-model or extra-verifier subsystem.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Test cases\nTC1. Well-specified request grounds all required fields.\nTC2. A plausible wrong geography/universe/cell is corrected against metadata or explicitly unresolved.\nTC3. Real ambiguity returns candidates without invented user facts.\nTC4. Unavailable-data and incomplete-geography cases preserve their distinct contracts.\nTC5. Repair limit, metadata error and model timeout fail visibly without prose parsing.\nTC6. Prior intent, current edits and pinned overrides obey precedence.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependencies\nCC-104, CC-106, CC-119, CC-129, CC-130; CC-133 defines oracle first.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Valid structured requests and accurate digits can coexist with unsupported explanatory prose. Material claims and alternative interpretations must remain faithful to evidence.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. Represent material answer claims through grounded structured facts or supported typed operations before presenting them. Qualitative comparisons, ranks and trends require CC-122 evidence; categorical claims require authoritative metadata or fetched evidence. Use constrained rendering or another demonstrably grounded mechanism in the existing loop, not a new regex/prose parser or unmeasured runtime judge stack.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. When material claims lack operands, benchmark, coverage or method, bounded reconciliation obtains the missing supported evidence or omits/qualifies the claim with an explicit limitation. Never invent a comparison, causality, significance or confidence guarantee. Assess false claims and unjustified withholding separately so silence cannot inflate correctness.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Alternative results distinguish a faithful answer from a related but different interpretation. Preserve the original requested meaning and disclose universe/scope/time changes; selecting an option must not retroactively turn an incorrect primary answer into a correct one.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. An answer containing correct digits but an unsupported 'highest', 'increasing' or 'unusually high' claim fails the claim oracle; wording without digits does not evade grounding.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Fully grounded comparisons survive rendering; missing benchmark, partial coverage, unsupported causality or significance produce a limitation rather than an invented fact. Test structured outputs/evidence, not exact prose strings.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. A related alternative with a different universe or period is disclosed as a changed interpretation and cannot pass the original request's correctness oracle.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

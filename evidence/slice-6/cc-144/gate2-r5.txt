@@ -1,0 +1,154 @@
+Gate 2, pass 1 (generic bugs), cold review, round 5
+=====================================================
+
+Reviewed head : 7f34a673d124557e27514b9ac0365f58a64b1a86
+Review base   : e323eaa97bb9d815b978b63dc4bf1217d5d7d1ba (also the merge-base)
+Repo path     : C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+Branch        : cc-144/gate-line
+HEAD at start : 7f34a673d124557e27514b9ac0365f58a64b1a86 (unchanged at end)
+Recorded      : 2026-11-26T05:10Z
+git status --short at start and at end (before this file was written):
+  ?? evidence/slice-6/cc-144/gate2-code-365adee.txt
+  ?? evidence/slice-6/cc-144/gate2-codex-599a57d.txt
+  ?? evidence/slice-6/cc-144/gate2-cursor-599a57d.txt
+  ?? evidence/slice-6/cc-144/gate2-owner-review.txt
+  (untracked before this review; not read)
+
+What was read
+-------------
+CLAUDE.md; docs/playbooks/run-slice.md section 4; docs/process-evidence.md (adversarial matrix);
+the code diff e323eaa..7f34a67 excluding evidence/:
+  scripts/jira_gate_line.py (new, 650 lines), scripts/closure.py, api/tests/test_jira_gate_line.py,
+  api/tests/test_closure_gate.py, api/tests/fixtures/gate_wording/*, docs/playbooks/run-slice.md
+and the helpers they call: closure.adf_text / required_ids / _text, jira_transition._api / _site /
+_auth_header, jira_fetch._search, check_invariants.check_closure_manifests.
+Not read before these findings were written: the slice plan, the ticket, anything under evidence/
+for CC-144 (the closure manifest included), the caller's explanation, and the implementer's files
+in the shared scratchpad. Other tickets' closure manifests were run through closure.check_file only.
+
+Machines run (read-only)
+------------------------
+  uv run pytest -q api/tests/test_jira_gate_line.py api/tests/test_closure_gate.py
+    -> 503 passed, 1 warning in 98.15s
+  uv run ruff check / ruff format --check on the four touched .py files -> clean
+  closure.check_file(readiness=False) on evidence/closure/CC-125,126,133,138,141,143.toml
+    -> [] for every one: the new "every row names its command" rule breaks no manifest in the tree
+  make check was not run (a recorded earlier run rewrote a pinned evidence file; this pass changes
+  no file but this one). The invariants pass runs the machines.
+
+Probes: scratchpad gate2-r5\test_r5_probes.py and gate2-r5\p5.py, against the test module's
+stand-in Jira (no request leaves the process; urllib.request.urlopen is blocked by its fixture).
+
+Adversarial matrix (docs/process-evidence.md)
+---------------------------------------------
+All four rows are retrieval/measurement probes. The only one with an analogue here is
+"identical inputs": byte-identical descriptions must give identical edits whatever the listing
+order. Tried (M1): three tickets with the same description, listed forward and reversed ->
+manifest.json byte-identical in both orders, one distinct after.json. Nothing found.
+The other three rows (family returned by one member, a ranking change on the tuning set, a
+"largest jump" claim) do not apply to a Jira bulk-edit script or a manifest check: no ranking,
+no table family, no measured claim in this diff.
+
+Findings, most severe first
+---------------------------
+No High or Medium finding. No path was found that writes an unapproved description, counts an
+unconfirmed write as written, or deletes a file outside the snapshot set. Five Low findings; all
+fail closed (nothing is written to Jira).
+
+L1  Low  A document whose blocks are not all objects crashes the dry run instead of refusing
+         the ticket.
+    Where: scripts/jira_gate_line.py:320 (_read_each checks only the top-level shape via
+           _is_document, :291-296), then :336 `found = changes(issues)` runs outside any try;
+           crash sites :154-156 (_plain: child.get), :144-145 (_drop_pointer: child.get),
+           :134 / :194 (fingerprint and _sentence_mark encode to UTF-8).
+    Scenario: one open ticket's description is {"type":"doc","content":[..., "x"]} or [..., null],
+           a paragraph whose content holds null, or a text node holding a lone surrogate (a cut
+           emoji, which json.loads accepts from an escaped reply). The whole --dry-run dies with
+           a traceback; no ticket, including the good ones, gets a snapshot, and the run cannot
+           succeed while that ticket stays open. The module docstring (:13-15) and 9485c97 say a
+           reply that is not the shape read from it refuses the ticket.
+    Reproduced (P1, P1b):
+           P1[top-level node is a string] RAISED AttributeError: 'str' object has no attribute 'get'
+           P1[top-level node is null]     RAISED AttributeError: 'NoneType' object has no attribute 'get'
+           P1[paragraph child is null]    RAISED AttributeError: 'NoneType' object has no attribute 'get'
+           P1b RAISED UnicodeEncodeError: 'utf-8' codec can't encode character '\ud83d' ... surrogates not allowed
+           files left in DIR in every case: []   (fails closed; the earlier set is untouched)
+    Real Jira is unlikely to return these shapes; the lone surrogate is the likeliest of them.
+
+L2  Low  An HTTP or network error on a read before a write ends the whole --apply with a
+         traceback instead of refusing that ticket.
+    Where: scripts/jira_gate_line.py:572-579 catch UNUSABLE only (ValueError, KeyError, TypeError,
+           AttributeError, :121). _description_changes and _issue go through jira_transition._api,
+           which calls sys.exit(1) on an HTTPError (and lets URLError through); _text goes through
+           _jira (:616-626), whose urlopen raises HTTPError/URLError (OSError).
+    Scenario: 20 approved tickets; Jira answers 503 or times out on the first read of the 5th.
+           Tickets 1-4 are written and confirmed, the run exits: no "REFUSED", no
+           "N written, M refused" line, tickets 6-20 are not tried. A re-run recovers (written
+           ones read "already reads as approved"), so nothing is lost, but the operator gets a
+           traceback (the v2 read) or a bare "Jira HTTP 503" line and no count.
+    Reproduced (P2), first ticket CC-1 of two:
+           P2[history] code=None raised=SystemExit: 1 writes=[] summary_printed=False REFUSED_CC1=False FAILED=False APPLYING=False
+           P2[text]    code=None raised=HTTPError: HTTP Error 503 writes=[] summary_printed=False REFUSED_CC1=False FAILED=False APPLYING=False
+           P2[ticket]  code=None raised=SystemExit: 1 writes=[] summary_printed=False ...
+           CC-2 was never attempted. The lock is released and no FAILED is left (correct).
+
+L3  Low  Unreproduced on this host's threat model; mechanism reproduced. The default --out is a
+         fixed, predictable name in the shared temporary directory, and writes follow whatever
+         already sits there.
+    Where: scripts/jira_gate_line.py:69 OUT = gettempdir()/"jira-gate-line"; :370
+           out.mkdir(exist_ok=True); :379-380 and :387 write_bytes; :280-288 _discard unlinks.
+    Scenario: on a POSIX host with a shared /tmp, another local account pre-creates
+           /tmp/jira-gate-line (or a CC-N.before.json symlink inside it). The owner's routine
+           --dry-run then writes the ticket descriptions into a directory that account owns and
+           can read, or through the link onto the link's target; an APPROVED file planted there
+           makes every routine dry run refuse ("holds approved snapshots"). Approval integrity is
+           not affected: apply re-hashes the manifest and every file. On this Windows machine the
+           temp directory is per-user, so the precondition does not hold here.
+    Reproduced (p5.py) as far as this host allows: a file symlink needs a privilege not held
+           (WinError 1314); a directory junction does not. dry_run(<junction to victim/>) ->
+           "victim file replaced: True | victim dir now: ['CC-1.after.json', 'CC-1.after.md',
+           'CC-1.before.json', 'CC-1.before.md', 'manifest.json']".
+
+L4  Low  A search entry without a "key" crashes the dry run (KeyError), outside the try.
+    Where: scripts/jira_gate_line.py:315 `key = str(issue["key"])` precedes the try at :316.
+    Reproduced (P3): "P3 RAISED KeyError: 'key'; files: []". Fails closed.
+    Note: commit 9485c97's message lists "the shared search helper's own reply, which is left
+    unchanged" under "Breaks on", so this is a declared limit; recorded so it is not lost.
+
+L5  Low (cosmetic)  A ticket the search lists twice is counted twice in the printed summary.
+    Where: scripts/jira_gate_line.py:335-346; _read_each (:306-327) does not de-duplicate keys.
+    Scenario: jira_fetch._search returns an overlapping page; the operator and any evidence that
+           quotes the line ("N open ticket(s) read: M left to change") see inflated counts. The
+           manifest itself is right (dict keyed by ticket).
+    Reproduced (P4): "3 open ticket(s) read: 3 ticket(s) left to change, 0 refused" for two
+           tickets; manifest_tickets=['CC-1', 'CC-2']; "change   CC-1" printed twice.
+
+Checked and nothing found
+-------------------------
+- Write confirmation (_write :491-528, _apply_approved :569-613): walked every point at which
+  another edit, a close or a move can land (before the history read, between the three pre-write
+  reads, between the write and each read-back, after the last read), with history entries listed
+  or lagging. Each lands in REFUSED (before the write), FAILED (after it), or the documented limits
+  (:41-44: a look-alike entry while this write's is unlisted; a change the text form leaves out; a
+  change after the last read). FAILED is written before the PUT, so an interrupt or an exception
+  type _write does not catch (RecursionError, KeyboardInterrupt) leaves the run stopped.
+- Approval: APPROVED must equal the manifest's sha256 and nothing else (utf-8-sig, strip); every
+  listed file is re-hashed; _listed limits names to CC-N's four snapshots, so neither _discard nor
+  apply can reach another file; apply re-derives after from before with the current rule (:588)
+  and re-runs refusal (:583), so a changed GATE_LINE or table voids an old set.
+- Lock: O_CREAT|O_EXCL, released in finally only by the process that made it; FAILED checked
+  inside the lock; a dry run never touches a folder with FAILED or APPROVED.
+- edit/refusal: only top-level, unmarked, exact-fingerprint paragraphs are removed; any marker,
+  any >=40-char pasted sentence, a surviving pointer, or a change in the ordered AC/TC id list
+  (repeats kept) refuses the ticket. Idempotent on its own output. Snapshot files carry no
+  trailing whitespace and end in one newline, and .gitattributes sets eol=lf, so commit hooks and
+  checkout do not change approved hashes.
+- scripts/closure.py :163-167: a non-AMENDED row without a command is now reported in both modes;
+  AMENDED stays exempt; an invalid status still returns first. No manifest in the tree breaks.
+  The run-slice.md sentence (:31) and the closure docstring (:18) say the same thing as the code.
+
+Verdict
+-------
+No blocking finding at 7f34a67. Five Low findings, all fail closed; L1 and L2 contradict the
+module's own "refuse the ticket" wording, L3 is a shared-temp hygiene issue that does not apply
+on this Windows host, L4 is a declared limit, L5 is a cosmetic count.

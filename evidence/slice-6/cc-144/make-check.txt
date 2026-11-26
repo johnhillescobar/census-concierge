@@ -1,0 +1,127 @@
+The recipe lines of 'make check', run one by one. HEAD 84002f5061578dbb5c63197a0dfe17aa1ae51fee
+
+$ uv run ruff check .
+All checks passed!
+exit 0
+
+$ uv run ruff format --check .
+324 files already formatted
+exit 0
+
+$ uv run mypy api/src
+Success: no issues found in 30 source files
+exit 0
+
+$ uv run pytest -q -m 'not integration' -p no:warnings
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+............                                                             [100%]
+1770 passed, 34 skipped, 8 xfailed in 364.91s (0:06:04)
+exit 0
+
+$ uv run python scripts/check_invariants.py --base origin/main
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget log matches values
+  ok    eval phrasing in api/src
+  ok    closure manifests
+  ok    budget increases
+  ok    new regex
+  ok    new exemptions
+  ok    protocol weakened
+  ok    metric records rewritten
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+
+$ npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 258 packages, and audited 259 packages in 30s
+
+44 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (1 moderate, 3 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+exit 0
+
+$ npm --prefix web test
+   ✓ plan refinement > uses the original question even if the chat input changed  589ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  631ms
+ ✓ src/App.test.tsx (25 tests) 9613ms
+   ✓ App pane states > starts idle, with no Census URL  452ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  774ms
+   ✓ App pane states > shows an error state distinct from idle when the API is unreachable  346ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  907ms
+   ✓ App result > copies the visible Census URL without a key parameter  375ms
+   ✓ App result > labels every geography instead of presenting the first row as the answer  417ms
+   ✓ App result > renders every estimate variable for every geography  339ms
+   ✓ App result > labels the year when more than one vintage was attempted  690ms
+   ✓ App result > replaces every previous table row when a new result arrives  662ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  544ms
+   ✓ App workspace > replaces the active result only after a successful response  476ms
+   ✓ App workspace > keeps the prior result and shows a later failure separately  572ms
+   ✓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  494ms
+
+ Test Files  9 passed (9)
+      Tests  112 passed (112)
+   Start at  14:04:34
+   Duration  28.11s (transform 5.43s, setup 17.04s, collect 11.80s, tests 22.62s, environment 69.26s, prepare 9.93s)
+
+exit 0
+
+$ npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit 0
+
+$ uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpk11z4k0k\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpk11z4k0k\schema.d.ts [72.1ms]
+packages/client is up to date.
+exit 0
+
+$ uv run python scripts/check_budgets.py
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+exit 0

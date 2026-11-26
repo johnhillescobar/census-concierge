@@ -1,0 +1,207 @@
+"""Run the current apply against: each action, before each request about CC-1, with each history
+delay. Fake Jira only, no network. Run from the worktree root.
+
+The fake differs from the one in the tests where real Jira was seen to differ: issue answers
+carry the key, and the text form shows links. A moved ticket still answers to its old key for
+reads and writes (the worst case; not observed on real Jira).
+"""
+
+import collections
+import contextlib
+import copy
+import io
+import json
+import pathlib
+import sys
+import tempfile
+import urllib.request
+
+ROOT = pathlib.Path.cwd()
+sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "api" / "tests")]
+
+import jira_fetch  # noqa: E402
+import jira_gate_line as jg  # noqa: E402
+import test_jira_gate_line as t  # noqa: E402
+
+
+def blocked(*args, **kwargs):
+    raise AssertionError("a probe tried to open a connection")
+
+
+urllib.request.urlopen = blocked
+FIXTURE = json.loads((t.FIXTURES / "CC-105.before.json").read_bytes())
+
+
+def text_with_links(node):
+    if isinstance(node, str):
+        return node
+    if not isinstance(node, dict):
+        return ""
+    if node.get("type") == "text":
+        text = str(node.get("text") or "")
+        for mark in node.get("marks") or []:
+            if mark.get("type") == "link":
+                text = f"[{text}|{mark['attrs']['href']}]"
+        return text
+    if node.get("type") == "hardBreak":
+        return "\n"
+    inner = "".join(text_with_links(child) for child in node.get("content") or [])
+    return inner + "\n" if node.get("type") in jg.closure.LINE_NODES else inner
+
+
+t.as_text = text_with_links
+
+
+class World:
+    """The fake, one foreign action before request number `when` about CC-1, and history delay."""
+
+    def __init__(self, action, when, late):
+        self.jira = t.Jira(CC_1=copy.deepcopy(FIXTURE), CC_2=copy.deepcopy(FIXTURE))
+        self.action, self.when, self.late = action, when, late
+        self.armed = False
+        self.seen = 0
+        self.acted_after = None
+        self.moved = False
+        self.hidden = set()
+        self.at_last = None
+        self.puts_at_action = None
+
+    def state(self):
+        return (
+            jg._stored_form(self.jira.tickets["CC-1"]),
+            "EXT-2" if self.moved else "CC-1",
+            "CC-1" in self.jira.closed,
+        )
+
+    def hide(self, whose, before):
+        if self.late in (whose, "both"):
+            self.hidden |= {row["id"] for row in self.jira.history["CC-1"][before:]}
+
+    def act(self):
+        self.puts_at_action = self.jira.writes.count("CC-1")
+        before = len(self.jira.history["CC-1"])
+        if self.action == "edit":
+            self.jira.owner_adds_a_note("CC-1")
+        elif self.action == "link":
+            was = t.as_text(self.jira.tickets["CC-1"])
+            for block in self.jira.tickets["CC-1"]["content"]:
+                spot = next((c for c in block.get("content") or []
+                             if c.get("type") == "text" and not c.get("marks")), None)
+                if spot:
+                    spot["marks"] = [{"type": "link", "attrs": {"href": "https://x.test/y"}}]
+                    break
+            self.jira.changed("CC-1", was=was)
+        elif self.action == "close":
+            self.jira.closed.add("CC-1")
+        elif self.action == "move":
+            self.moved = True
+        self.hide("theirs", before)
+
+    def api(self, method, path, body=None):
+        about = "/issue/CC-1?" in path or "/issue/CC-1/" in path or path == "/issue/CC-1"
+        counted = about and self.armed
+        if counted and self.seen == self.when:
+            self.act()
+        rows = len(self.jira.history["CC-1"])
+        answer = self.jira.api(method, path, body)
+        if method == "PUT" and about:
+            self.hide("ours", rows)
+        if "/changelog?" in path:
+            kept = [row for row in answer["values"] if row["id"] not in self.hidden]
+            answer = {"values": kept, "total": len(kept)}
+        elif method == "GET":
+            answer["key"] = "EXT-2" if about and self.moved else path.split("/")[-1].split("?")[0]
+        if counted:
+            self.seen += 1
+            self.at_last = self.state()
+        return answer
+
+
+def trial(action, when, late):
+    world = World(action, when, late)
+    folder = pathlib.Path(tempfile.mkdtemp()) / "snap"
+    sink = io.StringIO()
+    with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        assert jg.dry_run(folder, world.jira.search, world.api) == 0
+        t.approve(folder)
+        after = json.loads((folder / "CC-1.after.json").read_bytes())
+        world.armed = True
+        code = jg.apply(folder, world.api)
+    if world.puts_at_action is None:  # the action comes after the script's last request
+        assert world.seen <= when, (world.seen, when)
+        world.act()
+    said = sink.getvalue()
+    claimed = "written  CC-1" in said
+    final = json.dumps(world.jira.tickets["CC-1"])
+    broken = []
+    marker = {"edit": "the owner's note", "link": "x.test/y"}.get(action)
+    if claimed and marker and world.puts_at_action == 0 and "CC-1" in world.jira.writes \
+            and marker not in final:
+        broken.append("LOST: another person's change was overwritten and CC-1 called written")
+    if claimed and world.at_last != (jg._stored_form(after), "CC-1", False):
+        broken.append("STALE: called written though at the last request it was not "
+                      "approved + CC-1 + open")
+    return code, claimed, "CC-1" in world.jira.writes, broken, world
+
+
+# how many requests one clean apply makes about CC-1
+clean = trial("none", 99, "none")
+total = clean[4].seen
+print(f"requests about CC-1 in a clean apply: {total}; positions 0..{total} "
+      f"({total} = after the last one)")
+
+results = collections.defaultdict(list)
+cases = 0
+for action in ("edit", "link", "close", "move"):
+    delays = ("none", "theirs", "ours", "both") if action in ("edit", "link") else ("none", "ours")
+    for when in range(total + 1):
+        for late in delays:
+            cases += 1
+            code, claimed, wrote, broken, _ = trial(action, when, late)
+            for what in broken:
+                results[(action, what)].append((when, late))
+            if when <= 2 and wrote:  # before the last read ahead of the write: must be refused
+                results[(action, "WROTE: the change came before the pre-write read, "
+                         "yet the script wrote")].append((when, late))
+print(f"combinations run: {cases}")
+if not results:
+    print("no invariant broken")
+for (action, what), where in sorted(results.items()):
+    by_position = collections.defaultdict(list)
+    for when, late in where:
+        by_position[when].append(late)
+    print(f"\n{action}: {what}")
+    for when, lates in sorted(by_position.items()):
+        print(f"   before request {when}: history late = {lates}")
+
+print("\n== found while tracing the script (not in either review)")
+carrier = copy.deepcopy(FIXTURE)
+jira = t.Jira(CC_1=carrier)
+
+
+def as_string(method, path, body=None):
+    answer = jira.api(method, path, body)
+    if path.endswith("fields=description,status"):
+        answer["fields"]["description"] = t.as_text(carrier)
+    return answer
+
+
+sink = io.StringIO()
+with contextlib.redirect_stdout(sink):
+    code = jg.dry_run(pathlib.Path(tempfile.mkdtemp()) / "s", jira.search, as_string)
+print(f"1. a ticket that carries the wording, its description arriving as a string: "
+      f"dry run exit {code}; {sink.getvalue().strip()!r}")
+
+for label, pages in (
+    ("second page has no 'issues' list",
+     [{"issues": [{"key": "CC-1"}], "nextPageToken": "a"}, {"errorMessages": ["x"]}]),
+    ("a page token repeats",
+     [{"issues": [{"key": "CC-1"}], "nextPageToken": "a"},
+      {"issues": [{"key": "CC-2"}], "nextPageToken": "a"},
+      {"issues": [{"key": "CC-3"}]}]),
+):
+    left = list(pages)
+    jira_fetch._api = lambda method, path, body=None, left=left: left.pop(0)
+    got = [i["key"] for i in jira_fetch._search("x", fields="status")]
+    print(f"2. search helper, {label}: returns {got} with no error; "
+          f"{len(left)} page(s) never asked for")

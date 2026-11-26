@@ -1,0 +1,229 @@
+Mutation check at b8f66f0bfbae07cd436df507c6faf755eb206364
+Each revert applied alone; the script restored from its own bytes. Stand-in Jira only; no network.
+
+BASELINE (nothing reverted) 411 passed, 1 warning in 6.48s
+REVERTED: only the top of a description is checked
+  GOOD
+        2 failed, 409 passed, 1 warning in 5.49s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: a content that is not a list passes
+  BAD (exit 0)
+        411 passed, 1 warning in 5.83s
+          
+REVERTED: text that cannot be stored is not tried while judging
+  BAD (exit 0)
+        411 passed, 1 warning in 5.82s
+          
+REVERTED: tickets are judged together, outside the per-ticket handler
+  GOOD
+        2 failed, 409 passed, 1 warning in 7.82s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: an unjudged ticket is counted as read
+  GOOD
+        30 failed, 381 passed, 1 warning in 10.26s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+REVERTED: NO_ANSWER without OSError
+  GOOD
+        19 failed, 392 passed, 1 warning in 9.27s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without HTTPException
+  GOOD
+        7 failed, 404 passed, 1 warning in 7.44s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without SystemExit
+  GOOD
+        8 failed, 403 passed, 1 warning in 8.03s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: a dry run refuses a ticket with no answer and goes on
+  GOOD
+        6 failed, 405 passed, 1 warning in 7.98s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+REVERTED: the dry run's message does not name the ticket
+  GOOD
+        5 failed, 406 passed, 1 warning in 7.91s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+REVERTED: a search with no answer is not caught
+  GOOD
+        5 failed, 406 passed, 1 warning in 6.87s
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+REVERTED: the reads before a write do not catch no answer
+  GOOD
+        15 failed, 396 passed, 1 warning in 7.53s
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: after a write no answer is not caught
+  GOOD
+        8 failed, 403 passed, 1 warning in 7.79s
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: no answer is described as an unusable reply
+  GOOD
+        20 failed, 391 passed, 1 warning in 7.47s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: a search entry without a key is not caught
+  GOOD
+        3 failed, 408 passed, 1 warning in 7.17s
+          test_a_search_entry_without_a_key_stops_the_dry_run_before_it_changes_anything
+REVERTED: a key listed twice is read twice
+  GOOD
+        1 failed, 410 passed, 1 warning in 7.90s
+          test_a_ticket_the_search_lists_twice_is_read_and_counted_once
+REVERTED: a pointer is refused only while the contract is still there
+  GOOD
+        3 failed, 408 passed, 1 warning in 7.48s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a pointer alone does not count as carrying the wording
+  GOOD
+        2 failed, 409 passed, 1 warning in 6.64s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a UTF-16 approval is read as UTF-8
+  GOOD
+        2 failed, 409 passed, 1 warning in 7.68s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: only little-endian UTF-16 is recognised
+  GOOD
+        1 failed, 410 passed, 1 warning in 7.29s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: an approval that is not text does not name its file
+  GOOD
+        1 failed, 410 passed, 1 warning in 6.69s
+          test_an_approval_that_is_not_text_writes_nothing_and_says_which_file
+REVERTED: the default folder is a fixed name
+  GOOD
+        1 failed, 410 passed, 1 warning in 6.52s
+          test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository
+REVERTED: attrs are taken to be an object
+  GOOD
+        8 failed, 403 passed, 1 warning in 8.25s
+          test_attributes_that_are_not_an_object_never_crash_an_apply
+TOTAL: 23 reverts, 21 GOOD, 2 BAD
+RESTORED 411 passed, 1 warning in 7.40s
+exit 1
+
+================ second run, after the two survivors' cases were added ================
+Mutation check at 12c00ca9399a82a5ea64155b7f5262d008100fb2
+
+BASELINE (nothing reverted) 417 passed, 1 warning in 6.17s
+REVERTED: only the top of a description is checked
+  GOOD
+        6 failed, 411 passed, 1 warning in 7.07s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: a content that is not a list passes
+  GOOD
+        4 failed, 413 passed, 1 warning in 7.12s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: text that cannot be stored is not tried while judging
+  GOOD
+        2 failed, 415 passed, 1 warning in 6.88s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: tickets are judged together, outside the per-ticket handler
+  GOOD
+        2 failed, 415 passed, 1 warning in 6.54s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: an unjudged ticket is counted as read
+  GOOD
+        36 failed, 381 passed, 1 warning in 8.88s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+REVERTED: NO_ANSWER without OSError
+  GOOD
+        19 failed, 398 passed, 1 warning in 8.68s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without HTTPException
+  GOOD
+        7 failed, 410 passed, 1 warning in 8.20s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without SystemExit
+  GOOD
+        8 failed, 409 passed, 1 warning in 8.45s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: a dry run refuses a ticket with no answer and goes on
+  GOOD
+        6 failed, 411 passed, 1 warning in 7.10s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+REVERTED: the dry run's message does not name the ticket
+  GOOD
+        5 failed, 412 passed, 1 warning in 7.24s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+REVERTED: a search with no answer is not caught
+  GOOD
+        5 failed, 412 passed, 1 warning in 7.95s
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+REVERTED: the reads before a write do not catch no answer
+  GOOD
+        15 failed, 402 passed, 1 warning in 7.77s
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: after a write no answer is not caught
+  GOOD
+        8 failed, 409 passed, 1 warning in 8.32s
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: no answer is described as an unusable reply
+  GOOD
+        20 failed, 397 passed, 1 warning in 7.65s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: a search entry without a key is not caught
+  GOOD
+        3 failed, 414 passed, 1 warning in 6.96s
+          test_a_search_entry_without_a_key_stops_the_dry_run_before_it_changes_anything
+REVERTED: a key listed twice is read twice
+  GOOD
+        1 failed, 416 passed, 1 warning in 7.22s
+          test_a_ticket_the_search_lists_twice_is_read_and_counted_once
+REVERTED: a pointer is refused only while the contract is still there
+  GOOD
+        3 failed, 414 passed, 1 warning in 8.39s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a pointer alone does not count as carrying the wording
+  GOOD
+        2 failed, 415 passed, 1 warning in 6.99s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a UTF-16 approval is read as UTF-8
+  GOOD
+        2 failed, 415 passed, 1 warning in 6.83s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: only little-endian UTF-16 is recognised
+  GOOD
+        1 failed, 416 passed, 1 warning in 6.51s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: an approval that is not text does not name its file
+  GOOD
+        1 failed, 416 passed, 1 warning in 7.14s
+          test_an_approval_that_is_not_text_writes_nothing_and_says_which_file
+REVERTED: the default folder is a fixed name
+  GOOD
+        1 failed, 416 passed, 1 warning in 6.71s
+          test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository
+REVERTED: attrs are taken to be an object
+  GOOD
+        8 failed, 409 passed, 1 warning in 7.58s
+          test_attributes_that_are_not_an_object_never_crash_an_apply
+TOTAL: 23 reverts, 23 GOOD, 0 BAD
+RESTORED 417 passed, 1 warning in 7.77s
+exit 0

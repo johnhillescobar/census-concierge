@@ -1,0 +1,109 @@
+Live against Jira at HEAD 56fae437b4cdb5c4536838ffe72c0214f78c35c4: search and GET only. No description was written.
+
+== Does the history hold each description change as the text API v2 returns?
+(a separate script with its own readers; issue keys are every CC ticket)
+the 20 in the snapshot set: 20 tickets, 120 description changes
+  sides with no text (null): 0; longest text: 23400 characters
+  one change's new text == next change's old text: 100 of 100
+  latest change's new text == current v2 description: 20 of 20
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 1344, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1338, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1384, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1333, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1093, in _send_output
+    self.send(msg)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1037, in send
+    self.connect()
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1472, in connect
+    super().connect()
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1003, in connect
+    self.sock = self._create_connection(
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 850, in create_connection
+    sock.connect(sa)
+TimeoutError: [WinError 10060] A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\history_text.py", line 61, in <module>
+    current = get(2, f"/issue/{key}?fields=description")["fields"]["description"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\history_text.py", line 21, in get
+    with urllib.request.urlopen(request, timeout=30) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 1392, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 1347, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [WinError 10060] A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond>
+exit 1
+
+== The fixed script's own readers, and its dry run compared with the committed snapshots
+20 tickets, 120 description changes read with the script's own history reader
+latest change's new text == the script's v2 text read: 20 of 20
+live description == committed before snapshot: 20 of 20; open: 20 of 20
+
+$ dry run with the fixed script, into the folder named on the command line
+change   CC-3  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-39  replaces: metric contract, AC/TC clearance
+change   CC-42  replaces: metric contract, AC/TC clearance
+change   CC-43  replaces: metric contract, AC/TC clearance
+change   CC-77  replaces: AC/TC clearance
+change   CC-82  replaces: metric contract, AC/TC clearance
+change   CC-104  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-105  replaces: metric contract, AC/TC clearance
+change   CC-106  replaces: metric contract, AC/TC clearance
+change   CC-107  replaces: metric contract, AC/TC clearance
+change   CC-108  replaces: metric contract, AC/TC clearance
+change   CC-115  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-118  replaces: metric contract, AC/TC clearance
+change   CC-119  replaces: metric contract, AC/TC clearance
+change   CC-122  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-129  replaces: metric contract, AC/TC clearance
+change   CC-130  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-131  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-132  replaces: metric contract, audit gates
+change   CC-136  replaces: audit gates
+54 open ticket(s) read: 20 ticket(s) left to change, 0 refused
+snapshots in C:\Users\johnh\AppData\Local\Temp\tmp22hal1vl\snapshots
+to approve, write this into C:\Users\johnh\AppData\Local\Temp\tmp22hal1vl\snapshots\APPROVED: b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05
+exit 0
+files: 81 new, 81 committed; byte-identical: True
+requests besides the search: 114, all GET
+exit 0
+
+Not verified, because it needs a write: that the history entry for a v3 write of this
+script holds exactly the v2 text, and that it is listed at once. If either is not so,
+the run stops after its first write and leaves FAILED.
+
+== Rerun of the first script: its run above ended in a connection timeout (WinError 10060)
+the 20 in the snapshot set: 20 tickets, 120 description changes
+  sides with no text (null): 0; longest text: 23400 characters
+  one change's new text == next change's old text: 100 of 100
+  latest change's new text == current v2 description: 20 of 20
+every other CC ticket: 129 tickets, 138 description changes
+  sides with no text (null): 0; longest text: 18261 characters
+  one change's new text == next change's old text: 72 of 72
+  latest change's new text == current v2 description: 66 of 66
+exit 0

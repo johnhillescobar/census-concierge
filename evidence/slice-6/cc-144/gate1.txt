@@ -1,0 +1,328 @@
+HEAD 9fff1e438f595078d227db64eb985d7422383a0b  base 0b69842  branch cc-144/gate-line
+Uncommitted during this run: this file, and test changes in api/tests/test_jira_gate_line.py and api/tests/test_closure_gate.py. scripts/ is as committed.
+Every pytest run: fake Jira only, ATLASSIAN_* removed, no .env in the worktree, and a plugin that refuses non-loopback sockets and urlopen.
+A check is BAD if no case failed, a case errored, the network was reached for, or the mutation broke a name or import.
+This is the second run. The first gave the same GOOD and BAD counts but listed 7 cases as never failed because its parser dropped test ids that contain spaces; the parser is the only accounting change.
+
+BASELINE (nothing reverted) 198 passed, 1 warning in 104.15s (0:01:44)
+
+=== BEFORE: against the test files as committed at the tested head ===
+
+REVERTED: a reworded AC/TC clearance paragraph is not recognised  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.27s
+REVERTED: the query takes Done tickets too  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.41s
+REVERTED: the dry run asks Jira for the wrong field  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.50s
+REVERTED: --dry-run and --apply may be given together  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.23s
+REVERTED: only the after.json of each ticket is hash-checked  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.27s
+REVERTED: the files the owner reads (.md) are not hash-checked  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.24s
+REVERTED: changed-since-snapshot compares text only, so a formatting edit is overwritten  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.35s
+REVERTED: the read-back demands the stored document be identical  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.24s
+REVERTED: already-written is recognised only by an identical document  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.37s
+REVERTED: the real hash of the metric contract is wrong  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.28s
+REVERTED: the real hash of the CC-104 metric contract variant is wrong  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.37s
+REVERTED: the real hash of the AC/TC clearance paragraph is wrong  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.31s
+REVERTED: the real hash of the CC-104 clearance variant is wrong  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.24s
+REVERTED: the real hash of the audit-gates paragraph is wrong  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.24s
+REVERTED: the line to be written differs from the one in the snapshots  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.26s
+REVERTED: snapshot key order follows whatever Jira sends  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.23s
+REVERTED: readable files run the blocks together  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.26s
+REVERTED: the printed approval hash is not the manifest's  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.24s
+REVERTED: the manifest records no IDs  [scripts/jira_gate_line.py]
+  BAD   survived the whole file
+        31 passed, 1 warning in 0.32s
+REVERTED: a row status outside the five is accepted  [scripts/closure.py]
+  BAD   test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants
+        1 passed, 1 warning in 0.25s
+BEFORE total: 20 of 20 survived
+
+=== GATE: one behaviour reverted at a time, each named test run on its own ===
+
+REVERTED: the gate line goes at the end, not where the first pasted paragraph stood  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.42s
+REVERTED: every pasted paragraph gets a gate line of its own  [scripts/jira_gate_line.py]
+  GOOD  test_the_pasted_paragraphs_become_one_line_where_the_first_stood  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: a paragraph is compared with its spacing as written  [scripts/jira_gate_line.py]
+  GOOD  test_a_paragraph_is_known_by_its_text_not_its_spacing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.42s
+REVERTED: a ticket without the wording is listed as a change  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+REVERTED: a ticket that carries nothing gets the gate line too  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: a ticket with no description is not skipped  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_without_the_wording_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+REVERTED: a gate line already there is not looked for  [scripts/jira_gate_line.py]
+  GOOD  test_a_gate_line_already_there_is_not_added_twice  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: the stale pointer line is left as it was  [scripts/jira_gate_line.py]
+  GOOD  test_the_line_pointing_at_the_removed_contract_is_shortened  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.36s
+REVERTED: the pointer is shortened even when the contract stays  [scripts/jira_gate_line.py]
+  GOOD  test_the_pointer_stays_while_the_contract_it_points_at_does  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.26s
+REVERTED: IDs are not compared before an edit  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.37s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.36s
+REVERTED: IDs are compared as a set, so a lost repeat is not noticed  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 0.33s
+REVERTED: only a lost ID refuses; an added one passes  [scripts/jira_gate_line.py]
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: apply does not re-check the IDs before writing  [scripts/jira_gate_line.py]
+  GOOD  test_an_approved_edit_that_would_change_the_ids_is_still_not_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+REVERTED: a reworded metric contract is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 3 case(s) failed)
+        1 failed, 2 passed, 1 warning in 0.37s
+REVERTED: a reworded AC/TC clearance paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 3 case(s) failed)
+        1 failed, 2 passed, 1 warning in 0.36s
+REVERTED: a reworded audit-gates paragraph is not recognised  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (1 of 3 case(s) failed)
+        1 failed, 2 passed, 1 warning in 0.30s
+REVERTED: a ticket whose only copy is reworded is skipped silently  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.36s
+REVERTED: a refused ticket is snapshotted anyway  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (3 of 3 case(s) failed)
+        3 failed, 1 warning in 0.38s
+  GOOD  test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.30s
+  GOOD  test_an_edit_that_would_add_an_id_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+REVERTED: a dry run exits 0 beside a refusal  [scripts/jira_gate_line.py]
+  GOOD  test_a_reworded_copy_refuses_the_whole_ticket  (3 of 3 case(s) failed)
+        3 failed, 1 warning in 0.42s
+  GOOD  test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+REVERTED: before.md is rendered from the edited description  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_only_reads_and_writes_both_sides  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+REVERTED: readable files keep trailing spaces  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+REVERTED: readable files lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: readable files keep trailing blank lines  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: JSON snapshots lose the final newline  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: snapshots are written with CRLF  [scripts/jira_gate_line.py]
+  GOOD  test_snapshot_files_survive_the_commit_hooks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: readable files run the blocks together  [scripts/jira_gate_line.py]
+  GOOD  test_the_readable_files_put_a_blank_line_between_blocks  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: snapshot key order follows whatever Jira sends  [scripts/jira_gate_line.py]
+  GOOD  test_the_same_tickets_give_the_same_manifest_in_any_key_order  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: an approved snapshot directory is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_an_approved_dir_is_not_overwritten_by_a_later_dry_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.32s
+REVERTED: files of a ticket that dropped out stay behind  [scripts/jira_gate_line.py]
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+REVERTED: new snapshots clear every file in the directory, not only their own  [scripts/jira_gate_line.py]
+  GOOD  test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: apply never sends the write  [scripts/jira_gate_line.py]
+  GOOD  test_approved_snapshots_are_written_and_every_id_is_kept  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: an APPROVED file with a byte order mark is not read  [scripts/jira_gate_line.py]
+  GOOD  test_a_byte_order_mark_does_not_hide_an_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: no approval is asked for at all  [scripts/jira_gate_line.py]
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.37s
+REVERTED: the approval need not name these snapshots  [scripts/jira_gate_line.py]
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.59s
+  GOOD  test_new_snapshots_void_an_earlier_approval  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: --apply without --approved is not refused at the command line  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: an unapproved directory exits 0  [scripts/jira_gate_line.py]
+  GOOD  test_apply_without_a_directory_exits_non_zero_and_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+  GOOD  test_without_an_approval_nothing_is_read_or_written  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.36s
+REVERTED: approved file hashes are not checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.39s
+REVERTED: only the after.json of each ticket is hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (3 of 4 case(s) failed)
+        3 failed, 1 passed, 1 warning in 0.30s
+REVERTED: the files the owner reads (.md) are not hash-checked  [scripts/jira_gate_line.py]
+  GOOD  test_a_snapshot_changed_after_approval_writes_nothing  (2 of 4 case(s) failed)
+        2 failed, 2 passed, 1 warning in 0.33s
+REVERTED: an approved after side need not be what the rule produces  [scripts/jira_gate_line.py]
+  GOOD  test_only_the_rule_s_own_edit_can_be_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+REVERTED: a description edited since the snapshot is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: the first refused ticket ends the run  [scripts/jira_gate_line.py]
+  GOOD  test_a_ticket_edited_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: changed-since-snapshot compares text only, so a formatting edit is overwritten  [scripts/jira_gate_line.py]
+  GOOD  test_a_formatting_only_edit_since_the_snapshot_is_left_alone  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: what Jira stored is not read back  [scripts/jira_gate_line.py]
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.35s
+REVERTED: the read-back compares IDs and not the text  [scripts/jira_gate_line.py]
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 0.32s
+REVERTED: the run goes on after a write Jira did not keep  [scripts/jira_gate_line.py]
+  GOOD  test_a_write_jira_did_not_keep_stops_the_run  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.30s
+REVERTED: the read-back demands the stored document be identical  [scripts/jira_gate_line.py]
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: already-written is recognised only by an identical document  [scripts/jira_gate_line.py]
+  GOOD  test_text_jira_stores_with_attributes_of_its_own_counts_as_written  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+REVERTED: an already-written ticket is not recognised on a second apply  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+REVERTED: a second dry run lists tickets with nothing left to change  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: a dry run with nothing to change still writes a snapshot set  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: an approved directory fails a dry run that has nothing to write  [scripts/jira_gate_line.py]
+  GOOD  test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+REVERTED: the real hash of the metric contract is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: the real hash of the CC-104 metric contract variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: the real hash of the AC/TC clearance paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.32s
+REVERTED: the real hash of the CC-104 clearance variant is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+REVERTED: the real hash of the audit-gates paragraph is wrong  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+REVERTED: the line to be written differs from the one in the snapshots  [scripts/jira_gate_line.py]
+  GOOD  test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+REVERTED: the query takes Done tickets too  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+REVERTED: the dry run asks Jira for the wrong field  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.41s
+REVERTED: the dry-run command touches the writing client  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.31s
+REVERTED: --out is ignored  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.27s
+REVERTED: the manifest records no IDs  [scripts/jira_gate_line.py]
+  GOOD  test_the_dry_run_command_asks_for_open_tickets_and_only_reads  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+REVERTED: the printed approval hash is not the manifest's  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+REVERTED: the apply command is given the read client  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+REVERTED: credentials are not loaded from .env  [scripts/jira_gate_line.py]
+  GOOD  test_the_apply_command_writes_what_the_printed_hash_approves  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+REVERTED: --dry-run and --apply may be given together  [scripts/jira_gate_line.py]
+  GOOD  test_a_dry_run_and_an_apply_asked_at_once_write_nothing  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+REVERTED: a command is asked of PASS rows only (the rule before this change)  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (6 of 8 case(s) failed)
+        6 failed, 2 passed, 1 warning in 1.87s
+REVERTED: a PASS row may omit its command  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (2 of 8 case(s) failed)
+        2 failed, 6 passed, 1 warning in 2.33s
+REVERTED: the command is asked only when closing, not by the form check  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (4 of 8 case(s) failed)
+        4 failed, 4 passed, 1 warning in 1.99s
+REVERTED: a command of only spaces counts as named  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 2.00s
+REVERTED: a row that names its command is still reported unnamed  [scripts/closure.py]
+  GOOD  test_a_row_that_names_no_command_is_rejected  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 2.03s
+REVERTED: an amended row is asked for a command too  [scripts/closure.py]
+  GOOD  test_a_row_the_owner_removed_from_scope_needs_no_command  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.82s
+REVERTED: a row status outside the five is accepted  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.39s
+REVERTED: an unfinished row fails the invariants' form check  [scripts/closure.py]
+  GOOD  test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+=== Mutants with no observable effect (not counted above) ===
+
+REVERTED: the read-back no longer compares IDs  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; criterion_ids is computed from _lines, and after has the IDs of before, so equal text already means equal IDs
+        43 passed, 1 warning in 0.34s
+REVERTED: the APPROVED existence check is removed  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; reading the missing file raises OSError, which apply turns into the same exit 2 with nothing written; only the message differs
+        43 passed, 1 warning in 0.32s
+REVERTED: content is assigned even when nothing was replaced  [scripts/jira_gate_line.py]
+  SURVIVED  whole file; differs only for a description with no content key, which carries nothing and is never listed or written
+        43 passed, 1 warning in 0.35s
+
+AFTER (everything restored) 198 passed, 1 warning in 97.98s (0:01:37)
+HEAD at end 9fff1e438f595078d227db64eb985d7422383a0b; scripts/, docs/ and snapshots/ have no changes.
+Cases of new or changed tests never failed by any mutation: none (of 53)
+TOTAL: 75 mutations, 81 mutation/test checks, 81 GOOD, 0 BAD; 53 cases of new or changed tests, 0 never failed

@@ -1,0 +1,375 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nEstablish a frozen, precise multi-turn instrument and reference.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n100% scorer/oracle mutation tests and complete baseline coverage for every required case; no product-gain claim. Version the re-anchor without erasing A/L. Fixture expectations are frozen before behavior work; preserve six-case minimum categories and independent family cohorts.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-131 and existing geography/CC-120 prerequisites; feeds CC-43. CC-133 owns general measurement plumbing.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nCurrent owner alignment (2026-11-08)\nPrepare independent expected semantic interpretations for multi-turn cases, not only executed plan equality. Include prior intent, scope/coverage, time, cells and operation preservation. Coordinate with CC-133 thresholds; keep existing six-per-category minimum suites and 80% equivalence checks as additional regressions, not the near-perfect target.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Context",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Follow-up quality must be measured over repeated runs, not assumed from one good example. This ticket builds the measurement and records a baseline BEFORE any resolution is built, so CC-43, CC-107 and CC-108 have something to beat. It runs first among the slice 6 stories, after the geography bugs (CC-103/104/105/114), so the baseline is not dominated by known wrong-level answers.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance Criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `evals/multiturn.toml` holds at least 18 cases of 2-3 turns each: 6 geography swaps, 6 variable additions, 6 with an unresolvable reference (at 3 repeats one trial is 11 points on 9 trials, too coarse to compare). Each case names the expected final `table_id`, `geographies` (GEOIDs), `years` and geography level.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] At least 2 of the 6 swap cases start from a turn that names a non-place level (county or tract) and expect the final plan at that same level.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Every case's expected values pass `scripts/verify_golden.py` against real metadata (no invented table IDs or GEOIDs).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `scripts/run_demo.py` scores them with `--repeat 3` and reports `multiturn_answered_rate` separately from the single-turn rate; a case passes when the final plan is right in at least 2 of 3 repeats, and the trial-level rate is reported too. The single-turn rate is unchanged by this ticket.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A case counts as passed only when the final plan matches the expected table, GEOIDs, years and geography level (the `for=` level of every leg, same check as the CC-114 scorer), not merely when the HTTP call succeeded.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The baseline (no resolution built) is recorded in `evidence/slice-6/` with the run count, per-case results, p95, and the single-turn long_tail answered_rate measured in the same run.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A floor at baseline minus 0.05 is proposed in the PR for the owner to commit; the agent does not edit `budgets.toml`.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A deliberately broken resolver (always returns the first turn's plan) scores below the baseline on the swap cases, proving the cases can fail (mutation check).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make check` passes with `budgets.toml` unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Not in this ticket",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Any follow-up resolution (CC-43, CC-107, CC-108, CC-39).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Related",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Epic: CC-3",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Blocks: CC-43, CC-107, CC-108, CC-39",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Generalization criteria (added 2026-10-01, see CC-3 AC6-AC12)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- The set is written by a different agent session than the one implementing CC-43, CC-107, CC-108 and CC-39, and frozen by hash before CC-43 starts. The hash is recorded in `evidence/slice-6/`; `check_invariants.py` fails on a change without a reason line.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- At least 18 regression cases (visible) plus at least 18 sealed cases with the same category mix. At least 2 per category are three-turn (6 three-turn cases minimum), because the epic is done on a three-turn refinement.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Consistency oracle: at least 30 generated cases per swap and addition category, from real metadata checked by `verify_golden.py`. A case passes when the follow-up's final plan equals the plan of the equivalent standalone question run in the same session (table, GEOIDs, years, level).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Mutation check, replacing the \"broken resolver scores below baseline\" item (the baseline is near 0, so nothing can score below it): a fake that returns turn 1's plan scores 0% on swaps, and a fake that returns the expected plan scores 100%.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Unresolvable cases carry a written pass rule in the case file: at baseline, no final plan that silently picks one candidate; once CC-39 lands, warning `unresolved_reference` with candidates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Runs through the conversation routes, since `/ask` has no prior turn. `make demo` then needs `DATABASE_URL`; this is documented in the PR and the Makefile target.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Addition cases expect one leg per table (CC-108 decided 2026-10-01: separate legs, no join).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Reports the regression rate, sealed rate, gap, and response-contract counts (URL, `M`, GEO_ID, universe, alternatives) per turn.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: one geography-swap, one variable-addition, and one unresolved-reference case each score correctly across three repeats.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: case-level majority scoring treats two correct trials out of three as pass and one out of three as fail.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: metadata-generated tables and geographies absent from prompts and implementation literals are included without exposing sealed content.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: the single-turn demo scorer and its long_tail rate are unchanged by adding the multi-turn runner.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: a case with an invalid table, GEOID, year, or level is rejected by verify_golden before any scored run.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Order amendment (2026-10-22)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- This story does not run first in slice 6. It begins after the geography chain recorded on CC-3 and after CC-120 has recorded the URL-breadth baseline. Existing blocker links are authoritative.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- It still records the multi-turn baseline before CC-43, CC-107, CC-108, or CC-39 implements reference resolution.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

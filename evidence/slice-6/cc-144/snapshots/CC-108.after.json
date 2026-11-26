@@ -1,0 +1,303 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nAdd a grounded measure as a separate result leg.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% case AND trial success on independent addition families, plus existing >=4/6 six-case floor and >=80% equivalence floor. Original leg retained; no universe/URL loss or silent join. Preserve swap and single-turn rates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-43; feeds CC-39.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nCurrent owner alignment (2026-11-08)\nApply a model-composed measure addition to the shared intent, keeping separate table legs, source URLs and universes. Use CC-130 for semantic cell discovery. No add phrase routing or silent join.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Context",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Split from CC-43. A follow-up that adds a measure keeps the place and asks for another table. Built on CC-43 and measured with CC-42.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Owner decision (2026-10-01)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Separate result legs, no join: each table keeps its own full Census URL, MOE and universe. A joined view is phase 2. The criteria below are final.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance Criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] After \"population of Chicago\", the follow-up \"add median income\" returns the prior table and the new table for the same GEOID, each with its own full Census URL, MOE and universe.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The new table is fetched at the same geography level as the prior one. If it is not published at that level, the response is a warning with the nearest available level, never a silent change of level.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The universe difference between the two tables is visible in the response (the two `universe` values are both present). The response keeps the GEOID and alternative tables for the new measure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The prior table's result is unchanged and still restorable from the stored turn.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] No regex or keyword table detects \"add\" phrasing; the model emits the new plan through the existing tools and code only validates it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Case-level rate over the 6 variable-addition cases in the CC-42 set at `--repeat 3` is above the CC-42 baseline by more than one case's worth at case level (a case passes when the final plan is right in at least 2 of 3 repeats); the number is quoted in the PR next to the baseline.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make demo --repeat 3` single-turn long_tail answered_rate, at the same `--repeat` and the geography-level scorer, is no more than 3 points below the 0.742 baseline (>= 0.712) and no more than 3 points below this ticket's own pre-run; both runs are reported. Same-code runs vary by about 2 points (0.725 vs 0.742), so one run is not a verdict.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make check` passes with `budgets.toml` unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Not in this ticket",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Geography swaps (CC-107), unresolvable references (CC-39), any join or computed column (phase 2).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Related",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Epic: CC-3",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Depends on: CC-42, CC-43",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Generalization criteria (added 2026-10-01, see CC-3 AC6-AC11)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Replaces \"above the CC-42 baseline by more than one case\": at least 4 of 6 regression addition cases pass (a case passes when right in at least 2 of 3 repeats), and the sealed addition rate is within 10 points of it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- At least 80% agreement with the standalone-equivalent plan on generated measure pairs that appear in no dev case (owner accepted 2026-10-01).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: a variable-addition follow-up preserves the original result leg and adds the requested table as a separate leg with its own URL, MOE, and universe.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: an added measure with a different universe remains separate and is not joined or described as directly comparable.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: a table absent from visible examples is found through retrieval and selector rather than a phrase rule.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: the original leg, chart, table, and export remain intact when the additional leg is added.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: an unavailable or incompatible added measure is warned and never fabricated or silently joined.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

@@ -1,0 +1,96 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nResolve all required parents per vintage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% exact hierarchy/parent-chain success, including all requested legs; missing-parent controls 100%. HTTP success with incomplete parent coverage fails. Preserve CC-104/106 cohorts.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-106; feeds CC-105, CC-115 and CC-131.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nCompose complete structured parent chains from published geography metadata",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Scope and ownership\nResolve all required parent references per dataset/vintage, retaining multiple hierarchy rows for a repeated token. No prose parsing or generated-English adapter.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Acceptance criteria\nAC1. Model-supplied parent references resolve through NAME/code metadata into complete ordered chains.\nAC2. Respect required/optional/wildcard parents for every requested vintage; do not assume first-vintage legality.\nAC3. Missing or ambiguous parents return structured errors and grounded candidates for bounded model repair.\nAC4. Retain all requested legs and provenance; integrate with plan-strip overrides and CC-114 checks.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Test cases\nTC1. County subdivision with state and county.\nTC2. Metro division under its published parent chain.\nTC3. Unseen three-parent chain.\nTC4. Missing or nonexistent parent and vintage-specific hierarchy change.\nTC5. Existing multi-parent wildcard/comparison paths retain coverage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependencies\nCC-104 and CC-106; feeds CC-105 and CC-115.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

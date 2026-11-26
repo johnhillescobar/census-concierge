@@ -1,0 +1,180 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nCertify final cumulative semantic release readiness.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\nAll earned per-story floors and AC/TC gates pass; >=98% joint interpretation overall and >=95% per category on regression AND sealed; >=95% overall confidence lower bound, >=200 independent families per suite and >=30/category. Both case and trial point targets apply. Supported determinate coverage >=95%, determinate accuracy >=98%. Report end-to-end semantic success separately; zero silent substitutions/fabrications in finite acceptance suite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nFinal certification only, after CC-133, CC-39, CC-122 and CC-115 (transitively all scoped capability work). Early instrumentation moved to CC-133 to remove circular readiness.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nFinal semantic release certification; instrument and AC/TC gate implementation moved to CC-133.\nAC1. Satisfy the final metrics below on frozen regression and owner-held sealed suites, retaining the original sample/confidence requirements.\nAC2. Verify every capability story's AC/TC evidence, inherited floors, post-merge results and the instrument's mutation checks. No silent substitution, invented data or denominator changes.\nAC3. Report understanding, deterministic execution and actual end-to-end semantic answer rates separately. Meet the existing response, latency, budget and sealed-gap gates. No favorable average can hide a failing category.\nTC1. A single missing prior gate or failed category prevents certification.\nTC2. Wrong cells or coverage fail despite HTTP 200/right table.\nTC3. Independent-family confidence and coverage requirements cannot be replaced by model confidence or refusal.\nTC4. Missing sealed sample/interval or post-merge evidence is unverified, not PASS.\nRetain the model-owned-intent contract and mandatory AC/TC clearance already applied to CC-3. No new runtime implementation belongs in this certification story.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Interpretation accuracy, primary-answer correctness and recovery via alternatives are distinct outcomes. Certification must not infer one from another or let aggregate preference conceal factual errors.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. Publish separate metrics for joint interpretation, primary end-to-end semantic answer correctness, raw retrieval@10, correct-alternative offered rate, conditional alternative recovery and overall assisted-answer success. Define each numerator/denominator before results. Existing 98% interpretation targets are not relabeled as 98% final-answer success. Preserve all existing absolute quality floors and B/P/A/L non-regression gates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Freeze a supported recoverable cohort whose correct permissible alternatives are independently labeled. Conditional recovery is successful correct-answer selections divided by all planned selections of a correct offered alternative after a failed primary answer; failed requests/timeouts stay in the denominator. Also report failures where no correct alternative was offered. Assisted success requires a correct primary answer or an actually executed correct alternative, not table presence or URL validity alone. Report cases/trials and family-clustered intervals separately; zero eligible cases means not applicable with counts, not 100%.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Before evaluating implementation, freeze numerical acceptance targets and sampling/stop rules for the new alternative and claim metrics, with an explicit owner-approved metric amendment. At least 30 independent families for owned stochastic cohorts, repeat-3 initially and all deterministic fixtures passing; retain stronger final-suite requirements. Until those targets and sufficient evidence exist, the new criteria are unverified. No arbitrary target is inferred from retrieval@10 or invented after results.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC4. Certification includes CC-115 alternative-selection semantics, CC-130 candidate validity and CC-122/131 qualitative-claim grounding. Report material unsupported-claim rates and answer coverage; zero silent substitution/fabrication remains required in the finite acceptance suite. A model judge is supplemental and cannot override factual or metadata failures.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. Correct interpretation with wrong executed cells or unsupported prose is not a correct primary answer; a 98% interpretation score cannot satisfy the separate answer metric.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Wrong primary/correct raw top-ten table/not offered yields no recovery. Wrong primary/correct offered alternative/failed execution also yields no recovery. Correct executed alternative yields assisted success while the primary remains a failure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. No eligible recovery cases, timed-out selections and repeated paraphrases preserve honest denominators and uncertainty. Easy cases cannot replace missing independent families or category coverage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC4. Missing frozen thresholds, unsupported material claims, stale evidence or failed alternative semantics prevents certification even when HTTP validity and judge preference are high.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

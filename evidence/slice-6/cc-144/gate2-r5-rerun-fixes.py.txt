@@ -1,0 +1,106 @@
+"""Revert each behaviour of the fix for the cold re-run, one at a time.
+
+Run from the worktree root. The script is restored from the bytes read before its mutation.
+"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+SCRIPT = Path("scripts/jira_gate_line.py")
+TESTS = Path("api/tests/test_jira_gate_line.py")
+
+MUTATIONS = [
+    ("too deep a reply is not among the unusable ones", [(
+        "UNUSABLE = (ValueError, KeyError, TypeError, AttributeError, RecursionError)\n",
+        "UNUSABLE = (ValueError, KeyError, TypeError, AttributeError)\n",
+    )]),
+    ("what is held after a write is compared outside the handler", [(
+        "        held = _stored_form(stored) == _stored_form(after)\n", "",
+    ), (
+        "    if not held:\n", "    if _stored_form(stored) != _stored_form(after):\n",
+    )]),
+    ("the done check before a write is outside the handler", [(
+        "            done = _stored_form(live) == _stored_form(after)\n", "",
+    ), (
+        "        if done:\n", "        if _stored_form(live) == _stored_form(after):\n",
+    )]),
+    ("a dry run takes too deep a manifest for readable", [(
+        "    except UNUSABLE as exc:\n        print(f\"nothing removed",
+        "    except (ValueError, KeyError, TypeError, AttributeError) as exc:\n"
+        "        print(f\"nothing removed",
+    )]),
+    ("an apply takes too deep a manifest for readable", [(
+        "    except (*UNUSABLE, OSError) as exc:\n",
+        "    except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:\n",
+    )]),
+    ("a failed request is called no answer", [(
+        '        return f"the request to Jira failed (', '        return f"no answer from Jira (',
+    )]),
+    ("the search's failure is not named as the search's", [(
+        '            f"nothing changed in {out}: the search for open tickets: {_why(exc)}", '
+        "file=sys.stderr\n",
+        '            f"nothing changed in {out}: {exc}", file=sys.stderr\n',
+    )]),
+    ("an empty default folder is left behind", [(
+        "        if not any(out.iterdir()):\n", "        if False:\n",
+    )]),
+    ("the default folder is removed even when it holds the snapshots", [(
+        "        if not any(out.iterdir()):\n            out.rmdir()\n",
+        "        for path in out.iterdir():\n            path.unlink()\n        out.rmdir()\n",
+    )]),
+    ("a folder the caller named is removed when empty", [(
+        "    if args.out:\n"
+        "        return dry_run(args.out, jira_fetch._search, jira_transition._api)\n",
+        "    if args.out:\n"
+        "        code = dry_run(args.out, jira_fetch._search, jira_transition._api)\n"
+        "        if not any(args.out.iterdir()):\n            args.out.rmdir()\n"
+        "        return code\n",
+    )]),
+]
+
+
+def run() -> tuple[int, str]:
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(TESTS)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
+    )
+    lines = done.stdout.strip().splitlines()
+    failed = sorted({
+        line.split("::", 1)[1].split("[")[0].split(" ")[0]
+        for line in lines if line.startswith("FAILED ")
+    })
+    return done.returncode, f"{lines[-1]}\n          " + "\n          ".join(failed[:5])
+
+
+def main() -> int:
+    code, summary = run()
+    print(f"BASELINE (nothing reverted) {summary.strip()}")
+    if code != 0:
+        return 2
+    good = bad = 0
+    for label, swaps in MUTATIONS:
+        original = SCRIPT.read_bytes()
+        text = original.decode("utf-8").replace("\r\n", "\n")
+        for old, new in swaps:
+            assert text.count(old) == 1, (label, old)
+            text = text.replace(old, new)
+        compile(text, str(SCRIPT), "exec")  # a mutation that does not compile proves nothing
+        try:
+            SCRIPT.write_bytes(text.encode("utf-8"))
+            code, summary = run()
+        finally:
+            SCRIPT.write_bytes(original)
+        # exit 1 is failing tests; any other non-zero exit is a broken mutation, not a caught one
+        verdict = "GOOD" if code == 1 else f"BAD (exit {code})"
+        good += code == 1
+        bad += code != 1
+        print(f"REVERTED: {label}\n  {verdict}\n        {summary}")
+    code, summary = run()
+    print(f"TOTAL: {len(MUTATIONS)} reverts, {good} GOOD, {bad} BAD")
+    print(f"RESTORED {summary.strip()}")
+    return 1 if bad or code else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

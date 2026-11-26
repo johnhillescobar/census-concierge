@@ -1,0 +1,10 @@
+The pre-flight's timing script (preflight-599a57d-matrix.py.txt) rerun at 85ed3e9905b021cebc79a096f89e69389ce6dddc. Fake Jira.
+
+requests about CC-1 in a clean apply: 7; positions 0..7 (7 = after the last one)
+combinations run: 96
+no invariant broken
+
+== found while tracing the script (not in either review)
+1. a ticket that carries the wording, its description arriving as a string: dry run exit 1; 'REFUSED  CC-1  the description is neither a document nor empty\n0 open ticket(s) read: 0 ticket(s) left to change, 1 refused'
+2. search helper, second page has no 'issues' list: returns ['CC-1'] with no error; 0 page(s) never asked for
+2. search helper, a page token repeats: returns ['CC-1', 'CC-2'] with no error; 1 page(s) never asked for

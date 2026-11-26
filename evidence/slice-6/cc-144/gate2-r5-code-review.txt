@@ -1,0 +1,41 @@
+Gate 2: Skill code-review, "high e323eaa..7f34a67", run forked in the background (agent a969098efc3035058).
+The skill wrote no file; the main session copied its returned result below, unedited.
+
+```json
+[
+  {
+    "file": "scripts/jira_gate_line.py",
+    "line": 210,
+    "summary": "A stale \"stricter metric contract above\" pointer is missed if someone has already deleted the contract paragraph by hand. `refusal()` checks for it only when `before` still has MARKERS[0], and `changes()` (line 236) doesn't count the pointer as carried wording. Fix: refuse whenever POINTER_PHRASE remains in `after`, and count it in `carries`, or have `_drop_pointer` handle this case.",
+    "failure_scenario": "I reproduced both cases with test stand-ins for the pasted paragraphs. A ticket with only OLD_POINTER and its AC lines gives `changes() == []`, so a repeat dry run (TC3) reports nothing left. With OLD_POINTER plus the clearance paragraph, `refused` is None: apply adds the gate line and leaves the old pointer. This contradicts the docstring's promise to leave a ticket unchanged \"when a line would still point at the removed contract\". None of the committed after snapshots matched a search for the phrase.",
+    "severity": "nit"
+  },
+  {
+    "file": "scripts/jira_gate_line.py",
+    "line": 576,
+    "summary": "A network error on a read before a write ends `--apply` with a traceback and no \"N written, M refused\" total, even after some tickets were written. The handler catches only UNUSABLE, not OSError or HTTPException; the v2 read in `_jira` also doesn't handle HTTPError, and `_read_each` (line 322) has the same gap in the dry run. Fix: catch these errors, name the ticket, then refuse it or stop cleanly with the totals (a SystemExit from `jira_transition._api` also skips the totals).",
+    "failure_scenario": "I reproduced it with the fake Jira: CC-1 is written, then CC-2's `/rest/api/2` read raises `URLError('timed out')`. `apply()` raises after printing only `written CC-1`. Nothing is written to CC-2 and the APPLYING lock is removed, but there is no summary of the remaining tickets.",
+    "severity": "nit"
+  },
+  {
+    "file": "scripts/jira_gate_line.py",
+    "line": 404,
+    "summary": "An APPROVED file made with `&gt;` or `Out-File` in a default Windows PowerShell 5.1 shell is rejected with a codec error. Those commands normally write UTF-16LE there, but the code reads only `utf-8-sig`, although its comment says it covers Windows PowerShell's byte order mark. Fix: also decode files that start with a UTF-16 byte order mark, or give the exact write command and a clear encoding error.",
+    "failure_scenario": "I wrote the correct manifest hash to APPROVED as UTF-16 with a byte order mark. `--apply` returned 2 with \"nothing written: 'utf-8' codec can't decode byte 0xff in position 0\". It fails safely, but a valid approval is refused. Some PowerShell setups default to UTF-8, so this depends on the shell.",
+    "severity": "nit"
+  },
+  {
+    "file": "evidence/closure/CC-144.toml",
+    "line": 2,
+    "summary": "At 7f34a67 the closure record's PASS rows still cite 767f18b, but later fix commits (22c6ab8, 9485c97) and test commits changed the script and its tests. `approval.md` also still presents 56fae43 as the latest unreviewed code and points to checks run on it. Fix: rerun AC1, AC2, TC1 and TC2 on the final head, re-pin the evidence and mutation checks, and update `head`, the reviewer and observed fields, and `approval.md` before the owner approves or the PR is marked ready.",
+    "failure_scenario": "CLAUDE.md (repo root) says: \"Before shipping, every in-scope AC/TC must be verified PASS with linked commit-specific evidence. Missing/failed/unrun items block readiness/Done\". `closure.py check evidence/closure/CC-144.toml --pre-merge --head 7f34a67` reports AC1, AC2, TC1 and TC2 as \"stale, 2 covered file(s) changed since 767f18b\". AC3 and TC3 are also NOT RUN, as expected before the apply. AC2 still records \"139 passed\" from the older code.",
+    "severity": "nit"
+  }
+]
+```
+
+I found no bugs that should block the merge. I reported four rather than padding the list to five.
+
+- **Tests and checks:** `api/tests/test_jira_gate_line.py` and `api/tests/test_closure_gate.py` passed together (503 tests). The real replacement rules turn each committed before snapshot into its after snapshot, with no refusals and nothing left to change. A search of the other closure manifests found no non-amended row without a command.
+- **How I reproduced things:** the first three findings were reproduced with a fake Jira, using temporary files in the scratchpad only. I made no live Jira calls.
+- **Scope:** the worktree's HEAD, 7c6dbdb, is past the review target. Its only difference from 7f34a67 is the added file `evidence/slice-6/cc-144/gate2-r5.txt`. I didn't read that file or the untracked `gate2-*` files, so earlier reviews didn't influence this one.

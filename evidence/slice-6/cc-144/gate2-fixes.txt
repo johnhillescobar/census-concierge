@@ -1,0 +1,236 @@
+Mutation check of the Gate 2 fixes. HEAD 6cf39c2d5ba154929ad16b1751de6bdee137322b. One behaviour reverted at a time; each baseline passed first.
+
+REVERTED: the read-back compares visible text only  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        3 failed, 76 deselected in 0.47s
+REVERTED: the read-back is not compared at all  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        5 failed, 74 deselected in 0.30s
+REVERTED: an attribute Jira adds counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 78 deselected in 0.22s
+REVERTED: an emptied attrs counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 78 deselected in 0.23s
+REVERTED: every attribute is ignored, a card's address included  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  BAD
+        4 passed, 75 deselected in 0.10s
+REVERTED: already-applied is judged by visible text  [-k test_a_formatting_only_edit_since_the_snapshot_is_left_alone]
+  BAD
+        1 passed, 78 deselected in 0.07s
+REVERTED: a transport error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        4 failed, 6 passed, 69 deselected in 0.57s
+REVERTED: a broken HTTP response escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 69 deselected in 0.45s
+REVERTED: a bad body escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 69 deselected in 0.65s
+REVERTED: the real client's exit on an HTTP error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 69 deselected in 0.52s
+REVERTED: a failed write leaves no stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped or test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        13 failed, 66 deselected in 0.72s
+REVERTED: a rerun ignores the stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 69 deselected in 0.66s
+REVERTED: apply carries on after a failed write  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        5 failed, 74 deselected in 0.36s
+REVERTED: a closed ticket is written  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 78 deselected in 0.29s
+REVERTED: apply does not ask for the status  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 78 deselected in 0.25s
+REVERTED: the manifest forgets the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 78 deselected in 0.24s
+REVERTED: apply does not count the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 78 deselected in 0.24s
+REVERTED: the hash anywhere in the file approves  [-k test_a_file_that_says_more_than_the_hash_is_not_an_approval]
+  GOOD
+        3 failed, 76 deselected in 0.27s
+REVERTED: an empty search is accepted  [-k test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing]
+  GOOD
+        1 failed, 78 deselected in 0.35s
+REVERTED: the number of tickets read is not printed  [-k test_a_dry_run_says_how_many_tickets_it_read]
+  GOOD
+        1 failed, 78 deselected in 0.27s
+REVERTED: a surviving pointer is accepted  [-k test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        4 failed, 75 deselected in 0.31s
+REVERTED: capitals hide a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        1 failed, 6 passed, 72 deselected in 0.27s
+REVERTED: only a copy at the start of a line is seen  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        2 failed, 5 passed, 72 deselected in 0.26s
+REVERTED: a line break hides a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket or test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        2 failed, 9 passed, 68 deselected in 0.34s
+REVERTED: a ticket with only an inexact copy is skipped  [-k test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped]
+  GOOD
+        1 failed, 78 deselected in 0.22s
+TOTAL: 25 mutations, 23 GOOD, 2 BAD
+
+---- second run, after two tests were added for the two survivors above. HEAD 18922dcc1b612dd68eda41c53299b251eeec908e ----
+
+REVERTED: the read-back compares visible text only  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        4 failed, 77 deselected in 0.35s
+REVERTED: the read-back is not compared at all  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 75 deselected in 0.40s
+REVERTED: an attribute Jira adds counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 80 deselected in 0.28s
+REVERTED: an emptied attrs counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 80 deselected in 0.26s
+REVERTED: every attribute is ignored, a card's address included  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 4 passed, 76 deselected in 0.24s
+REVERTED: already-applied is judged by visible text  [-k test_a_formatting_only_edit_since_the_snapshot_is_left_alone]
+  BAD
+        1 passed, 80 deselected in 0.08s
+REVERTED: a transport error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        4 failed, 6 passed, 71 deselected in 0.70s
+REVERTED: a broken HTTP response escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.73s
+REVERTED: a bad body escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.50s
+REVERTED: the real client's exit on an HTTP error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.46s
+REVERTED: a failed write leaves no stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped or test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        14 failed, 67 deselected in 1.04s
+REVERTED: a rerun ignores the stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 71 deselected in 0.53s
+REVERTED: apply carries on after a failed write  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 75 deselected in 0.47s
+REVERTED: a closed ticket is written  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 80 deselected in 0.25s
+REVERTED: apply does not ask for the status  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 80 deselected in 0.25s
+REVERTED: the manifest forgets the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 80 deselected in 0.36s
+REVERTED: apply does not count the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 80 deselected in 0.32s
+REVERTED: the hash anywhere in the file approves  [-k test_a_file_that_says_more_than_the_hash_is_not_an_approval]
+  GOOD
+        3 failed, 78 deselected in 0.30s
+REVERTED: an empty search is accepted  [-k test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing]
+  GOOD
+        1 failed, 80 deselected in 0.34s
+REVERTED: the number of tickets read is not printed  [-k test_a_dry_run_says_how_many_tickets_it_read]
+  GOOD
+        1 failed, 80 deselected in 0.21s
+REVERTED: a surviving pointer is accepted  [-k test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        4 failed, 77 deselected in 0.27s
+REVERTED: capitals hide a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        1 failed, 6 passed, 74 deselected in 0.26s
+REVERTED: only a copy at the start of a line is seen  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        2 failed, 5 passed, 74 deselected in 0.37s
+REVERTED: a line break hides a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket or test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        2 failed, 9 passed, 70 deselected in 0.32s
+REVERTED: a ticket with only an inexact copy is skipped  [-k test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped]
+  GOOD
+        1 failed, 80 deselected in 0.22s
+TOTAL: 25 mutations, 24 GOOD, 1 BAD
+
+---- third run, same HEAD 18922dcc1b612dd68eda41c53299b251eeec908e: the already-applied mutation now selects the test written for it (the second run still selected the older one) ----
+
+REVERTED: the read-back compares visible text only  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        4 failed, 77 deselected in 0.35s
+REVERTED: the read-back is not compared at all  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 75 deselected in 0.37s
+REVERTED: an attribute Jira adds counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 80 deselected in 0.24s
+REVERTED: an emptied attrs counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 80 deselected in 0.24s
+REVERTED: every attribute is ignored, a card's address included  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 4 passed, 76 deselected in 0.28s
+REVERTED: already-applied is judged by visible text  [-k test_an_applied_ticket_that_has_since_lost_a_link_is_not_reported_done]
+  GOOD
+        1 failed, 80 deselected in 0.26s
+REVERTED: a transport error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        4 failed, 6 passed, 71 deselected in 0.61s
+REVERTED: a broken HTTP response escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.78s
+REVERTED: a bad body escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.62s
+REVERTED: the real client's exit on an HTTP error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 71 deselected in 0.66s
+REVERTED: a failed write leaves no stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped or test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        14 failed, 67 deselected in 0.88s
+REVERTED: a rerun ignores the stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 71 deselected in 0.56s
+REVERTED: apply carries on after a failed write  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 75 deselected in 0.44s
+REVERTED: a closed ticket is written  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 80 deselected in 0.27s
+REVERTED: apply does not ask for the status  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 80 deselected in 0.29s
+REVERTED: the manifest forgets the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 80 deselected in 0.27s
+REVERTED: apply does not count the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 80 deselected in 0.22s
+REVERTED: the hash anywhere in the file approves  [-k test_a_file_that_says_more_than_the_hash_is_not_an_approval]
+  GOOD
+        3 failed, 78 deselected in 0.26s
+REVERTED: an empty search is accepted  [-k test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing]
+  GOOD
+        1 failed, 80 deselected in 0.26s
+REVERTED: the number of tickets read is not printed  [-k test_a_dry_run_says_how_many_tickets_it_read]
+  GOOD
+        1 failed, 80 deselected in 0.20s
+REVERTED: a surviving pointer is accepted  [-k test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        4 failed, 77 deselected in 0.27s
+REVERTED: capitals hide a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        1 failed, 6 passed, 74 deselected in 0.38s
+REVERTED: only a copy at the start of a line is seen  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        2 failed, 5 passed, 74 deselected in 0.37s
+REVERTED: a line break hides a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket or test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        2 failed, 9 passed, 70 deselected in 0.28s
+REVERTED: a ticket with only an inexact copy is skipped  [-k test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped]
+  GOOD
+        1 failed, 80 deselected in 0.21s
+TOTAL: 25 mutations, 25 GOOD, 0 BAD

@@ -1,0 +1,383 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Current owner alignment (2026-11-08)",
+     "type": "text"
+    },
+    {
+     "type": "hardBreak"
+    },
+    {
+     "text": "CC-118/82 adopt the CC-3 intent boundary and AC/TC shipping gate. General clipped/allocation crosswalk children remain unscheduled. A missing crosswalk must be reported honestly, never approximated as exact containment.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)",
+     "type": "text"
+    },
+    {
+     "type": "hardBreak"
+    },
+    {
+     "text": "Once the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.",
+     "type": "text"
+    },
+    {
+     "type": "hardBreak"
+    },
+    {
+     "text": "Original text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.",
+     "type": "text"
+    },
+    {
+     "type": "hardBreak"
+    },
+    {
+     "text": "Keep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)",
+     "type": "text"
+    },
+    {
+     "type": "hardBreak"
+    },
+    {
+     "text": "## Overview",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Enable analyst-grade requests that cannot be expressed through Census `for`/`in` nesting, beginning with “all ZCTAs in Chicago.” Add a versioned place-to-ZCTA crosswalk, distinguish whole intersecting ZCTAs from city-clipped estimates, and support retrieval of every published estimate/MOE cell in an ACS table.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "This is an intermediary epic of phase 1 (through slice 8), not future or phase 2 work. Its CC-11 foundations (table rendering and the editable plan strip) have shipped and CC-73 is Done, so it can be scheduled within phase 1. It revisits the recorded deferrals in CC-55 and CC-56 using explicit failing golden questions; it does not silently bypass them.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## User outcome",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "A researcher can ask for all ZCTAs associated with a named Census place, inspect the exact inclusion rule and overlap evidence, retrieve a complete ACS distribution table for those geographies, and—only where statistically defensible—request values allocated to the portion inside the place boundary. Every output remains reproducible from versioned source data and complete URLs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Scope",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Place → ZCTA crosswalks, generalized beyond Chicago and keyed by Census place GEOID.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Evidence-earned place/gazetteer lookup integrated with existing geography resolution.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Versioned block-level spatial relationship artifacts and documented overlap thresholds.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Whole-ZCTA results versus city-clipped/allocation results as separate, explicit modes.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Full ACS distribution-table retrieval: all published estimate variables and paired margins of error, split across request legs when Census URL/variable limits require it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- A fifth agent tool only if a named golden question proves the four existing tools cannot represent the operation cleanly.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A new long-tail golden question for “all ZCTAs in Chicago” fails before implementation and passes afterward.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The response returns a deterministic, versioned set of Chicago-associated ZCTAs with ZCTA GEOID, place GEOID, overlap measure, inclusion rule, source vintage, and no claim that ZCTAs legally nest in places.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] At least one second city with boundary-crossing ZCTAs proves the implementation is general rather than Chicago-specific.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Whole intersecting ZCTA estimates are clearly distinguished from values allocated to only the city-intersection portion.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Block allocation is enabled only for measures with an approved mathematical basis; medians, ratios, and other non-additive statistics are rejected unless a reviewed method exists.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Allocation output includes method, weights, source geography/vintage compatibility, uncertainty limitations, and component provenance; no allocation is presented as a published Census value.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A request for a full ACS distribution table returns every published `E` variable requested by the table and its matching `M`, with deterministic column order and complete redacted URLs for every chunk.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Chunked request legs join only after geography keys and row cardinality match; partial failure retains successful chunks and identifies missing variables/URLs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Every row retains GEOID, universe, dataset, vintage, table, variable provenance, and relevant warnings.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Existing `geography_not_nested`, `zcta_not_zip`, median, MOE, vintage, and boundary guards remain intact.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] No fifth tool is added unless the tool-decision story records a specific failing golden question, demonstrates why parameters on existing tools are insufficient, and passes all tool/model/latency budgets without raising them.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make check`, retrieval evaluation, and `make demo --repeat 3` pass existing floors/ceilings with no budget raised.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Dependencies",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- CC-2 complete, including CC-73 multi-geography request legs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- CC-11 foundations, especially CC-35 full dataset table and CC-37 editable plan strip, available before user-facing closure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Existing CC-55 and CC-56 decisions explicitly revisited by evidence, not treated as feature tickets.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Out of scope",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Treating USPS ZIP routes as interchangeable with ZCTAs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Inferring legal Census nesting where none exists.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Naive population weighting of medians, percentages, or ratios.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- A generic routing graph, clarification subsystem, or new API route per internal tool.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Raising any budget.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

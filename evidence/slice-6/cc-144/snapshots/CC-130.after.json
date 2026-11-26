@@ -1,0 +1,207 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nSelect the cells that actually answer the measure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% exact required cell-set/universe selection on the semantic-variable cohort; 100% metadata-ID and explicit-total/full-table fixtures. Report wrong-total rate separately. Preserve table retrieval/selection and existing geography/time rates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-104; feeds CC-82, CC-122 and CC-131.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nSemantic variable selection",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Scope and ownership\nExisting tools expose bounded, navigable candidate and variable metadata BEFORE URL composition. CC-82 owns full-table transport, not meaning.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Acceptance criteria\nAC1. Expose candidate titles/universes and cell IDs/labels/concepts/units where available, with dataset/vintage provenance; alternative counts alone are insufficient.\nAC2. Select grounded cells or explicit full-table mode. Empty variables cannot silently mean _001E unless intent selected the total.\nAC3. A subgroup/distribution selects its actual cells; a rate uses a grounded published rate or explicit numerator/denominator operation. Check historical availability in requested vintages, not latest only.\nAC4. Semantic cell identities, universe and definition compatibility pass CC-133; measure payload size, latency and repair behavior within existing budgets.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Test cases\nTC1. Total, subgroup and full distribution choose different appropriate cells.\nTC2. A valid but semantically wrong cell fails the oracle.\nTC3. Historical table absent in latest remains discoverable for its published vintage.\nTC4. Unavailable variables return evidence-backed alternatives, never fabricated IDs.\nTC5. Unseen tables and paraphrases follow the same path.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependencies\nCC-104; CC-133; feeds CC-82 and CC-122.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Retrieval@10 measures table presence; users need inspectable and semantically appropriate cells and URLs to benefit from that presence.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. For offered alternatives expose grounded table identity, title, universe and available cell/definition metadata with dataset/vintage provenance. Distinguish a catalog candidate from an alternative validated for the current request. Do not imply every retrieved table answers the question.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Provide the metadata-backed cell/universe and availability checks consumed by CC-115. An alternative represented as executable must match requested measure, compatible units/denominator, geography and vintage, or explicitly disclose a changed interpretation requiring user selection. No empty-cell total fallback.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Report retrieved-table presence separately from offered-correct-alternative presence and executable semantic suitability. Freeze independent expected permissible alternatives; do not define correctness from whichever candidates the model happened to produce. Feed the CC-132 recovery instrument.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. A correct table retrieved in the raw top ten but omitted from the offered list counts as retrieval success and offered-alternative failure, not end-to-end recovery.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Sibling tables with different universes or breakdowns expose those differences; a superficially matching title cannot certify the wrong denominator/cells.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. A historically available candidate and an incompatible-current-vintage candidate receive distinct provenance/validation states; selecting the former uses its actual supported cells without changing requested time.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

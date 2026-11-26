@@ -1,0 +1,94 @@
+Mutation check at 6f054c5fb94c368219dd9d7cc3276928079a1029
+Each revert applied alone; the script restored from its own bytes. Stand-in Jira only; no network.
+
+BASELINE (nothing reverted) 428 passed, 1 warning in 6.86s
+REVERTED: too deep a reply is not among the unusable ones
+  GOOD
+        6 failed, 422 passed, 1 warning in 9.13s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: what is held after a write is compared outside the handler
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.18s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+REVERTED: the done check before a write is outside the handler
+  GOOD
+        1 failed, 427 passed, 1 warning in 9.19s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+REVERTED: a dry run takes too deep a manifest for readable
+  GOOD
+        1 failed, 427 passed, 1 warning in 8.47s
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: an apply takes too deep a manifest for readable
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.79s
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: a failed request is called no answer
+  GOOD
+        21 failed, 407 passed, 1 warning in 7.72s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\mutate_rerun.py", line 106, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\mutate_rerun.py", line 86, in main
+    assert text.count(old) == 1, (label, old)
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('the search and the reads share one handler again', '        print(f"nothing changed in {out}: the search for open tickets: {_why(exc)}", file=sys.stderr)\n')
+exit 1
+
+================ second run: the first stopped on the mutation script's own stale anchor ================
+Mutation check at 6f054c5fb94c368219dd9d7cc3276928079a1029
+
+BASELINE (nothing reverted) 428 passed, 1 warning in 5.78s
+REVERTED: too deep a reply is not among the unusable ones
+  GOOD
+        6 failed, 422 passed, 1 warning in 10.44s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: what is held after a write is compared outside the handler
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.29s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+REVERTED: the done check before a write is outside the handler
+  GOOD
+        1 failed, 427 passed, 1 warning in 8.11s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+REVERTED: a dry run takes too deep a manifest for readable
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.39s
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: an apply takes too deep a manifest for readable
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.03s
+          test_a_manifest_nested_too_deeply_changes_nothing
+REVERTED: a failed request is called no answer
+  GOOD
+        21 failed, 407 passed, 1 warning in 8.08s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+REVERTED: the search's failure is not named as the search's
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.09s
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+REVERTED: an empty default folder is left behind
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.17s
+          test_the_default_folder_stays_only_when_it_holds_something
+REVERTED: the default folder is removed even when it holds the snapshots
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.04s
+          test_the_default_folder_stays_only_when_it_holds_something
+          test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository
+REVERTED: a folder the caller named is removed when empty
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.89s
+          test_a_folder_the_caller_named_is_never_removed
+TOTAL: 10 reverts, 10 GOOD, 0 BAD
+RESTORED 428 passed, 1 warning in 6.62s
+exit 0
