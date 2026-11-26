@@ -66,6 +66,21 @@ owner  Writes approved: this worktree and branch, Jira CC-145 to In Progress plu
        local commits only until the PR is ready.
 owner  AC10 is open for discussion; no memory file is moved or deleted until then. The owner said the
        regex rule matters: the agent kept solving things with regex instead of making the agent reason.
+owner  AC10 (decided later in chat, 2026-11-26): the regex memory becomes three lines under the CLAUDE.md
+       "Never interpret question wording" bullet (scope incl. model output and quote-matching; "exhausted"
+       = up to 100 solve-and-measure rounds and 3 subagents, cheapest first, latency is not a reason;
+       a new re.* call in api/src needs the PR to show why plain code plus the model cannot do it).
+       Corrected split, approved after a recheck found 23 memory files (not 21) and two misclassified:
+       MOVE one line each (15): epic scope, cleanup commits, follow the playbook, E2E in a worktree,
+       waiver is a human commit, no PR before ready, all URLs shown, never guess ambiguous geography,
+       Census API facts, heredoc backslashes, .claude/agents not counted, PR title shape, epic-children
+       search at pre-flight, the read-not-emit distinction of the phase 1 yardstick, the geography known
+       limit (county without its state, owner 2026-10-25) and the follow-up definition; plus a PLAN.md
+       "After" pointer to DESIGN's phase 2 foundations. DELETE (7, stated in the repo or obsolete):
+       phase 2 foundations and long-term vision (.claude/DESIGN.md:144-165), anti-overfit (CLAUDE.md
+       Traps, DESIGN:114-121, Jira), the two CC-121 notes, ticket-is-contract, gates/STATE.
+       Memory files are deleted only after merge.
+owner  A copy of .env in this worktree is fine; the worktree is deleted when the work is finished.
 default The two status commands: `uv run python scripts/jira_fetch.py issue CC-N --md` and
        `uv run python scripts/closure.py check evidence/closure/CC-N.toml --pre-merge`.
 default AC6 proof tickets: CC-145 (in progress) and CC-144 (closed).
