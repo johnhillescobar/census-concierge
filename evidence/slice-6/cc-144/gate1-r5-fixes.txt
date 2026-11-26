@@ -1,0 +1,229 @@
+Mutation check at 8728fa70375b1177133095655bd63fafe73c7f58
+Script: each revert applied alone, the file restored from its own bytes. Stand-in Jira only; no network.
+
+BASELINE (nothing reverted) 348 passed, 1 warning in 6.17s
+
+== product, 9485c97
+REVERTED: UNUSABLE without ValueError
+  GOOD
+        61 failed, 287 passed, 1 warning in 8.67s
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+          test_a_reply_that_cannot_be_used_never_leads_to_written
+          test_a_ticket_from_another_project_is_not_snapshotted
+REVERTED: UNUSABLE without KeyError
+  GOOD
+        16 failed, 332 passed, 1 warning in 5.52s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without TypeError
+  GOOD
+        18 failed, 330 passed, 1 warning in 5.81s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without AttributeError
+  GOOD
+        17 failed, 331 passed, 1 warning in 7.42s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: the dry run catches ValueError only
+  GOOD
+        7 failed, 341 passed, 1 warning in 5.74s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+REVERTED: the reads before a write catch ValueError only
+  GOOD
+        22 failed, 326 passed, 1 warning in 6.25s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write AttributeError is not caught
+  GOOD
+        7 failed, 341 passed, 1 warning in 5.92s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write only ValueError is caught of the unusable
+  GOOD
+        22 failed, 326 passed, 1 warning in 6.03s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a KeyError is shown as the bare name
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.35s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+REVERTED: a status category that is not text reads as open
+  GOOD
+        3 failed, 345 passed, 1 warning in 5.65s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: history entries need not be a list
+  BAD (exit 0)
+        348 passed, 1 warning in 5.22s
+          
+REVERTED: history items need not be a list
+  GOOD
+        2 failed, 346 passed, 1 warning in 5.92s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a history that ends early is taken as complete
+  GOOD
+        2 failed, 346 passed, 1 warning in 5.96s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+SUBTOTAL: 13 reverts, 12 GOOD, 1 BAD
+
+== stand-in survivors of gate1-r5
+REVERTED: an empty description reads as empty text, not null
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.50s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search returns descriptions
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.40s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search accepts whatever fields are asked for
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.41s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: history ids are made from the key and the count
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.44s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the history hands out its own entries
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.31s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: an issue reply has no id
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.40s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a search result has no id and no fields
+  GOOD
+        1 failed, 347 passed, 1 warning in 6.60s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history page has only values and total
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.51s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history entry has no author and no created
+  GOOD
+        1 failed, 347 passed, 1 warning in 4.93s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history item has only fieldId and the two texts
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.46s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+SUBTOTAL: 10 reverts, 10 GOOD, 0 BAD
+
+RESTORED 348 passed, 1 warning in 5.52s
+exit 1
+
+================ second run, after the survivor's case was corrected ================
+Mutation check at df3ad85ad440694dfce299a2455fd95eabc87484
+
+BASELINE (nothing reverted) 348 passed, 1 warning in 5.43s
+
+== product, 9485c97
+REVERTED: UNUSABLE without ValueError
+  GOOD
+        61 failed, 287 passed, 1 warning in 8.68s
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+          test_a_reply_that_cannot_be_used_never_leads_to_written
+          test_a_ticket_from_another_project_is_not_snapshotted
+REVERTED: UNUSABLE without KeyError
+  GOOD
+        16 failed, 332 passed, 1 warning in 5.83s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without TypeError
+  GOOD
+        18 failed, 330 passed, 1 warning in 6.28s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without AttributeError
+  GOOD
+        17 failed, 331 passed, 1 warning in 6.14s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: the dry run catches ValueError only
+  GOOD
+        7 failed, 341 passed, 1 warning in 5.30s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+REVERTED: the reads before a write catch ValueError only
+  GOOD
+        22 failed, 326 passed, 1 warning in 6.25s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write AttributeError is not caught
+  GOOD
+        7 failed, 341 passed, 1 warning in 6.28s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write only ValueError is caught of the unusable
+  GOOD
+        22 failed, 326 passed, 1 warning in 6.69s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a KeyError is shown as the bare name
+  GOOD
+        1 failed, 347 passed, 1 warning in 6.51s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+REVERTED: a status category that is not text reads as open
+  GOOD
+        3 failed, 345 passed, 1 warning in 6.51s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: history entries need not be a list
+  GOOD
+        2 failed, 346 passed, 1 warning in 5.52s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: history items need not be a list
+  GOOD
+        2 failed, 346 passed, 1 warning in 5.28s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a history that ends early is taken as complete
+  GOOD
+        2 failed, 346 passed, 1 warning in 5.06s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+SUBTOTAL: 13 reverts, 13 GOOD, 0 BAD
+
+== stand-in survivors of gate1-r5
+REVERTED: an empty description reads as empty text, not null
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.45s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search returns descriptions
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.95s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search accepts whatever fields are asked for
+  GOOD
+        1 failed, 347 passed, 1 warning in 6.02s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: history ids are made from the key and the count
+  GOOD
+        1 failed, 347 passed, 1 warning in 4.98s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the history hands out its own entries
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.67s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: an issue reply has no id
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.95s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a search result has no id and no fields
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.44s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history page has only values and total
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.25s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history entry has no author and no created
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.06s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history item has only fieldId and the two texts
+  GOOD
+        1 failed, 347 passed, 1 warning in 5.43s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+SUBTOTAL: 10 reverts, 10 GOOD, 0 BAD
+
+RESTORED 348 passed, 1 warning in 5.03s
+exit 0
