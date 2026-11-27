@@ -113,6 +113,17 @@ row(
     ["scripts/check_invariants.py", "api/tests/test_invariants.py", ".claude/PLAN.md", "docs/slices.md"],
     M_GATE1,
 )
+R_AC9 = dict(
+    key="AC9",
+    command="the check workflow on the PR",
+    expected="CI runs the offline closure check for the ticket named in the branch",
+    observed="PR #153 run 45925431942 at 8fa0c5b: every step green but the closure step, which read CC-145 from feat/cc-145-one-source and ran the readiness check on the tip: BLOCKED on exactly AC7, AC9, AC10, AC16 (NOT RUN), exit 1. The step's behaviour is tested under bash -e with uv stubbed (test_process.py) and the branch rule in test_closure_gate.py",
+    evidence=[f"{EV}/ci-run-45925431942.txt"],
+    affects=[".github/workflows/check.yml", "scripts/closure.py", "api/tests/test_process.py"],
+    mutation=M_R1,
+)
+row(**R_AC9)
+R[-1]["tested_head"] = "8fa0c5b690619ff1b729c0a439e7bd4c7fa704c0"
 row(
     "AC11",
     "uv run python scripts/check_budgets.py --structural-only",

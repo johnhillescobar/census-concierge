@@ -105,9 +105,16 @@ reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/
 
 [[row]]
 id = "AC9"
-status = "NOT RUN"
+status = "PASS"
 command = "the check workflow on the PR"
-observed = "needs the check workflow run on the pull request"
+expected = "CI runs the offline closure check for the ticket named in the branch"
+observed = "PR #153 run 45925431942 at 8fa0c5b: every step green but the closure step, which read CC-145 from feat/cc-145-one-source and ran the readiness check on the tip: BLOCKED on exactly AC7, AC9, AC10, AC16 (NOT RUN), exit 1. The step's behaviour is tested under bash -e with uv stubbed (test_process.py) and the branch rule in test_closure_gate.py"
+evidence = [{ path = "evidence/slice-6/cc-145/ci-run-45925431942.txt", sha256 = "cad5c1f7dcd3f0d0bc72a072b6a022347fce1e00f70edd5c1be44caf5bfb8145" }]
+tested_head = "8fa0c5b690619ff1b729c0a439e7bd4c7fa704c0"
+affects = [".github/workflows/check.yml", "scripts/closure.py", "api/tests/test_process.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-mutations.txt", sha256 = "d41bf0ee5b5644036bc985892620fd8fa7389b0690a079e586eb75f43e25fa24" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC10"
