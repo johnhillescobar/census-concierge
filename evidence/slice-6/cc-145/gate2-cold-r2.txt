@@ -1,0 +1,1936 @@
+GATE 2, PASS 1 (COLD BUG REVIEW) - RE-RUN ON THE FIX COMMITS
+============================================================
+
+Date            2026-11-26
+Repository      C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145
+Branch          feat/cc-145-one-source
+HEAD            7949261f6cc5f38f91a692c1d35843d85c2f11a8
+Review base     556947b231f374fd1fdfb0b5623667ebf0fe4d9f
+Review head     7949261f6cc5f38f91a692c1d35843d85c2f11a8  (= HEAD)
+git status --short at the start: empty (clean). At the end: only this file, untracked.
+
+Commits in the range (git log --oneline 556947b..7949261):
+  7949261 docs(CC-145): candidates are for complete questions, stated once
+  0fbd08f evidence(CC-145): fix mutations, 50 of 50 caught after tightening 6 tests
+  621f1eb test(CC-145): tighten the fix tests that passed on their mutations
+  f029b69 fix(scripts): close the Gate 2 findings on the brief, closure and CI (CC-145)
+
+What was read, and what was not
+-------------------------------
+Read: CLAUDE.md, docs/playbooks/run-slice.md section 4 (and sections 5, 6 and the delegation
+section it points to), docs/process-evidence.md, and `git diff 556947b 7949261` for every file
+outside evidence/: scripts/brief.py, scripts/closure.py, scripts/jira_fetch.py,
+scripts/check_budgets.py, .github/workflows/check.yml, the four test files, CLAUDE.md,
+docs/requirements.md, docs/ARCHITECTURE.md, docs/playbooks/run-slice.md and three .cursor rule
+files. The changed scripts were then read whole at the head.
+
+Not read before the findings below were written: the ticket, the slice plan, .claude/PLAN.md,
+evidence/closure/CC-145.toml, anything under evidence/slice-6/cc-145/ (the two evidence files in
+the range were seen by name in the diff stat only), the caller's explanation, and the caller's
+files in the shared scratch folder. Section "After the findings were written" at the end says
+what was opened afterwards and what it showed.
+
+No product or test file was changed. Nothing was committed or pushed. Nothing was written to
+Jira. No live system was called: every reproduction runs on fakes, on the repository's own
+test fixtures, or on a scratch git repository or scratch clone outside the worktree.
+
+Verdict
+-------
+NOT CLEAN: 1 high, 5 medium, 5 low. The high finding is a regression introduced by f029b69.
+
+Severity as used here. High: a gate gives the wrong answer on this project's real data.
+Medium: a gate gives the wrong answer on a plausible input, or new prose states a fact that is
+false at this commit. Low: a crash, a rare input, or text that is dropped from a display.
+
+State of the machines at the head (for context; the invariants pass owns them)
+  uv run pytest -q api/tests/test_brief.py api/tests/test_closure_gate.py
+      api/tests/test_jira_fetch.py api/tests/test_process.py -m "not integration"
+      -> 270 passed in 124.90s
+  uv run ruff check <the 8 changed .py files>           -> All checks passed
+  uv run ruff format --check scripts api/tests          -> 87 files already formatted
+  uv run python scripts/check_budgets.py --structural-only -> All budgets met (doc lines 1799 <= 1820)
+
+
+FINDINGS, MOST SEVERE FIRST
+===========================
+
+F1  HIGH  The criteria fingerprint is empty for the shape this project's tickets have
+---------------------------------------------------------------------------------
+Where   scripts/closure.py:144-175 (criteria_blocks), decisive lines 161 and 166: a block
+        counts only when required_ids(_first_line(...)) finds an id, that is, when the id is
+        on the block's FIRST line. Lines 171-172 then descend into the block's children, which
+        are text nodes, and find nothing.
+        scripts/closure.py:178-181 (criteria_fingerprint) hashes that list.
+        Used by scripts/brief.py:83-84 and :91 (compare) and :234-235 (main).
+Introduced by f029b69. At the base the fingerprint was every line that carries an id.
+
+What is wrong. Jira stores this project's criteria as ONE paragraph holding ONE text node:
+"Acceptance criteria\nAC1. ...\nAC2. ...". The first line is the lead-in, not an id. For that
+shape criteria_blocks returns [] and the fingerprint is the sha256 of the empty string,
+e3b0c44298fc..., whatever the criteria say. required_ids still reads every id from the same
+document, so the brief prints a full approved_ids list beside a fingerprint that covers none of
+them.
+
+This is not a constructed shape. The repository keeps four real Jira documents as fixtures
+(api/tests/fixtures/gate_wording/CC-104.before/after.json, CC-105.before/after.json;
+test_jira_gate_line.py:1885 says they are real replies read on 2026-11-25). All four have it:
+
+  CC-104.after.json   ids: 25  blocks: 0   id lines not inside any fingerprinted block: 25
+  CC-104.before.json  ids: 25  blocks: 0   id lines not inside any fingerprinted block: 25
+  CC-105.after.json   ids: 9   blocks: 0   id lines not inside any fingerprinted block: 9
+  CC-105.before.json  ids: 9   blocks: 0   id lines not inside any fingerprinted block: 9
+  head fingerprint == base 556947b fingerprint of the same document: False (all four)
+
+Failure scenario 1, the gate passes when it must stop. A ticket of this shape is approved at
+pre-flight; the manifest records approved_sha256 = e3b0c442... Someone rewrites AC1 in Jira and
+keeps its id. brief.py gate1 prints the brief. Reproduced on the CC-105 fixture (in memory):
+
+  AC1 before: AC1. Use published county-or-part relationships where supported, recording ...
+  AC1 after : AC1. Parent counts are enough; exact child membership is not required.
+  head: fingerprint unchanged: True
+  head: brief.compare(gate1) -> []          <- [] lets the phase start
+  base 556947b: fingerprint unchanged: False
+
+Failure scenario 2, the gate stops when nothing changed. A record approved with the base's
+code, same ticket, nothing edited in Jira:
+
+  STOP  the criteria text changed with the same ids (e3b0c44298fc, approved 131832fc2613)
+  STOP  no [[amendment]] row has criteria_sha256 = e3b0c442...; only the owner amends a ticket
+
+The message is false (the text did not change, the algorithm did), and the amendment it asks
+the owner for is the empty hash, which then also matches every later rewording.
+
+The same hole, three more ways (synthetic documents, p_fingerprint.py): ids after a lead-in
+line in one paragraph with hard breaks; ids on later lines of a code block; one text node with
+newlines. In each: blocks [], empty fingerprint, "20 -> 200" not detected at the head, detected
+at the base.
+
+Why the tests did not see it. api/tests/test_brief.py:151-156 `doc()` builds one paragraph per
+line, which no fixture in the repository has. test_a_criterion_reworded_with_its_id_unchanged_fails
+(:60) passes a plain string, the branch at closure.py:150-151 that main() never takes, because
+Jira returns a document. test_a_plain_paragraph_description_keeps_its_line_fingerprint (:345)
+asserts the property that is false for the four real documents. The SHAPES table (:269) has a
+table cell, a sub-bullet, a hard break with the id on the first line, and an id heading.
+
+Reproduce   uv run python <scratch>/p_real_adf.py <repo>
+            uv run python <scratch>/p_real_reword.py <repo>
+            uv run python <scratch>/p_fingerprint.py <repo>
+Not reproduced, by rule (no live system): whether `uv run python scripts/brief.py gate2 CC-145`
+still prints a brief at this head. If the live CC-145 description has this shape, it stops with
+the scenario-2 message, or passes on the empty hash. See the last section.
+
+
+F2  MEDIUM  A closed ticket still reads as broken: twice on real data after this branch lands
+------------------------------------------------------------------------------------------
+Where   scripts/brief.py:49-59 (landed_at), :32-40 (status_commands), :62-76 (closed_status).
+        The docstring at :33-35 says the record "is judged as it stood at `landed`, the main
+        commit that last changed it, so later work elsewhere cannot make it read as broken."
+
+(a) The branch under review moves another ticket's landing commit. 9bdd13f (on this branch,
+before the review base) edited evidence/closure/CC-138.toml to follow a renamed evidence file
+(plan.md -> scope-record.md, two rows). "The commit that last changed it" is now 9bdd13f, a
+CC-145 commit. In a scratch clone checked out at 7949261 with origin/main set to it (the state
+after this branch lands), the command the brief prints for CC-138 gives:
+
+  CC-138: landed 9bdd13f
+      BLOCKED  AC2.1: stale, 22 covered file(s) changed since 89396f4
+      BLOCKED  AC3: stale, 4 covered file(s) changed since 89396f4
+      BLOCKED  TC2: stale, 22 covered file(s) changed since 89396f4
+      BLOCKED  TC3: stale, 4 covered file(s) changed since 89396f4
+      CLOSURE BLOCKED: 4 problem(s)
+
+On origin/main today (ab4c27d) the same ticket lands at cab85d6 and reads CLOSURE OK. So the
+fix works on today's main for all seven records (CC-125, 126, 133, 138, 141, 143, 144: all
+CLOSURE OK, where the base's `--head origin/main` blocked six), and merging this branch breaks
+it for CC-138. Any later commit that touches a closed ticket's record, for any reason, does the
+same.
+
+(b) Only the staleness diff is pinned to `landed`. The brief says to run the command "from a
+checkout of main", so the `affects` paths (closure.py:275) and the evidence hashes
+(closure.py:232) are read from main's tip. Scratch repository, one real merge, then later work:
+
+  1. main at the ticket's merge: CLOSURE OK
+  2. another ticket renames scripts/tool.py on main; landed unchanged: True
+     from a checkout of main, as the brief instructs:
+        AC1: `affects` names paths that do not exist: ['scripts/tool.py']
+     control, the same command from a checkout of <landed>:
+        CLOSURE OK
+  3. the file is back, and a later commit rewrites the pinned evidence file; landed unchanged
+        AC1: evidence evidence/ac1.txt changed since it was recorded
+
+The control shows the instruction is what is wrong: a checkout of <landed>, not of main, is
+"the record as it stood".
+
+Failure scenario. A fresh agent runs the brief for closed CC-138 after this branch merges, is
+told "its status comes from these two commands", and reports four stale rows on a closed ticket.
+
+Reproduce   uv run python <scratch>/p_closed_real.py <repo> <scratch clone> <sha>
+            uv run python <scratch>/p_closed.py <repo> <scratch dir>
+
+
+F3  MEDIUM  A criterion the owner adds by amendment needs no row to close
+-----------------------------------------------------------------------
+Where   scripts/closure.py:379 (an amendment with criteria_sha256 excuses no row) and :390-393
+        (`wanted` = required + approved_ids + --require). scripts/brief.py:93-96 lets the phase
+        start when an amendment names the live fingerprint.
+        The workflow comment at .github/workflows/check.yml:91-94 says the pull request is red
+        "until every AC/TC row ..., and every id approved at pre-flight, is PASS".
+
+What is wrong. approved_ids is written once, at pre-flight. When the owner later adds AC2 in
+Jira and records the [[amendment]] with criteria_sha256, the brief accepts the new criteria,
+but nothing adds AC2 to what the readiness check wants. The check passes with no AC2 row.
+
+  live Jira ids             : ['AC1', 'AC2']
+  approved_ids in the record: ['AC1']
+  rows in the record        : ['AC1']
+  brief.compare (gate2)     : []            <- lets the phase start
+  closure.problems, the CI call (--pre-merge): []   <- CLOSURE OK
+
+The diff closed the neighbouring hole (the same amendment can no longer excuse an AMENDED AC2
+row: "AC2: AMENDED without an [[amendment]] for it"), so leaving the row out entirely is now
+the path of least resistance. The amendment's own `id` is the one thing the check could read.
+
+Reproduce   uv run python <scratch>/p_amendment.py <repo> <scratch dir>
+
+
+F4  MEDIUM  The CI rule makes red every pull-request branch shape this repository has used
+---------------------------------------------------------------------------------------
+Where   .github/workflows/check.yml:90-101 ("A branch of any other shape is red"),
+        scripts/closure.py:184-203 (branch_ticket), pinned by
+        api/tests/test_process.py:498-503 (chore/launch-inspect-ask must fail).
+        Against CLAUDE.md:107: "Name `CC-N` in commits/PRs (housekeeping commits need none)".
+
+The code does what its comment says; the finding is the consequence, measured. The last 60
+distinct pull-request branches merged to origin/main, run through branch_ticket:
+
+  A. old shape cc-N/...                                   20   red
+  B. type not on the list (budget/ x3, codex/ x1)          4   red
+  C. conventional type, no ticket (housekeeping)          11   red
+  D. names two tickets (evidence/cc-102-cc-117-post-merge) 1   red
+  E. names a ticket with no evidence/closure manifest     20   red (FileNotFoundError row)
+  F. names a ticket with a manifest: the check runs        4
+  red under the new step: 56 of 60; by shape alone (A-D): 36
+
+All eight branches on origin today are red: cc-104/structured-geography, cc-118/variable-limit,
+cc-138/baseline-p95-waiver (shape); chore/drift-gates-pr, docs/ramirez-presentation-brief,
+docs/trim-playbook-duplicate (no ticket); chore/cc-113-e2e-post, chore/cc-120-e2e-post (no
+manifest). Also red by shape: dependabot/..., GitHub's revert-N-... branches.
+
+Failure scenarios. (1) A housekeeping pull request, which CLAUDE.md says needs no ticket, can
+no longer be green: it needs a ticket in its name and a manifest with every row PASS. Eleven
+of the last 60 merges were that. (2) The owner's budget pull requests used budget/cc-N-...
+three times in the last 60; "budget" is not a listed type. (3) A pull request for a ticket
+closed before manifests existed (group E) cannot be green without writing a manifest for it.
+There is no opt-out path in the step. Whether a red `check` job blocks a merge depends on the
+branch protection settings, which were not read (GitHub is outside the repository).
+
+Tried and clean: the three merged evidence pull requests whose tips carry a manifest
+(#150 CC-143, #143 CC-126, #139 CC-125) read CLOSURE OK under the new step at their tips.
+
+Smaller, same function: "docs/cc-2026-11-26-notes" names CC-2026; "feat/cc-145-drop-cc2-emissions"
+names two tickets (CC-145, CC-2) and is red.
+
+Reproduce   uv run python <scratch>/p_branch.py <repo>
+            uv run python <scratch>/p_evidence_pr.py <repo> <scratch clone>
+
+
+F5  MEDIUM  The changed prose states product behaviour the code at this commit does not have
+-----------------------------------------------------------------------------------------
+Where   docs/requirements.md:24-28 and :40; CLAUDE.md:67-72; .cursor/rules/40-census-domain.mdc:51-53;
+        .cursor/rules/10-api-python.mdc:219-220. All four are new or reworded in 7949261.
+        The branch changes no file under api/src (git diff --stat origin/main...7949261 -- api/src
+        is empty).
+
+The new text says a place name several states share, with no state the user wrote ("population
+of Springfield", Cook County), and a question whose level is unclear, are incomplete questions:
+"No guess, table search or fetch", empty urls[], rows and alternatives, "no candidates".
+7949261 also deletes the dated sentence that said the opposite about the present:
+"Known limit (owner, 2026-10-25): a county named without its state still resolves, because the
+model adds the state and only the banned word scan would catch it."
+
+At this head, with the model scripted and the repository's own fake tools (no network):
+
+  finish.incomplete, 'Population of Springfield' (model reports "Springfield, Missouri") -> None
+  finish.incomplete, 'Population of Cook County' (model reports "Cook County, Illinois")  -> None
+  finish.incomplete, level null ('Median household income in the Bay Area')               -> None
+  control, 'Population of tract 9501' -> 'This question is incomplete and cannot be searched ...'
+
+  run_ask('Population of Cook County'):
+    urls[]   : ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,
+                 B01003_001M&for=county:031&in=state:17']
+    fetch calls made: 1     rows: 1     table_id: 'B01003'     tables in record.pool: 1
+    warnings : ['ambiguous_place', 'geography_level_unverified']
+    ambiguous_place.candidates: Cook County, Illinois; Cook County, Georgia; Cook County, Minnesota
+
+So the code searches tables, guesses Illinois, builds the URL, fetches, and returns geography
+candidates. The repository's tests assert exactly that and pass at this head:
+test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url,
+test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match,
+test_guards.py::test_ambiguous_resolve_lands_on_the_response (3 passed).
+
+Still saying the old thing at this head: api/src/prompts.py:33 ("Do not ... ask the user to
+choose among matches"), api/src/guards.py:214-227, docs/ARCHITECTURE.md:85 and :137,
+docs/ask-path.md:93-101 ("specs[0] is selected", "`ambiguous_place` carries ranked candidates"),
+evals/golden_questions.toml:408-412 (t05, "Show the candidate Springfields as results. Do NOT
+block with a question."), scripts/verify_golden_places.py:119 ("the candidates are the answer").
+Inside requirements.md itself, :24-27 gives the shared-name case the `geography_unsupported`
+answer ("The same holds") while :40 keeps `ambiguous_place` as its code.
+
+Failure scenario. The next /ask review reads docs/requirements.md as the contract (run-slice.md
+section 4 sends it there) and holds the code to behaviour no ticket in this range implements,
+while the one sentence that recorded the gap as a known limit is gone. If the prose is a target,
+it needs to say so and name the ticket; as written it describes the present, and that is false.
+
+Reproduce   PYTHONPATH=api;api/tests uv run python <scratch>/p_contract.py
+            PYTHONPATH=api;api/tests uv run python <scratch>/p_contract_e2e.py
+
+
+F6  MEDIUM  Detail that belongs to a criterion but sits in the next block is not fingerprinted
+--------------------------------------------------------------------------------------------
+Where   scripts/closure.py:145-149 (docstring) and :166-172. criteria_fingerprint's docstring
+        (:179-180) says "rewording any part of a criterion changes it".
+Not a regression: the base missed these too. It is listed because the fix states the property.
+
+A paragraph criterion followed by its own bullet list, code block or table is the usual way to
+write "AC1. The floors hold:" in Jira. Only the paragraph is hashed.
+
+  paragraph criterion, then its bullet list      blocks: ['AC1. Latency holds:']        20 -> 200 same sha: True
+  paragraph criterion, then its code block       blocks: ['AC1. This command exits 0:'] same sha: True
+  paragraph criterion, then its table            blocks: ['AC1. The floors hold:']      same sha: True
+  id heading, then a sub-heading and its text    blocks: ['AC1 Latency.']               same sha: True
+  table row, id in the second cell               blocks: ['AC1']                        same sha: True
+  controls (sub-bullet of a list item; hard break, id first)                            same sha: False
+
+The docstring names one of these limits (a paragraph after a paragraph criterion) and the
+table rule ("first cell"). It does not name the list, the code block or the sub-heading.
+
+Reproduce   uv run python <scratch>/p_fingerprint.py <repo>
+
+
+F7  LOW  brief.py gate2 crashes on Windows when a changed path has a byte cp1252 cannot decode
+--------------------------------------------------------------------------------------------
+Where   scripts/brief.py:113-120. `-z` (new) makes git print raw UTF-8 path bytes;
+        subprocess.run(text=True) decodes them with the locale encoding, cp1252 here.
+Regression from f029b69: at the base git quoted such paths in ASCII and nothing crashed.
+
+  a changed file named docs/playbooks/\u00c1rea.md (UTF-8 c3 81):
+    head          raised: AttributeError: 'NoneType' object has no attribute 'split'
+    base 556947b  changed_files -> ['docs/playbooks/old.md', '"docs/playbooks/\\303\\201rea.md"']
+  a changed file named docs/playbooks/espa\u00f1ol.md: head returns 'docs/playbooks/espa\u00c3\u00b1ol.md'
+    (mis-decoded, still matched as a rule file; at the base it was not matched at all)
+
+Any changed file in the branch triggers it, not only a rule file. It fails closed (no brief).
+Python 3.12.12, locale cp1252, UTF-8 mode off. Not an issue on Linux.
+Reproduce   uv run python <scratch>/p_paths.py <repo> <scratch dir>
+
+
+F8  LOW  landed_at cannot tell "no record" from "git could not say"
+-----------------------------------------------------------------
+Where   scripts/brief.py:49-59 and :69-71.
+  landed_at('CC-9', 'no/such-ref') -> None, and the closed-ticket status then prints
+      (no closure file on main: Jira's close comment is the record)
+A base that does not exist, or an origin/main not fetched since the record merged, sends the
+reader to Jira's comment though a record exists. changed_files in the same file keeps the two
+apart (None means git could not say); landed_at does not.
+Also: when the record was deleted on main, landed_at returns the deleting commit and the brief
+prints a check command that can only answer "malformed manifest".
+Reproduce   uv run python <scratch>/p_closed.py <repo> <scratch dir>   (last two blocks)
+
+
+F9  LOW  Inline nodes that carry their text in attrs are shown but not fingerprinted
+----------------------------------------------------------------------------------
+Where   scripts/closure.py:88-99 (adf_text) against scripts/jira_fetch.py:328-332.
+The diff taught the markdown view to show mention, emoji, inlineCard, date and status nodes.
+The fingerprint reads adf_text, which still drops them. A criterion whose date, link or status
+lozenge changes keeps its fingerprint:
+  'AC1. The sealed run is recorded by <date>'    blocks: ['AC1. The sealed run is recorded by']  same sha: True
+  'AC1. Matches the contract at <link card>'     same sha: True
+  'AC1. Sealed gap is <status>'                  same sha: True
+Reproduce   uv run python <scratch>/p_fingerprint.py <repo>
+
+
+F10  LOW  Comment bodies the new markdown code still shows as "(empty)" or unreadable
+-----------------------------------------------------------------------------------
+Where   scripts/jira_fetch.py:298-306 and :328-332.
+  a link pasted as a block card (blockCard, attrs.url)   -> (empty)
+  a link pasted as an embed (embedCard, attrs.url)       -> (empty)
+  an emoji with a shortName and no text attr             -> (empty)
+  a mention with an id and no text attr                  -> "approved by"
+  a date                                                 -> "due 1764115200000" (epoch ms)
+CLAUDE.md asks Jira comments to link to the pull request; a comment that is only that link,
+shown as a card, reads "(empty)" in the first status command. A code block inside a bullet
+loses its indent; a task list runs into the next paragraph. Cosmetic.
+Reproduce   uv run python <scratch>/p_markdown.py <repo>
+
+
+F11  LOW  branch_ticket raises on a digit int() cannot read
+----------------------------------------------------------
+Where   scripts/closure.py:198-199: str.isdigit() is true for superscript digits; int() is not.
+  closure.branch_ticket('feat/cc-\u00b2') -> ValueError: invalid literal for int() with base 10
+The CLI exits non-zero with a traceback instead of the reason, so CI is still red.
+Arabic-Indic digits are accepted: 'feat/cc-\u0661\u0664\u0665' names CC-145.
+Reproduce   uv run python <scratch>/p_branch.py <repo>
+
+
+Notes that are not findings
+---------------------------
+- api/tests/test_brief.py:191, :193 and :203 assert on the brief's wording ("stays closed",
+  "close comment is the record"). The brief is a prompt; CLAUDE.md says not to assert on prompt
+  wording. The same file did so before this range. Left to the invariants pass.
+- The three new tests that build a git repository and the four that run bash take about 11 s
+  of the 23 s test_brief.py + test_process.py + test_jira_fetch.py need on this machine.
+
+
+ADVERSARIAL MATRIX (docs/process-evidence.md), ROW BY ROW
+=========================================================
+1. Identical inputs ranked by float noise. Does not apply: the range changes no index, embedding
+   or ranking code (scripts/brief.py, closure.py, jira_fetch.py, check_budgets.py, CI, tests, docs).
+2. A family returned by one member. Does not apply: no retrieval or table-family code changed.
+3. A ranking change measured on the tuning set alone. Does not apply: no ranking change, no
+   eval number is claimed by the code in this range.
+4. "Expect the largest jump" checked against the number, not the intuition. No metric is in the
+   range. Applied in its spirit to the claims the range does make, each checked by running it:
+     "rewording any part of a criterion changes it"            false on real documents (F1), and F6, F9
+     "later work elsewhere cannot make it read as broken"      false after this branch lands (F2)
+     "every id approved at pre-flight" needs a row             true; an id approved later does not (F3)
+     "a plain paragraph description keeps its line fingerprint" false for the four real fixtures (F1)
+     "a `*` never crosses a `/`" (check_budgets.is_prescriptive) true: nothing found
+     "Renames are split into a deletion and an addition"        true: nothing found
+     "a path with a space is one path"                          true: nothing found
+     an incomplete amendment does not let new criteria through  true: nothing found
+     a manifest that is not TOML stops with a reason            true: nothing found
+     --after-merge belongs to the final phase only              true: nothing found
+     the CI step fails under bash -e when `ticket` exits 1      true: nothing found
+The CLAUDE.md trap "a fake that returns the same thing for any input tests nothing" does apply,
+by analogy, to the test helper `doc()` in F1: it builds a document shape Jira does not produce.
+
+Nothing found in: scripts/check_budgets.py (is_prescriptive), the `ticket` subcommand's exit
+codes and output streams, shell quoting of BRANCH and TIP in the workflow step,
+amendment_problems, the TOML error path in brief.main, the --after-merge guard,
+docs/ARCHITECTURE.md and docs/playbooks/run-slice.md (the two lines changed there match the code).
+
+
+AFTER THE FINDINGS WERE WRITTEN
+===============================
+Everything above was on disk at this path before anything below was opened. Then, and only
+then, these were read: evidence/closure/CC-145.toml (approval fields), the saved ticket text in
+evidence/slice-6/cc-145/gate1.txt:17-70, evidence/slice-6/cc-145/gate2-fixes.txt, the finding
+headings of gate2-cold.txt and gate2.txt, and the first 14 lines of .claude/PLAN.md. No finding
+above was changed. What they add:
+
+F1. The record for this ticket holds approved_sha256 = c38c9650..., not the empty hash, and the
+saved ticket text shows CC-145's criteria as list items ("- AC1. ..."), a shape the head does
+fingerprint. gate2-fixes.txt:34-35 says the value was recomputed unchanged from the live
+description. So F1 does not stop this ticket's own briefs. It bites tickets written the way
+CC-104 and CC-105 are (one paragraph, lead-in line first), which are the tickets CLAUDE.md names
+as the open migration (CC-104/129-133). The fix record's test list for this change
+(gate2-fixes.txt:36-39) has no document of that shape. F1 stays high: it is a regression, and
+the property the fix claims is false on the repository's own real documents.
+
+F2. gate2-fixes.txt:59-60 says "all seven closed manifests read CLOSURE OK". True against
+origin/main today, confirmed above. Not true once this branch lands, because 9bdd13f (this
+branch) edited CC-138's record. Re-run with the branch landed as a real merge commit in the
+scratch clone (ab4c27d + 7949261, two parents): CC-138 lands at 9bdd13f, CLOSURE BLOCKED, the
+same four stale rows. The owner's rule recorded at gate2-fixes.txt:14-16 is "Closed tickets
+remain closed ... no coding agent may degrade what was achieved"; this is that case.
+
+F3. The fix record (L5, gate2-fixes.txt:72-76) says an amendment with criteria_sha256 "removes
+no row from scope". The code does that. It does not add the amended-in id to scope either,
+which is F3.
+
+F4. The branch rule is the owner's decision (gate2-fixes.txt:12-13): conventional type plus
+the ticket, wherever it sits. So "any other branch is red" is intended, and F4 is not a claim
+that the rule is wrong. What is left for the owner is the measured consequence: a housekeeping
+pull request with no ticket (11 of the last 60 merges; CLAUDE.md:107 still says housekeeping
+needs none), `budget/` as a type (3 of 60), a pull request that names a ticket with no
+manifest (20 of 60, and two branches on origin today), and no way for any of them to be green.
+
+F5. The owner decided that requirements state the product wanted, not what the code does today
+(gate2-fixes.txt:7-11, and C2 at :87-88). So the gap between the prose and api/src is intended.
+What is left: nothing in docs/requirements.md, CLAUDE.md or the two .cursor rule files says the
+shared-name and unclear-level rules are a target, or names the ticket that implements them; the
+decision is recorded only in this ticket's evidence file. docs/ask-path.md:93-101, the tests
+named in F5, evals/golden_questions.toml t05 and scripts/verify_golden_places.py:119 still pin
+the opposite, and requirements.md:24-27 and :40 disagree on which warning code the case carries.
+A reader with only the rule files cannot tell a target from a description.
+
+F6. gate2-fixes.txt:40-41 records one known limit: a paragraph that continues a paragraph
+criterion. The list, code block, table and sub-heading cases in F6 are not in that record.
+
+.claude/PLAN.md:3-5 does state where status lives ("Jira alone says whether a ticket is open or
+finished"), so the pointers added at docs/playbooks/run-slice.md:127-128 and
+.cursor/rules/00-guardrails.mdc:71-72 resolve. Nothing found there.
+
+Not done, with the reason. No command was run against Jira, GitHub or any other live system:
+the review rule is fakes or a scratch copy only. Two things therefore remain unreproduced:
+whether a red `check` job blocks a merge on this repository (branch protection, F4), and the
+live fingerprint of any ticket other than through the saved fixtures (F1).
+
+
+APPENDIX A - RAW PROBE OUTPUT
+=============================
+<scratch> is a folder outside the worktree, cleared with the session:
+  C:/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/4c863039-d3ef-417e-84a7-485e1aa62c90/scratchpad/gate2r2
+<repo> is the worktree at the review head. Every probe was run as
+  uv run python <scratch>/<probe>.py <repo> [<scratch dir or clone>]
+from <repo>. The scratch clone is `git clone --shared --no-checkout <repo> <scratch>/clone`.
+
+--- p_real_adf.out ---
+CC-104.after.json
+  node types: {'doc': 1, 'paragraph': 25, 'text': 36, 'heading': 11}
+  ids: 25  blocks: 0  blocks opened by: []
+  id lines not inside any fingerprinted block: 25
+     AC1. Structured scope, output level, entities and parent references determine execution; original prose is abs
+     AC2. Remove wildcard/within phrase gates, prose detect_level/split_comparison, sentence-based find_state/place
+     AC3. Main-loop and auxiliary geography reports feed one authoritative intent representation with requested/exe
+     AC4. Recovery consumes complete validated intent or returns missing fields to bounded model repair; no nationa
+     AC5. Completeness checks cannot mistake inferred/hallucinated parents for explicitly supplied identifiers. All
+  head fingerprint == base 556947b fingerprint of the same document: False
+  blocks that are more than their id line (multi-line criteria): 0
+CC-104.before.json
+  node types: {'doc': 1, 'paragraph': 27, 'text': 38, 'heading': 11}
+  ids: 25  blocks: 0  blocks opened by: []
+  id lines not inside any fingerprinted block: 25
+     AC1. Structured scope, output level, entities and parent references determine execution; original prose is abs
+     AC2. Remove wildcard/within phrase gates, prose detect_level/split_comparison, sentence-based find_state/place
+     AC3. Main-loop and auxiliary geography reports feed one authoritative intent representation with requested/exe
+     AC4. Recovery consumes complete validated intent or returns missing fields to bounded model repair; no nationa
+     AC5. Completeness checks cannot mistake inferred/hallucinated parents for explicitly supplied identifiers. All
+  head fingerprint == base 556947b fingerprint of the same document: False
+  blocks that are more than their id line (multi-line criteria): 0
+CC-105.after.json
+  node types: {'doc': 1, 'paragraph': 10, 'text': 10}
+  ids: 9  blocks: 0  blocks opened by: []
+  id lines not inside any fingerprinted block: 9
+     AC1. Use published county-or-part relationships where supported, recording every parent and resolved child sel
+     AC2. Compare actual coverage with requested relation; no county superset or parent count may pass as exact cit
+     AC3. Unsupported exact membership or clipping is explicitly limited with grounded alternatives; no fabricated 
+     AC4. Repeat-test multi-parent and single-parent controls with metadata-derived unseen cases, including partial
+     TC1. Multi-county place with exact supported membership.
+  head fingerprint == base 556947b fingerprint of the same document: False
+  blocks that are more than their id line (multi-line criteria): 0
+CC-105.before.json
+  node types: {'doc': 1, 'paragraph': 11, 'text': 11}
+  ids: 9  blocks: 0  blocks opened by: []
+  id lines not inside any fingerprinted block: 9
+     AC1. Use published county-or-part relationships where supported, recording every parent and resolved child sel
+     AC2. Compare actual coverage with requested relation; no county superset or parent count may pass as exact cit
+     AC3. Unsupported exact membership or clipping is explicitly limited with grounded alternatives; no fabricated 
+     AC4. Repeat-test multi-parent and single-parent controls with metadata-derived unseen cases, including partial
+     TC1. Multi-county place with exact supported membership.
+  head fingerprint == base 556947b fingerprint of the same document: False
+  blocks that are more than their id line (multi-line criteria): 0
+
+--- p_real_reword.out ---
+the criteria block as Jira stores it: one paragraph holding 1 text node; its first line: 'Acceptance criteria'
+approved at pre-flight (head code):
+  approved_ids    = ['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', 'TC3', 'TC4', 'TC5']
+  approved_sha256 = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  sha256 of the empty string       = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  criteria_blocks(live)            = []
+
+AC1 before: AC1. Use published county-or-part relationships where supported, recording every parent and resolved
+AC1 after : AC1. Parent counts are enough; exact child membership is not required.
+head: fingerprint unchanged: True
+head: brief.compare(gate1) -> [] <- [] lets the phase start
+base 556947b: fingerprint unchanged: False
+
+a record approved before this change, same ticket, nothing edited in Jira:
+  STOP  the criteria text changed with the same ids (e3b0c44298fc, approved 131832fc2613)
+  STOP  no [[amendment]] row has criteria_sha256 = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; only the owner amends a ticket
+
+--- p_fingerprint.out ---
+fingerprint of a description with no criteria: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+shape: ids after a lead-in line, one paragraph, hard breaks
+  ids approved            : ['AC1', 'AC2']
+  blocks fingerprinted    : []
+  is the empty fingerprint: True
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): False
+
+shape: ids on later lines of a code block
+  ids approved            : ['AC1', 'TC1']
+  blocks fingerprinted    : []
+  is the empty fingerprint: True
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): False
+
+shape: one text node with newlines, lead-in first
+  ids approved            : ['AC1']
+  blocks fingerprinted    : []
+  is the empty fingerprint: True
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): False
+
+shape: paragraph criterion, then its bullet list
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. Latency holds:']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: paragraph criterion, then its code block
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. This command exits 0:']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: paragraph criterion, then its table
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. The floors hold:']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: id heading, then a sub-heading and its text
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1 Latency.']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: table row, id in the second cell
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: a date node inside the criterion
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. The sealed run is recorded by']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: a link card inside the criterion
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. Matches the contract at']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: a status lozenge inside the criterion
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. Sealed gap is']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): True   brief.compare stops: False
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: CONTROL sub-bullet of a list-item criterion
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. Latency under 20s']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): False   brief.compare stops: True
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+shape: CONTROL hard break, id on the first line
+  ids approved            : ['AC1']
+  blocks fingerprinted    : ['AC1. Latency under 20s']
+  is the empty fingerprint: False
+  20 -> 200 same sha (head): False   brief.compare stops: True
+  20 -> 200 same sha (base 556947b line fingerprint): True
+
+
+--- p_closed_real.out (origin/main as it is today, ab4c27d) ---
+checkout of origin/main at ab4c27d
+CC-125: landed 6738e4f (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-126: landed 450bc25 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-133: landed 3e0dbc4 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 13 problem(s)
+CC-138: landed cab85d6 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 4 problem(s)
+CC-141: landed f49c910 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 7 problem(s)
+CC-143: landed f4a325a (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 5 problem(s)
+CC-144: landed 72d63ea (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): CLOSURE OK
+
+--- p_closed_real_after.out (p_closed_real.py, clone at 7949261 and origin/main set to it: the branch landed by fast-forward) ---
+checkout of origin/main at 7949261
+CC-125: landed 6738e4f (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-126: landed 450bc25 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-133: landed 3e0dbc4 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 13 problem(s)
+CC-138: landed 9bdd13f (first-parent commit of main: True)
+    BLOCKED  AC2.1: stale, 22 covered file(s) changed since 89396f4
+    BLOCKED  AC3: stale, 4 covered file(s) changed since 89396f4
+    BLOCKED  TC2: stale, 22 covered file(s) changed since 89396f4
+    BLOCKED  TC3: stale, 4 covered file(s) changed since 89396f4
+    CLOSURE BLOCKED: 4 problem(s)
+    for comparison, the base's command (--head origin/main): BLOCKED: 4 problem(s)
+CC-141: landed f49c910 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 7 problem(s)
+CC-143: landed f4a325a (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 7 problem(s)
+CC-144: landed 72d63ea (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+
+--- p_closed_real_merge.out (p_closed_real.py, the branch landed as a merge commit of ab4c27d and 7949261; run after the findings; CC-138 block and the first lines only) ---
+checkout of origin/main at 4f7ecd9
+CC-125: landed 6738e4f (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-126: landed 450bc25 (first-parent commit of main: False)
+    CLOSURE OK
+    for comparison, the base's command (--head origin/main): BLOCKED: 1 problem(s)
+CC-133: landed 3e0dbc4 (first-parent commit of main: False)
+--
+CC-138: landed 9bdd13f (first-parent commit of main: False)
+    BLOCKED  AC2.1: stale, 22 covered file(s) changed since 89396f4
+    BLOCKED  AC3: stale, 4 covered file(s) changed since 89396f4
+    BLOCKED  TC2: stale, 22 covered file(s) changed since 89396f4
+    BLOCKED  TC3: stale, 4 covered file(s) changed since 89396f4
+    CLOSURE BLOCKED: 4 problem(s)
+    for comparison, the base's command (--head origin/main): BLOCKED: 4 problem(s)
+CC-141: landed f49c910 (first-parent commit of main: False)
+
+--- p_closed.out ---
+landed_at is the branch commit that wrote the record: True
+landed_at is the merge commit on main               : False
+command the brief prints:
+    uv run python scripts/closure.py check evidence/closure/CC-9.toml --head 437c5f3bc2b4f5d8812891126b1a741e78e2e71c
+1. main at the ticket's merge: CLOSURE OK
+2. another ticket renames scripts/tool.py on main; landed unchanged: True
+   from a checkout of main, as the brief instructs:
+      AC1: `affects` names paths that do not exist: ['scripts/tool.py']
+   control, the same command from a checkout of <landed>:
+      CLOSURE OK
+3. the file is back, and a later commit rewrites the pinned evidence file; landed unchanged: True
+      AC1: evidence evidence/ac1.txt changed since it was recorded
+
+landed_at when git cannot answer (a base that does not exist): None
+what the closed-ticket status then says:
+      uv run python scripts/jira_fetch.py issue CC-9 --md
+      (no closure file on main: Jira's close comment is the record)
+
+the record is deleted on main; landed_at is the deleting commit: True
+    uv run python scripts/closure.py check evidence/closure/CC-9.toml --head edd80bbc8b26f513fd05a99a898e0c8b3b6f988e
+    run from main: CC-9.toml: malformed manifest
+
+--- p_amendment.out ---
+live Jira ids             : ['AC1', 'AC2']
+approved_ids in the record: ['AC1']
+rows in the record        : ['AC1']
+brief.compare (gate2)     : [] <- [] lets the phase start
+closure.problems, the CI call (--pre-merge): [] <- [] is CLOSURE OK
+
+control, no amendment and AC2 only in Jira:
+  brief.compare (gate2)   : ['criterion AC2 is in Jira but was not approved']
+
+control, the same amendment asked to excuse an AMENDED AC2 row:
+  closure.problems        : ['AC2: AMENDED without an [[amendment]] for it']
+
+--- p_branch.out ---
+the last 60 distinct pull-request branches merged to origin/main (first parent):
+  A. old shape cc-N/...: 20
+      cc-144/gate-line
+      cc-143/acceptance-gate
+      cc-141/ac4-affects
+      cc-141/ac4
+      cc-141/post-merge
+      cc-104/api-src-budget
+      cc-141/bridge
+      cc-141/golden-state
+      cc-126/census-deadline
+      cc-125/rerank-wait
+      cc-138/post-merge-evidence
+      cc-125/api-src-budget
+      cc-138/coverage-recovery
+      cc-138/responses-integration
+      cc-137/test-only-grading
+      cc-133/post-merge
+      cc-133/instrument
+      cc-114/level-fidelity
+      cc-103/multi-parent-repair
+      cc-114/classification-rule
+  B. type budget/ is not on the list: 3
+      budget/cc-114-api-src-loc-2
+      budget/cc-114-api-src-loc
+      budget/cc-121-api-src-loc
+  B. type codex/ is not on the list: 1
+      codex/host-neutral-workflow
+  C. conventional type, names no ticket (housekeeping): 11
+      chore/launch-inspect-ask
+      chore/leakage-baseline-main
+      chore/vscode-editor-settings
+      chore/launch-configs-and-ask-one-gate1
+      docs/refresh-current-numbers
+      fix/auc-order-independent-ties-rebased
+      docs/sync-slice6-order
+      chore/ask-one-script
+      chore/drift-gates
+      docs/regex-last-resort
+      chore/budget-web-geography
+  D. names more than one ticket: 1
+      evidence/cc-102-cc-117-post-merge
+  E. names a ticket with no evidence/closure manifest: 20
+      chore/waiver-p95-cc-114-run
+      evidence/cc-114-e2e-post
+      feat/cc-117-no-table-pins
+      chore/cc-121-post-merge-evidence-e2e
+      feat/cc-121-answer-figures
+      feat/cc-123-demo-memory
+      feat/cc-113-latency-research
+      feat/cc-120-url-breadth-grid
+      feat/cc-113-latency-spans
+      fix/cc-102-original-question-parent-guard
+      chore/cc-116-subsume-by-occurrence
+      evidence/cc-103-post-merge
+      docs/cc-77-phase1-wording
+      docs/cc-3-generalization-and-stale-docs
+      feat/cc-38-restore-conversation
+      feat/cc-41-conversation-routes
+      feat/cc-40-conversation-store
+      feat/cc-49-csv-export
+      fix/cc-101-multi-state-wildcard
+      chore/cc-100-e2e-post
+  F. names a ticket with a manifest: the check runs: 4
+      evidence/cc-143-e2e-post
+      evidence/cc-126-closure
+      evidence/cc-126-e2e-post
+      evidence/cc-125-e2e-post
+  red under the new step: 56 of 60; of those, by shape alone (A-D): 36
+
+branches on origin today:
+  cc-104/structured-geography            red: does not start with a conventional type (feat, fix, docs, chore, test, refactor, perf, ci, buil
+  cc-118/variable-limit                  red: does not start with a conventional type (feat, fix, docs, chore, test, refactor, perf, ci, buil
+  cc-138/baseline-p95-waiver             red: does not start with a conventional type (feat, fix, docs, chore, test, refactor, perf, ci, buil
+  chore/cc-113-e2e-post                  red: CC-113 has no manifest
+  chore/cc-120-e2e-post                  red: CC-120 has no manifest
+  chore/drift-gates-pr                   red: must name exactly one ticket (found none)
+  docs/ramirez-presentation-brief        red: must name exactly one ticket (found none)
+  docs/trim-playbook-duplicate           red: must name exactly one ticket (found none)
+
+other shapes:
+  'dependabot/npm_and_yarn/web/vite-7.1.0'     None  , test, refactor, perf, ci, build, style, revert, evidence)/
+  'revert-152-chore/launch-inspect-ask'        None  , test, refactor, perf, ci, build, style, revert, evidence)/
+  'feat/cc-145-drop-cc2-emissions'             None  emissions' must name exactly one ticket (found CC-145, CC-2)
+  'docs/cc-2026-11-26-notes'                   CC-2026  
+  'feat/cc-١٤٥'                                CC-145  
+  'feat/cc-²'                                  raised ValueError: invalid literal for int() with base 10: '²'
+  'feat/cc¹'                                   raised ValueError: invalid literal for int() with base 10: '¹'
+
+--- p_evidence_pr.out ---
+#150 evidence/cc-143-e2e-post -> CC-143; tip f4a325a; manifest present: True
+    CLOSURE OK
+#143 evidence/cc-126-closure -> CC-126; tip 450bc25; manifest present: True
+    CLOSURE OK
+#141 evidence/cc-126-e2e-post -> CC-126; tip 21d0e2e; manifest present: False
+    BLOCKED  CC-126.toml: malformed manifest (FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\johnh\\AppData\\Local\\Temp\\claude\\5b8db11426f64676\\4c863039-d3ef-417e-84a7-485e1aa62c90\\scratchpad\\gate2r2\\clone\\evidence\\closure\\CC-126.toml')
+    CLOSURE BLOCKED: 1 problem(s)
+#139 evidence/cc-125-e2e-post -> CC-125; tip 6738e4f; manifest present: True
+    CLOSURE OK
+
+--- p_contract.out ---
+'Population of Springfield': a place name several states share; the state is the model's (prompt: write every place as 'Name, State' with the state from your own knowledge)
+    finish.incomplete -> None
+    stopped before any search: False
+'Population of Cook County': a county name several states share, no state written
+    finish.incomplete -> None
+    stopped before any search: False
+'Median household income in the Bay Area': a question whose geography level is unclear (the model reports level null)
+    finish.incomplete -> None
+    stopped before any search: False
+'Population of tract 9501': CONTROL: one tract by number, no parents (the case the code does stop)
+    finish.incomplete -> 'This question is incomplete and cannot be searched: a tract identified by its number needs state and county, and it names no geography. Name the state and county and ask again.'
+    stopped before any search: True
+--- the repository's own tests for the same cases, at the review head ---
+3 passed, 1 warning in 1.27s
+
+--- p_contract_e2e.out ---
+question: 'Population of Cook County' (no state written; the model's report adds Illinois)
+  answer starts            : 'done\n\nB01003_001E: 4,838,303 (margin of error 123), Harris C'
+  urls[]                   : ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17']
+  fetch calls made         : 1
+  rows                     : 1
+  table_id                 : 'B01003'
+  alternatives             : 0
+  warnings                 : ['ambiguous_place', 'geography_level_unverified']
+  ambiguous_place.candidates: ['Cook County, Illinois', 'Cook County, Georgia', 'Cook County, Minnesota']
+  table pool searched      : 1 table(s) in record.pool
+
+--- p_paths.out ---
+Exception in thread Thread-27 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 38: character maps to <undefined>
+python 3.12.12 | locale encoding: cp1252 | utf8 mode: 0
+
+a changed rule file named with n-tilde (UTF-8 c3 b1), plus docs/playbooks/old.md:
+  head          changed_files -> ['docs/playbooks/espaÃ±ol.md', 'docs/playbooks/old.md']
+  head          rule files seen -> ['docs/playbooks/espaÃ±ol.md', 'docs/playbooks/old.md']
+  base 556947b  changed_files -> ['"docs/playbooks/espa\\303\\261ol.md"', 'docs/playbooks/old.md']
+  base 556947b  rule files seen -> ['docs/playbooks/old.md']
+
+a changed rule file named with A-acute (UTF-8 c3 81), plus docs/playbooks/old.md:
+  head          raised: AttributeError: 'NoneType' object has no attribute 'split'
+  base 556947b  changed_files -> ['docs/playbooks/old.md', '"docs/playbooks/\\303\\201rea.md"']
+  base 556947b  rule files seen -> ['docs/playbooks/old.md']
+
+--- p_markdown.out ---
+a link pasted as a block card (blockCard, attrs.url):
+    | (empty)
+a link pasted as an embed (embedCard, attrs.url):
+    | (empty)
+an emoji with a shortName and no text attr:
+    | (empty)
+a mention with an id and no text attr:
+    | approved by
+a date (shown as epoch milliseconds):
+    | due 1764115200000
+a task list followed by a paragraph:
+    | - [x] rerun AC4
+    | - [ ] post numbers
+    | next paragraph
+a code block inside a bullet:
+    | - run
+    | 
+    | ```
+    | make check
+    | ```
+a decision already made (state DECIDED):
+    | - keep the waiver
+
+--- p_nothing.out ---
+check_budgets.is_prescriptive (a `*` must not cross a `/`; only whole patterns match):
+  'CLAUDE.md'                                -> True  ok
+  'docs/playbooks/run-slice.md'              -> True  ok
+  '.cursor/rules/00-guardrails.mdc'          -> True  ok
+  '.claude/skills/run-slice/SKILL.md'        -> True  ok
+  'docs/playbooks/archive/old.md'            -> False ok
+  'docs/playbooks/a/b/c.md'                  -> False ok
+  '.claude/skills/a/b/SKILL.md'              -> False ok
+  'x/CLAUDE.md'                              -> False ok
+  'CLAUDE.md/x'                              -> False ok
+  'docs/playbooks'                           -> False ok
+  'docs/playbooks/'                          -> False ok
+  'docs/playbooks/.md'                       -> True  ok
+  'docs\\playbooks\\run-slice.md'            -> False ok
+  'docs/ARCHITECTURE.md'                     -> False ok
+  '.claude/agents/gate2-cold.md'             -> False ok
+  every file the doc budget counts is prescriptive: True (21 files)
+closure.amendment_problems:
+  whole, date as a string        -> []
+  whole, date as a TOML date     -> []
+  date as a TOML datetime        -> ['date (ISO)']
+  date '26/11/2026'              -> ['date (ISO)']
+  without id                    -> ['id']
+  without date                  -> ['date', 'date (ISO)']
+  without owner                 -> ['owner']
+  without reason                -> ['reason']
+  without destination           -> ['destination']
+brief.compare with an amendment that names the live fingerprint:
+  whole amendment                -> []
+  amendment without date         -> stops: True
+  amendment without owner        -> stops: True
+  amendment without reason       -> stops: True
+  amendment without destination  -> stops: True
+  amendment without id           -> stops: True
+  amendment for other text       -> stops: True
+  nothing approved, gate1        -> ['no criteria were approved at pre-flight: run the preflight brief first']
+  nothing approved, preflight    -> []
+  no description at all (None), record approved -> ['criterion AC1 was approved but is gone from Jira']
+--after-merge on a phase that is not final (argparse stops before any Jira call):
+brief.py: error: --after-merge belongs to the final phase only
+  exit=2
+bash -e and a failed command substitution in an assignment:
+  exit=1
+the workflow step, parsed:
+  if : github.event_name == 'pull_request'
+  env: {'BRANCH': '${{ github.head_ref }}', 'TIP': '${{ github.event.pull_request.head.sha }}'}
+  run: ['key="$(uv run python scripts/closure.py ticket "$BRANCH")"', 'uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"']
+
+
+APPENDIX B - PROBE SOURCES
+==========================
+base/closure_base.py and base/brief_base.py are `git show 556947b:scripts/closure.py` and
+`git show 556947b:scripts/brief.py`, saved unchanged for the head-against-base comparisons.
+
+--- p_real_adf.py ---
+"""Gate 2 cold re-run, probe: the fingerprint over the real Jira documents this repository keeps
+as test fixtures (api/tests/fixtures/gate_wording, tickets CC-104 and CC-105; not the ticket
+under review). For every id `required_ids` reads: is its line inside a fingerprinted block, and
+does the head fingerprint equal the base's line fingerprint. No network."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+REPO = Path(sys.argv[1])
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO / "scripts"))
+
+import closure  # noqa: E402
+
+spec = importlib.util.spec_from_file_location("closure_base", HERE / "base" / "closure_base.py")
+assert spec and spec.loader
+base = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(base)
+
+
+def kinds(node: Any, seen: Counter[str]) -> Counter[str]:
+    if isinstance(node, dict):
+        seen[str(node.get("type"))] += 1
+        for child in node.get("content") or []:
+            kinds(child, seen)
+    return seen
+
+
+for path in sorted((REPO / "api" / "tests" / "fixtures" / "gate_wording").glob("*.json")):
+    document = json.loads(path.read_text(encoding="utf-8"))
+    flat = closure.adf_text(document)
+    ids = closure.required_ids(flat)
+    blocks = closure.criteria_blocks(document)
+    covered = [i for block in blocks for i in closure.required_ids(block.replace(" | ", "\n"))]
+    first = [closure.required_ids(block)[:1] for block in blocks]
+    lines = [" ".join(line.split()) for line in flat.splitlines() if closure.required_ids(line)]
+    joined = " \n ".join(blocks)
+    outside = [line for line in lines if line not in joined]
+    same = closure.criteria_fingerprint(document) == base.criteria_fingerprint(base.adf_text(document))
+    print(path.name)
+    print("  node types:", dict(kinds(document, Counter())))
+    print(f"  ids: {len(ids)}  blocks: {len(blocks)}  blocks opened by: {[f[0] for f in first if f]}")
+    print(f"  id lines not inside any fingerprinted block: {len(outside)}")
+    for line in outside[:5]:
+        print(f"     {line[:110]}")
+    print(f"  head fingerprint == base 556947b fingerprint of the same document: {same}")
+    longer = [b for b in blocks if b not in lines]
+    print(f"  blocks that are more than their id line (multi-line criteria): {len(longer)}")
+
+--- p_real_reword.py ---
+"""Gate 2 cold re-run, probe: reword a criterion in a real Jira document of this project (the
+CC-105 fixture under api/tests/fixtures/gate_wording) and ask the brief whether the phase may
+start. Head code against the base's. The edit is made to an in-memory copy; no network."""
+
+from __future__ import annotations
+
+import copy
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import closure  # noqa: E402
+
+
+def load(name: str, file: str):  # type: ignore[no-untyped-def]
+    spec = importlib.util.spec_from_file_location(name, HERE / "base" / file)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+closure_base = load("closure_base", "closure_base.py")
+
+fixture = REPO / "api" / "tests" / "fixtures" / "gate_wording" / "CC-105.after.json"
+live = json.loads(fixture.read_text(encoding="utf-8"))
+block = next(n for n in live["content"] if n["content"][0]["text"].startswith("Acceptance criteria"))
+print("the criteria block as Jira stores it: one", block["type"], "holding", len(block["content"]),
+      "text node; its first line:", repr(block["content"][0]["text"].splitlines()[0]))
+
+approved = {
+    "approved_ids": closure.required_ids(closure.adf_text(live)),
+    "approved_sha256": closure.criteria_fingerprint(live),
+}
+print("approved at pre-flight (head code):")
+print("  approved_ids    =", approved["approved_ids"])
+print("  approved_sha256 =", approved["approved_sha256"])
+print("  sha256 of the empty string       =", closure.criteria_fingerprint({"type": "doc", "content": []}))
+print("  criteria_blocks(live)            =", closure.criteria_blocks(live))
+
+edited = copy.deepcopy(live)
+target = next(n for n in edited["content"] if n["content"][0]["text"].startswith("Acceptance criteria"))
+before = target["content"][0]["text"]
+ac1 = before.splitlines()[1]
+target["content"][0]["text"] = before.replace(ac1, "AC1. Parent counts are enough; exact child membership is not required.")
+print()
+print("AC1 before:", ac1[:100])
+print("AC1 after :", target["content"][0]["text"].splitlines()[1])
+print("head: fingerprint unchanged:", closure.criteria_fingerprint(edited) == approved["approved_sha256"])
+print("head: brief.compare(gate1) ->", brief.compare(approved, edited, "gate1"), "<- [] lets the phase start")
+
+base_approved = {
+    "approved_ids": closure_base.required_ids(closure_base.adf_text(live)),
+    "approved_sha256": closure_base.criteria_fingerprint(closure_base.adf_text(live)),
+}
+base_now = closure_base.criteria_fingerprint(closure_base.adf_text(edited))
+print("base 556947b: fingerprint unchanged:", base_now == base_approved["approved_sha256"])
+
+print()
+print("a record approved before this change, same ticket, nothing edited in Jira:")
+old_record = dict(base_approved)
+for line in brief.compare(old_record, live, "gate1"):
+    print("  STOP ", line[:150])
+
+--- p_fingerprint.py ---
+"""Gate 2 cold re-run, probe: what the criteria fingerprint covers. Fakes only, no network."""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+from typing import Any
+
+REPO = Path(sys.argv[1])
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import closure  # noqa: E402
+
+spec = importlib.util.spec_from_file_location("closure_base", HERE / "base" / "closure_base.py")
+assert spec and spec.loader
+closure_base = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(closure_base)
+
+
+def text(value: str) -> dict[str, Any]:
+    return {"type": "text", "text": value}
+
+
+def para(*inline: Any) -> dict[str, Any]:
+    return {"type": "paragraph", "content": [text(i) if isinstance(i, str) else i for i in inline]}
+
+
+BREAK = {"type": "hardBreak"}
+
+
+def doc(*blocks: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "doc", "version": 1, "content": list(blocks)}
+
+
+def item(*blocks: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "listItem", "content": list(blocks)}
+
+
+def bullets(*items: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "bulletList", "content": list(items)}
+
+
+def heading(value: str, level: int = 3) -> dict[str, Any]:
+    return {"type": "heading", "attrs": {"level": level}, "content": [text(value)]}
+
+
+def cell(*blocks: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "tableCell", "content": list(blocks)}
+
+
+def row(*cells: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "tableRow", "content": list(cells)}
+
+
+def approved(description: object) -> dict[str, Any]:
+    return {
+        "approved_ids": closure.required_ids(closure.adf_text(description)),
+        "approved_sha256": closure.criteria_fingerprint(description),
+    }
+
+
+SHAPES = {
+    # F1: ids on later lines of one paragraph whose first line is not an id
+    "ids after a lead-in line, one paragraph, hard breaks": lambda v: doc(
+        para("Acceptance criteria:", BREAK, f"AC1. p95 under {v} seconds", BREAK, "AC2. It fails closed")
+    ),
+    "ids on later lines of a code block": lambda v: doc(
+        {"type": "codeBlock", "content": [text(f"criteria\nAC1. p95 under {v} seconds\nTC1. a test")]}
+    ),
+    "one text node with newlines, lead-in first": lambda v: doc(
+        para(f"Criteria\nAC1. p95 under {v} seconds")
+    ),
+    # F2: the criterion's own detail in the sibling block that follows it
+    "paragraph criterion, then its bullet list": lambda v: doc(
+        para("AC1. Latency holds:"), bullets(item(para(f"p95 under {v} seconds")))
+    ),
+    "paragraph criterion, then its code block": lambda v: doc(
+        para("AC1. This command exits 0:"),
+        {"type": "codeBlock", "content": [text(f"make demo --repeat {v}")]},
+    ),
+    "paragraph criterion, then its table": lambda v: doc(
+        para("AC1. The floors hold:"),
+        {"type": "table", "content": [row(cell(para("p95")), cell(para(f"{v} seconds")))]},
+    ),
+    "id heading, then a sub-heading and its text": lambda v: doc(
+        heading("AC1", 3), para("Latency."), heading("Threshold", 4), para(f"p95 under {v} seconds")
+    ),
+    "table row, id in the second cell": lambda v: doc(
+        {"type": "table", "content": [row(cell(para("1")), cell(para("AC1")), cell(para(f"p95 under {v} s")))]}
+    ),
+    # F3: inline nodes that carry their text in attrs
+    "a date node inside the criterion": lambda v: doc(
+        para("AC1. The sealed run is recorded by ", {"type": "date", "attrs": {"timestamp": v}})
+    ),
+    "a link card inside the criterion": lambda v: doc(
+        para("AC1. Matches the contract at ", {"type": "inlineCard", "attrs": {"url": f"https://x.test/{v}"}})
+    ),
+    "a status lozenge inside the criterion": lambda v: doc(
+        para("AC1. Sealed gap is ", {"type": "status", "attrs": {"text": f"UNDER {v}", "color": "green"}})
+    ),
+    # controls the diff's own tests cover (expected: detected)
+    "CONTROL sub-bullet of a list-item criterion": lambda v: doc(
+        bullets(item(para("AC1. Latency"), bullets(item(para(f"under {v}s")))))
+    ),
+    "CONTROL hard break, id on the first line": lambda v: doc(
+        para("AC1. Latency", BREAK, f"under {v}s")
+    ),
+}
+
+EMPTY = closure.criteria_fingerprint(doc())
+print(f"fingerprint of a description with no criteria: {EMPTY}")
+print()
+for name, make in SHAPES.items():
+    before, after = make("20"), make("200")
+    ids = closure.required_ids(closure.adf_text(before))
+    blocks = closure.criteria_blocks(before)
+    same = closure.criteria_fingerprint(before) == closure.criteria_fingerprint(after)
+    stops = brief.compare(approved(before), after, "gate1")
+    old_same = closure_base.criteria_fingerprint(
+        closure_base.adf_text(before)
+    ) == closure_base.criteria_fingerprint(closure_base.adf_text(after))
+    print(f"shape: {name}")
+    print(f"  ids approved            : {ids}")
+    print(f"  blocks fingerprinted    : {blocks}")
+    print(f"  is the empty fingerprint: {closure.criteria_fingerprint(before) == EMPTY}")
+    print(f"  20 -> 200 same sha (head): {same}   brief.compare stops: {bool(stops)}")
+    print(f"  20 -> 200 same sha (base 556947b line fingerprint): {old_same}")
+    print()
+
+--- p_closed_real.py ---
+"""Gate 2 cold re-run, probe: the closed-ticket status command against the closure records that
+are on origin/main today (every ticket but the one under review), run as the brief instructs:
+from a checkout of origin/main, `closure.py check <record> --head <landed>`. The checkout is a
+scratch clone; the code is the review head's. No network."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+CLONE = Path(sys.argv[2])
+MAIN = sys.argv[3]
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import closure  # noqa: E402
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=CLONE, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+git("checkout", "-q", "--detach", MAIN)
+assert git("rev-parse", "HEAD") == git("rev-parse", "origin/main") == MAIN
+brief.ROOT = CLONE
+print(f"checkout of origin/main at {MAIN[:7]}")
+for path in sorted((CLONE / "evidence" / "closure").glob("CC-*.toml")):
+    key = path.stem
+    if key == "CC-145":
+        continue
+    landed = brief.landed_at(key, "origin/main")
+    parents = git("rev-list", "--parents", "-n", "1", landed or "HEAD").split()
+    on_first_parent = landed in git("rev-list", "--first-parent", "origin/main").split()
+    found = closure.check_file(path, root=CLONE, head=landed or "HEAD", done=True)
+    print(f"{key}: landed {str(landed)[:7]} (first-parent commit of main: {on_first_parent})")
+    for line in found[:8]:
+        print(f"    BLOCKED  {line}")
+    if len(found) > 8:
+        print(f"    ... and {len(found) - 8} more")
+    print(f"    {'CLOSURE OK' if not found else f'CLOSURE BLOCKED: {len(found)} problem(s)'}")
+    at_tip = closure.check_file(path, root=CLONE, head="origin/main", done=True)
+    print(f"    for comparison, the base's command (--head origin/main): "
+          f"{'CLOSURE OK' if not at_tip else f'BLOCKED: {len(at_tip)} problem(s)'}")
+
+--- p_closed.py ---
+"""Gate 2 cold re-run, probe: the status command the brief prints for a closed ticket, run the
+way the brief says to run it (from a checkout of main, --head <landed>), before and after later
+work elsewhere. A scratch git repository under argv[2]; no network."""
+
+from __future__ import annotations
+
+import hashlib
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+WORK = Path(sys.argv[2])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import closure  # noqa: E402
+
+
+def git(*args: str, cwd: Path = WORK) -> str:
+    done = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+def commit(message: str) -> str:
+    git("add", "-A")
+    git("commit", "-q", "-m", message)
+    return git("rev-parse", "HEAD")
+
+
+def on_main(message: str) -> str:
+    made = commit(message)
+    git("update-ref", "refs/remotes/origin/main", "HEAD")  # stands in for the fetched origin/main
+    return made
+
+
+def status(root: Path, landed: str) -> list[str]:
+    """`closure.py check evidence/closure/CC-9.toml --head <landed>` with `root` as the checkout."""
+    return closure.check_file(
+        root / "evidence" / "closure" / "CC-9.toml", root=root, head=landed, done=True
+    )
+
+
+WORK.mkdir(parents=True, exist_ok=True)
+git("init", "-q", "-b", "main")
+git("config", "user.email", "t@example.com")
+git("config", "user.name", "t")
+(WORK / "scripts").mkdir()
+(WORK / "scripts" / "tool.py").write_text("x = 0\n", encoding="utf-8")
+on_main("base")
+on_main_base = git("rev-parse", "HEAD")
+(WORK / "README.md").write_text("an earlier merge\n", encoding="utf-8")
+git("checkout", "-q", "-b", "chore/earlier")
+commit("earlier")
+git("checkout", "-q", "main")
+git("merge", "-q", "--no-ff", "-m", "Merge pull request #0", "chore/earlier")
+git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+git("checkout", "-q", "-b", "feat/cc-9-x")
+(WORK / "scripts" / "tool.py").write_text("x = 1\n", encoding="utf-8")
+(WORK / "evidence" / "closure").mkdir(parents=True)
+(WORK / "evidence" / "ac1.txt").write_text("ac1 ran\n", encoding="utf-8")
+tested = commit("CC-9: the work")
+sha = hashlib.sha256((WORK / "evidence" / "ac1.txt").read_bytes()).hexdigest()
+(WORK / "evidence" / "closure" / "CC-9.toml").write_text(
+    "\n".join(
+        [
+            'required = ["AC1"]',
+            "[[row]]",
+            'id = "AC1"',
+            'status = "PASS"',
+            'command = "make check"',
+            'expected = "exit 0"',
+            'observed = "exit 0"',
+            f'tested_head = "{tested}"',
+            'reviewer = "r"',
+            'affects = ["scripts/tool.py"]',
+            f'evidence = [{{ path = "evidence/ac1.txt", sha256 = "{sha}" }}]',
+            "",
+        ]
+    ),
+    encoding="utf-8",
+    newline="\n",
+)
+record = commit("CC-9: the closure record")
+git("checkout", "-q", "main")
+git("merge", "-q", "--no-ff", "-m", "Merge pull request #1 from feat/cc-9-x", "feat/cc-9-x")
+git("update-ref", "refs/remotes/origin/main", "HEAD")
+merge = git("rev-parse", "HEAD")
+
+brief.ROOT = WORK
+landed = brief.landed_at("CC-9", "origin/main") or ""
+print("landed_at is the branch commit that wrote the record:", landed == record)
+print("landed_at is the merge commit on main               :", landed == merge)
+print("command the brief prints:")
+print("   ", brief.closed_status("CC-9", "Done", landed).splitlines()[4].strip())
+print("1. main at the ticket's merge:", status(WORK, landed) or "CLOSURE OK")
+
+git("mv", "scripts/tool.py", "scripts/tool_renamed.py")
+on_main("another ticket renames a file")
+print("2. another ticket renames scripts/tool.py on main; landed unchanged:",
+      brief.landed_at("CC-9", "origin/main") == landed)
+print("   from a checkout of main, as the brief instructs:")
+for line in status(WORK, landed) or ["CLOSURE OK"]:
+    print("     ", line)
+
+at_landed = WORK.parent / (WORK.name + "_at_landed")
+git("clone", "-q", "--shared", "--no-checkout", str(WORK), str(at_landed), cwd=WORK.parent)
+git("fetch", "-q", str(WORK), "+refs/heads/main:refs/remotes/origin/main", cwd=at_landed)
+git("checkout", "-q", "--detach", landed, cwd=at_landed)
+print("   control, the same command from a checkout of <landed>:")
+for line in status(at_landed, landed) or ["CLOSURE OK"]:
+    print("     ", line)
+
+git("mv", "scripts/tool_renamed.py", "scripts/tool.py")
+(WORK / "evidence" / "ac1.txt").write_text("ac1 ran\nre-run by a later ticket\n", encoding="utf-8")
+on_main("a later run rewrites a shared evidence file")
+print("3. the file is back, and a later commit rewrites the pinned evidence file; landed unchanged:",
+      brief.landed_at("CC-9", "origin/main") == landed)
+for line in status(WORK, landed) or ["CLOSURE OK"]:
+    print("     ", line)
+
+print()
+missing = brief.landed_at("CC-9", "no/such-ref")
+print("landed_at when git cannot answer (a base that does not exist):", missing)
+print("what the closed-ticket status then says:")
+for line in brief.closed_status("CC-9", "Done", missing).splitlines()[3:5]:
+    print("   ", line)
+
+git("rm", "-q", "evidence/closure/CC-9.toml")
+gone = on_main("housekeeping deletes the record")
+after = brief.landed_at("CC-9", "origin/main") or ""
+print()
+print("the record is deleted on main; landed_at is the deleting commit:", after == gone)
+print("   ", brief.closed_status("CC-9", "Done", after).splitlines()[4].strip())
+print("    run from main:", status(WORK, after)[0].split(" (")[0])
+
+--- p_amendment.py ---
+"""Gate 2 cold re-run, probe: a criterion the owner adds by amendment, and what the readiness
+check then requires. A scratch git repository under the folder given as argv[2]; no network."""
+
+from __future__ import annotations
+
+import hashlib
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+REPO = Path(sys.argv[1])
+WORK = Path(sys.argv[2])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import closure  # noqa: E402
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=WORK, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+WORK.mkdir(parents=True, exist_ok=True)
+git("init", "-q", "-b", "main")
+git("config", "user.email", "t@example.com")
+git("config", "user.name", "t")
+(WORK / "api" / "src").mkdir(parents=True)
+(WORK / "api" / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+(WORK / "evidence").mkdir()
+(WORK / "evidence" / "ac1.txt").write_text("ac1 ran\n", encoding="utf-8")
+git("add", "-A")
+git("commit", "-q", "-m", "work")
+head = git("rev-parse", "HEAD")
+sha = hashlib.sha256((WORK / "evidence" / "ac1.txt").read_bytes()).hexdigest()
+
+APPROVED = "AC1. The thing works."
+LIVE = APPROVED + "\nAC2. A criterion the owner added after pre-flight."
+
+pass_row: dict[str, Any] = {
+    "id": "AC1",
+    "status": "PASS",
+    "command": "make check",
+    "expected": "exit 0",
+    "observed": "exit 0",
+    "tested_head": head,
+    "reviewer": "r",
+    "affects": ["api/src/a.py"],
+    "evidence": [{"path": "evidence/ac1.txt", "sha256": sha}],
+}
+amendment = {
+    "id": "AC2",
+    "date": "2026-11-26",
+    "owner": "owner",
+    "reason": "added AC2",
+    "destination": "this ticket",
+    "criteria_sha256": closure.criteria_fingerprint(LIVE),
+}
+manifest: dict[str, Any] = {
+    "required": ["AC1"],
+    "approved_ids": closure.required_ids(APPROVED),
+    "approved_sha256": closure.criteria_fingerprint(APPROVED),
+    "amendment": [amendment],
+    "row": [pass_row],
+}
+
+print("live Jira ids             :", closure.required_ids(LIVE))
+print("approved_ids in the record:", manifest["approved_ids"])
+print("rows in the record        :", [r["id"] for r in manifest["row"]])
+print("brief.compare (gate2)     :", brief.compare(manifest, LIVE, "gate2"), "<- [] lets the phase start")
+found = closure.problems(manifest, WORK, head=head, readiness=True, done=False, git=closure._git)
+print("closure.problems, the CI call (--pre-merge):", found, "<- [] is CLOSURE OK")
+print()
+print("control, no amendment and AC2 only in Jira:")
+plain = {k: v for k, v in manifest.items() if k != "amendment"}
+print("  brief.compare (gate2)   :", brief.compare(plain, LIVE, "gate2")[:1])
+print()
+print("control, the same amendment asked to excuse an AMENDED AC2 row:")
+with_row = {**manifest, "row": [pass_row, {"id": "AC2", "status": "AMENDED"}]}
+print(
+    "  closure.problems        :",
+    closure.problems(with_row, WORK, head=head, readiness=True, done=False, git=closure._git),
+)
+
+--- p_branch.py ---
+"""Gate 2 cold re-run, probe: the CI branch rule against the branch names this repository has
+actually merged or still carries. Reads git history only; no network."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+import traceback
+from collections import Counter
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import closure  # noqa: E402
+
+OWNER = "johnhillescobar"
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, check=True)
+    return done.stdout
+
+
+merged: list[str] = []
+for subject in git("log", "--merges", "--first-parent", "--format=%s", "origin/main").splitlines():
+    if subject.startswith("Merge pull request #") and " from " in subject:
+        branch = subject.split(" from ", 1)[1].strip()
+        branch = branch.removeprefix(f"{OWNER}:").removeprefix(f"{OWNER}/")  # both GitHub spellings
+        if branch not in merged:
+            merged.append(branch)
+last = merged[:60]
+manifests = {p.stem for p in (REPO / "evidence" / "closure").glob("CC-*.toml")}
+groups: dict[str, list[str]] = {}
+for branch in last:
+    key, why = closure.branch_ticket(branch)
+    first = branch.partition("/")[0].lower()
+    if key is None and "conventional type" in why:
+        old = first[:3] == "cc-" and first[3:].isdigit()
+        group = "A. old shape cc-N/..." if old else f"B. type {first}/ is not on the list"
+    elif key is None and "found none" in why:
+        group = "C. conventional type, names no ticket (housekeeping)"
+    elif key is None:
+        group = "D. names more than one ticket"
+    elif key not in manifests:
+        group = "E. names a ticket with no evidence/closure manifest"
+    else:
+        group = "F. names a ticket with a manifest: the check runs"
+    groups.setdefault(group, []).append(branch)
+print(f"the last {len(last)} distinct pull-request branches merged to origin/main (first parent):")
+for group in sorted(groups):
+    names = groups[group]
+    print(f"  {group}: {len(names)}")
+    for name in names:
+        print(f"      {name}")
+red = sum(len(v) for k, v in groups.items() if not k.startswith("F"))
+print(f"  red under the new step: {red} of {len(last)}; of those, by shape alone (A-D): "
+      f"{sum(len(v) for k, v in groups.items() if k[0] in 'ABCD')}")
+print()
+print("branches on origin today:")
+tally: Counter[str] = Counter()
+for line in git("branch", "-r", "--format=%(refname:short)").splitlines():
+    name = line.removeprefix("origin/")
+    if name in {"HEAD", "main", "origin"}:
+        continue
+    key, why = closure.branch_ticket(name)
+    state = "red: " + why.split(repr(name))[-1].strip() if key is None else (
+        f"{key}: manifest present" if key in manifests else f"red: {key} has no manifest")
+    tally[state.split(":")[0]] += 1
+    print(f"  {name:38} {state[:100]}")
+print()
+print("other shapes:")
+for branch in (
+    "dependabot/npm_and_yarn/web/vite-7.1.0",
+    "revert-152-chore/launch-inspect-ask",
+    "feat/cc-145-drop-cc2-emissions",
+    "docs/cc-2026-11-26-notes",
+    "feat/cc-١٤٥",
+):
+    print(f"  {branch!r:44} {closure.branch_ticket(branch)[0]}  {closure.branch_ticket(branch)[1][-60:]}")
+for branch in ("feat/cc-²", "feat/cc¹"):
+    try:
+        print(f"  {branch!r:44} {closure.branch_ticket(branch)}")
+    except Exception:  # noqa: BLE001
+        print(f"  {branch!r:44} raised " + traceback.format_exc().strip().splitlines()[-1])
+
+--- p_evidence_pr.py ---
+"""Gate 2 cold re-run, probe: what the new CI step would have said at the tip of the evidence
+pull requests this repository merged. Runs the head closure.py against a scratch clone checked
+out at each tip, exactly as CI calls it: check <manifest> --pre-merge --head <tip>. No network."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+CLONE = Path(sys.argv[2])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import closure  # noqa: E402
+
+TIPS = [
+    ("#150", "evidence/cc-143-e2e-post", "f4a325abcf89ce0b4d78b3062c0359dd7ed3f308"),
+    ("#143", "evidence/cc-126-closure", "450bc25db043e515d92f8de83d5cb357f7b74dd6"),
+    ("#141", "evidence/cc-126-e2e-post", "21d0e2ec8092b168ea5c16a76175ae095fa8049d"),
+    ("#139", "evidence/cc-125-e2e-post", "6738e4f91a4dceda3b11c6bc8a7f7c88603e60de"),
+]
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=CLONE, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+for number, branch, tip in TIPS:
+    key, why = closure.branch_ticket(branch)
+    git("checkout", "-q", "--detach", tip)
+    assert git("rev-parse", "HEAD") == tip
+    manifest = CLONE / "evidence" / "closure" / f"{key}.toml"
+    found = closure.check_file(manifest, root=CLONE, head=tip, done=False)
+    print(f"{number} {branch} -> {key or why}; tip {tip[:7]}; manifest present: {manifest.is_file()}")
+    for line in found[:12]:
+        print(f"    BLOCKED  {line}")
+    if len(found) > 12:
+        print(f"    ... and {len(found) - 12} more")
+    print(f"    {'CLOSURE OK' if not found else f'CLOSURE BLOCKED: {len(found)} problem(s)'}")
+
+--- p_contract.py ---
+"""Gate 2 cold re-run, probe: the product behaviour the changed prose states, against the code
+at the review head. The model's report is scripted (the same fake the repository's own tests
+use); no model, no Census call, no network. Run from api/ with PYTHONPATH=api;api/tests."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from src import finish
+from src.ask import ExecutionRecord
+
+
+async def stopped(question: str, frame: dict[str, Any]) -> str | None:
+    record = ExecutionRecord(question=question)
+    done: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
+    done.set_result({"frame": frame})
+    return await finish.incomplete(record, done)
+
+
+async def main() -> None:
+    cases = [
+        (
+            "Population of Springfield",
+            {"level": "place", "named": ["Springfield, Missouri"], "numbered": [],
+             "county_named": False, "asks_for": "data", "pointing": []},
+            "a place name several states share; the state is the model's (prompt: write every "
+            "place as 'Name, State' with the state from your own knowledge)",
+        ),
+        (
+            "Population of Cook County",
+            {"level": "county", "named": ["Cook County, Illinois"], "numbered": [],
+             "county_named": True, "asks_for": "data", "pointing": []},
+            "a county name several states share, no state written",
+        ),
+        (
+            "Median household income in the Bay Area",
+            {"level": None, "named": [], "numbered": [], "county_named": False,
+             "asks_for": "data", "pointing": []},
+            "a question whose geography level is unclear (the model reports level null)",
+        ),
+        (
+            "Population of tract 9501",
+            {"level": "tract", "named": [], "numbered": ["tract 9501"], "county_named": False,
+             "asks_for": "data", "pointing": []},
+            "CONTROL: one tract by number, no parents (the case the code does stop)",
+        ),
+    ]
+    for question, frame, what in cases:
+        answer = await stopped(question, frame)
+        print(f"{question!r}: {what}")
+        print(f"    finish.incomplete -> {answer!r}")
+        print(f"    stopped before any search: {answer is not None}")
+
+
+asyncio.run(main())
+
+--- p_contract_e2e.py ---
+"""Gate 2 cold re-run, probe: `run_ask` end to end at the review head for a place name several
+states share with no state written. Scripted model, the repository's own fake tools and fake
+Census fetch (api/tests/ask_fixtures.py, test_geography_completeness._run). No network."""
+
+from __future__ import annotations
+
+import asyncio
+
+from test_geography_completeness import _frame, _run
+
+
+async def main() -> None:
+    question = "Population of Cook County"
+    reply = _frame("county", ["Cook County, Illinois"], county_named=True, asks_for="data", pointing=[])
+    response, record, fetched, _calls = await _run(question, reply)
+    print(f"question: {question!r} (no state written; the model's report adds Illinois)")
+    print(f"  answer starts            : {response.answer[:60]!r}")
+    print(f"  urls[]                   : {[str(u)[:110] for u in response.urls]}")
+    print(f"  fetch calls made         : {len(fetched)}")
+    print(f"  rows                     : {len(response.rows)}")
+    print(f"  table_id                 : {response.table_id!r}")
+    print(f"  alternatives             : {len(response.alternatives)}")
+    print(f"  warnings                 : {[w.code for w in response.warnings]}")
+    for warning in response.warnings:
+        if warning.code == "ambiguous_place":
+            print(f"  ambiguous_place.candidates: {[c.name for c in warning.candidates]}")
+    searched = [name for name, _ms in getattr(record, 'timings', [])] if False else None
+    print(f"  table pool searched      : {len(record.pool)} table(s) in record.pool")
+
+
+asyncio.run(main())
+
+--- p_paths.py ---
+"""Gate 2 cold re-run, probe: brief.changed_files on a path that is not ASCII, at the review
+head and at the base. A scratch git repository under argv[2]; no network."""
+
+from __future__ import annotations
+
+import importlib.util
+import locale
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+WORK = Path(sys.argv[2])
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import check_budgets  # noqa: E402
+
+spec = importlib.util.spec_from_file_location("brief_base", HERE / "base" / "brief_base.py")
+assert spec and spec.loader
+brief_base = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(brief_base)
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=WORK, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+WORK.mkdir(parents=True, exist_ok=True)
+git("init", "-q", "-b", "main")
+git("config", "user.email", "t@example.com")
+git("config", "user.name", "t")
+(WORK / "docs" / "playbooks").mkdir(parents=True)
+(WORK / "docs" / "playbooks" / "old.md").write_text("rule\n", encoding="utf-8")
+git("add", "-A")
+git("commit", "-q", "-m", "base")
+brief.ROOT = brief_base.ROOT = WORK
+print("python", sys.version.split()[0], "| locale encoding:", locale.getpreferredencoding(False),
+      "| utf8 mode:", sys.flags.utf8_mode)
+
+for label, name in (
+    ("n-tilde (UTF-8 c3 b1)", "docs/playbooks/español.md"),
+    ("A-acute (UTF-8 c3 81)", "docs/playbooks/Área.md"),
+):
+    git("checkout", "-q", "-B", "work", "main")
+    (WORK / name).write_text("rule\n", encoding="utf-8")
+    (WORK / "docs" / "playbooks" / "old.md").write_text("rule changed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "a rule file with a non-ASCII name, and a rule edit")
+    print(f"\na changed rule file named with {label}, plus docs/playbooks/old.md:")
+    for tag, module in (("head", brief), ("base 556947b", brief_base)):
+        try:
+            changed = module.changed_files("main")
+            rules = None if changed is None else [p for p in changed if check_budgets.is_prescriptive(p)]
+            print(f"  {tag:13} changed_files -> {changed!r}")
+            print(f"  {tag:13} rule files seen -> {rules!r}")
+        except Exception:  # noqa: BLE001
+            print(f"  {tag:13} raised: {traceback.format_exc().strip().splitlines()[-1]}")
+
+--- p_markdown.py ---
+"""Gate 2 cold re-run, probe: what `jira_fetch.py issue --md` shows for comment bodies in
+Atlassian Document Format shapes next to the ones the diff added. Fakes only; no network."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+REPO = Path(sys.argv[1])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import jira_fetch as jf  # noqa: E402
+
+ISSUE = {"key": "CC-9", "fields": {"summary": "s", "status": {"name": "Open"}}}
+
+
+def node(kind: str, *content: dict[str, Any], **attrs: Any) -> dict[str, Any]:
+    return {"type": kind, "content": list(content), "attrs": attrs}
+
+
+def text(value: str) -> dict[str, Any]:
+    return {"type": "text", "text": value}
+
+
+def shown(body: dict[str, Any]) -> str:
+    out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+    return out.split("\n\n", 4)[-1].rstrip()
+
+
+CASES = {
+    "a link pasted as a block card (blockCard, attrs.url)": node(
+        "doc", node("blockCard", url="https://example.com/pr/153")
+    ),
+    "a link pasted as an embed (embedCard, attrs.url)": node(
+        "doc", node("embedCard", url="https://example.com/pr/153", layout="center")
+    ),
+    "an emoji with a shortName and no text attr": node(
+        "doc", node("paragraph", node("emoji", shortName=":white_check_mark:", id="2705"))
+    ),
+    "a mention with an id and no text attr": node(
+        "doc", node("paragraph", text("approved by "), node("mention", id="5b10ac8d82e05b22cc7d4ef5"))
+    ),
+    "a date (shown as epoch milliseconds)": node(
+        "doc", node("paragraph", text("due "), node("date", timestamp="1764115200000"))
+    ),
+    "a task list followed by a paragraph": node(
+        "doc",
+        node("taskList", node("taskItem", text("rerun AC4"), state="DONE"), node("taskItem", text("post numbers"), state="TODO")),
+        node("paragraph", text("next paragraph")),
+    ),
+    "a code block inside a bullet": node(
+        "doc",
+        node("bulletList", node("listItem", node("paragraph", text("run")), node("codeBlock", text("make check")))),
+    ),
+    "a decision already made (state DECIDED)": node(
+        "doc", node("decisionList", node("decisionItem", text("keep the waiver"), state="DECIDED"))
+    ),
+}
+for name, body in CASES.items():
+    print(f"{name}:")
+    for line in shown(body).splitlines() or [""]:
+        print(f"    | {line}")
+
+--- p_nothing.py ---
+"""Gate 2 cold re-run, probe: the claims in the range that held. Each line prints what was
+tried and what came back; nothing here is a finding. Fakes only; no network."""
+
+from __future__ import annotations
+
+import datetime
+import sys
+from pathlib import Path
+
+REPO = Path(sys.argv[1])
+sys.path.insert(0, str(REPO / "scripts"))
+
+import brief  # noqa: E402
+import check_budgets  # noqa: E402
+import closure  # noqa: E402
+
+print("check_budgets.is_prescriptive (a `*` must not cross a `/`; only whole patterns match):")
+for rel, want in (
+    ("CLAUDE.md", True),
+    ("docs/playbooks/run-slice.md", True),
+    (".cursor/rules/00-guardrails.mdc", True),
+    (".claude/skills/run-slice/SKILL.md", True),
+    ("docs/playbooks/archive/old.md", False),
+    ("docs/playbooks/a/b/c.md", False),
+    (".claude/skills/a/b/SKILL.md", False),
+    ("x/CLAUDE.md", False),
+    ("CLAUDE.md/x", False),
+    ("docs/playbooks", False),
+    ("docs/playbooks/", False),
+    ("docs/playbooks/.md", True),  # a dotfile; pathlib's glob counts it too
+    ("docs\\playbooks\\run-slice.md", False),  # git prints forward slashes
+    ("docs/ARCHITECTURE.md", False),
+    (".claude/agents/gate2-cold.md", False),
+):
+    got = check_budgets.is_prescriptive(rel)
+    print(f"  {rel!r:42} -> {got!s:5} {'ok' if got == want else 'UNEXPECTED'}")
+counted = {
+    p.relative_to(check_budgets.ROOT).as_posix()
+    for pattern in check_budgets.DOC_PATTERNS
+    for p in check_budgets.ROOT.glob(pattern)
+    if p.is_file()
+}
+print(f"  every file the doc budget counts is prescriptive: "
+      f"{all(check_budgets.is_prescriptive(r) for r in counted)} ({len(counted)} files)")
+
+print("closure.amendment_problems:")
+whole = {"id": "AC3", "date": "2026-11-26", "owner": "o", "reason": "r", "destination": "d"}
+print("  whole, date as a string        ->", closure.amendment_problems(whole))
+print("  whole, date as a TOML date     ->",
+      closure.amendment_problems({**whole, "date": datetime.date(2026, 11, 26)}))
+print("  date as a TOML datetime        ->",
+      closure.amendment_problems({**whole, "date": datetime.datetime(2026, 11, 26, 10, 0)}))
+print("  date '26/11/2026'              ->", closure.amendment_problems({**whole, "date": "26/11/2026"}))
+for key in ("id", "date", "owner", "reason", "destination"):
+    print(f"  without {key:12}          ->", closure.amendment_problems({k: v for k, v in whole.items() if k != key}))
+
+print("brief.compare with an amendment that names the live fingerprint:")
+approved_text = "AC1. The thing works."
+live = approved_text + "\nAC2. Added."
+record = {
+    "approved_ids": closure.required_ids(approved_text),
+    "approved_sha256": closure.criteria_fingerprint(approved_text),
+}
+named = {**whole, "criteria_sha256": closure.criteria_fingerprint(live)}
+print("  whole amendment                ->", brief.compare({**record, "amendment": [named]}, live, "gate2"))
+for key in ("date", "owner", "reason", "destination", "id"):
+    cut = {k: v for k, v in named.items() if k != key}
+    stops = bool(brief.compare({**record, "amendment": [cut]}, live, "gate2"))
+    print(f"  amendment without {key:12} -> stops: {stops}")
+print("  amendment for other text       -> stops:",
+      bool(brief.compare({**record, "amendment": [{**named, "criteria_sha256": '0' * 64}]}, live, "gate2")))
+print("  nothing approved, gate1        ->", brief.compare(None, live, "gate1"))
+print("  nothing approved, preflight    ->", brief.compare(None, live, "preflight"))
+print("  no description at all (None), record approved ->",
+      brief.compare(record, None, "gate1")[:1])
