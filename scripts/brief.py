@@ -29,14 +29,14 @@ PHASES = ("preflight", "implement", "gate1", "gate2", "final")
 COLD = "gate2-cold"  # .claude/agents/gate2-cold.md; .claude/hooks/ctx.py holds the name too
 
 
-def status_commands(key: str, *, landed: str | None = None) -> list[str]:
+def status_commands(key: str, *, closed: bool = False) -> list[str]:
     """The ticket, then its closure record. An open ticket's record is judged on this checkout,
-    before the merge. A closed ticket stays closed: its record is judged as it stood at `landed`,
-    the main commit that last changed it, so later work elsewhere cannot make it read as broken."""
+    before the merge. A closed ticket stays closed: its record is read as it closed (whole, PASS,
+    evidence intact), never as stale against work that came after it."""
     check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
     return [
         f"uv run python scripts/jira_fetch.py issue {key} --md",
-        f"{check} --head {landed}" if landed else f"{check} --pre-merge",
+        f"{check} --closed" if closed else f"{check} --pre-merge",
     ]
 
 
@@ -46,29 +46,38 @@ def is_closed(fields: dict[str, Any]) -> bool:
     return category == "done"
 
 
-def landed_at(key: str, base: str) -> str | None:
-    """The commit on `base` that last changed the ticket's closure file, or None."""
-    done = subprocess.run(
-        ["git", "log", "-1", "--format=%H", base, "--", f"evidence/closure/{key}.toml"],
+def record_on(key: str, base: str) -> bool | None:
+    """Whether `base` holds the ticket's closure file; None when git cannot read `base`."""
+    known = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
         cwd=ROOT,
         capture_output=True,
-        text=True,
         check=False,
     )
-    found = done.stdout.strip()
-    return found if done.returncode == 0 and closure._is_commit_hash(found) else None
+    if known.returncode:
+        return None
+    found = subprocess.run(
+        ["git", "cat-file", "-e", f"{base}:evidence/closure/{key}.toml"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return found.returncode == 0
 
 
-def closed_status(key: str, status: str, landed: str | None) -> str:
-    first, second = status_commands(key, landed=landed or "<none>")
+def closed_status(key: str, status: str, base: str, on_main: bool | None) -> str:
+    first, second = status_commands(key, closed=True)
+    record = {
+        True: f"  {second}",
+        False: f"  (no closure file on {base}: Jira's close comment is the record)",
+        None: f"  (git cannot read {base}; fetch it, then run: {second})",
+    }[on_main]
     lines = [
         f"{key} is {status} in Jira and stays closed: no phase may start on it. Its status comes",
         "from these two commands, never from chat or memory. Run the second from a checkout of",
-        "main (`git worktree add --detach <dir> origin/main`):",
+        f"{base} (`git worktree add --detach <dir> {base}`):",
         f"  {first}",
-        f"  {second}"
-        if landed
-        else "  (no closure file on main: Jira's close comment is the record)",
+        record,
         "From them state: the approved criteria and decisions, the commit tested, and what, if",
         "anything, is left for the owner. A regression in what it shipped is caught by its tests",
         "in `make check`; the change that caused it fixes it.",
@@ -92,8 +101,8 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
         return []
     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
     whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
-    if any(a.get("criteria_sha256") == sha for a in whole):
-        return []
+    if any(a.get("criteria_sha256") == sha and a.get("approved_ids") == ids for a in whole):
+        return []  # the owner re-approved exactly these criteria, and closure requires their rows
     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
     out += [f"criterion {i} was approved but is gone from Jira" for i in approved if i not in ids]
     if not out and ids != approved:
@@ -101,8 +110,10 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
     if not out:
         was = str(approved_sha)[:12]
         out.append(f"the criteria text changed with the same ids ({sha[:12]}, approved {was})")
+    listed = ", ".join(f'"{i}"' for i in ids)
     out.append(
-        "no [[amendment]] row has criteria_sha256 = " + sha + "; only the owner amends a ticket"
+        f'no [[amendment]] row has criteria_sha256 = "{sha}" and approved_ids = [{listed}]; '
+        "only the owner amends a ticket"
     )
     return out
 
@@ -115,6 +126,8 @@ def changed_files(base: str) -> list[str] | None:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",  # git writes paths as UTF-8 under -z; Windows would read cp1252
+        errors="replace",
         check=False,
     )
     return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
@@ -133,13 +146,19 @@ def brief(
     *,
     after_merge: bool = False,
     approve: tuple[list[str], str] | None = None,
+    existing: set[str] | None = None,
 ) -> str:
-    """The phase's prompt for a fresh agent. `changed` is the branch's diff (None: unknown)."""
+    """The phase's prompt for a fresh agent. `changed` is the branch's diff (None: unknown);
+    `existing` names the files already in the evidence folder, so a re-run gets -r2, -r3 ..."""
     first, second = status_commands(key)
     name = (
         "e2e-post" if phase == "final" and after_merge else "e2e-pre" if phase == "final" else phase
     )
-    out_file, cold = f"{folder}/{name}.txt", f"{folder}/gate2-cold.txt"
+    names = [name, "gate2-cold"] if phase == "gate2" else [name]
+    taken = existing or set()
+    rounds = ("", *(f"-r{n}" for n in range(2, 100)))  # a re-run never overwrites a round
+    suffix = next(s for s in rounds if not any(f"{n}{s}.txt" in taken for n in names))
+    out_file, cold = f"{folder}/{name}{suffix}.txt", f"{folder}/gate2-cold{suffix}.txt"
     lines = [
         f"{key} {name} brief. Status comes from these two commands, never from chat or memory:",
         f"  {first}",
@@ -229,7 +248,7 @@ def main() -> int:
     description = fields.get("description")
     if is_closed(fields):
         status = str((fields.get("status") or {}).get("name") or "closed")
-        print(closed_status(key, status, landed_at(key, args.base)), end="")
+        print(closed_status(key, status, args.base, record_on(key, args.base)), end="")
         return 1
     ids = closure.required_ids(closure.adf_text(description))
     sha = closure.criteria_fingerprint(description)
@@ -245,8 +264,16 @@ def main() -> int:
         return 1
     approve = (ids, sha) if args.phase == "preflight" else None
     changed = changed_files(args.base) if args.phase == "gate2" else []
+    folder = evidence_dir(key)
+    existing = {p.name for p in (ROOT / folder).glob("*.txt")}
     text = brief(
-        args.phase, key, changed, evidence_dir(key), after_merge=args.after_merge, approve=approve
+        args.phase,
+        key,
+        changed,
+        folder,
+        after_merge=args.after_merge,
+        approve=approve,
+        existing=existing,
     )
     print(text, end="")
     return 0

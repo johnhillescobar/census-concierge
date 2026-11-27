@@ -35,6 +35,7 @@ def amendment(text: str) -> dict[str, Any]:
         "reason": "added on the owner's instruction",
         "destination": "this ticket",
         "criteria_sha256": closure.criteria_fingerprint(text),
+        "approved_ids": closure.required_ids(closure.adf_text(text)),
     }
 
 
@@ -67,6 +68,14 @@ def test_a_criterion_reworded_with_its_id_unchanged_fails() -> None:
 def test_an_amendment_naming_the_new_fingerprint_lets_the_change_through() -> None:
     live = DESCRIPTION + "\nAC3. A new one."
     assert brief.compare(approved(amendment=[amendment(live)]), live, "gate2") == []
+
+
+def test_a_reapproval_must_list_exactly_the_live_ids() -> None:
+    live = DESCRIPTION + "\nAC3. A new one."
+    short = {**amendment(live), "approved_ids": ["AC1", "AC2", "TC1"]}  # leaves out AC3
+    assert brief.compare(approved(amendment=[short]), live, "gate2") != []
+    missing = {k: v for k, v in amendment(live).items() if k != "approved_ids"}
+    assert brief.compare(approved(amendment=[missing]), live, "gate2") != []
 
 
 def test_an_amendment_for_other_text_does_not() -> None:
@@ -178,18 +187,15 @@ DONE = {"name": "Done", "statusCategory": {"key": "done"}}
 OPEN = {"name": "In Progress", "statusCategory": {"key": "indeterminate"}}
 
 
-LANDED = "a" * 40
-
-
-def test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed(
+def test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     fields = {"status": DONE, "description": doc(DESCRIPTION)}
-    monkeypatch.setattr(brief, "landed_at", lambda key, base: LANDED)
+    monkeypatch.setattr(brief, "record_on", lambda key, base: True)
     assert run_main(tmp_path, monkeypatch, fields, None, "final", "CC-9", "--after-merge") == 1
     out = capsys.readouterr().out
     assert "brief." not in out and "no phase may start" in out and "stays closed" in out
-    assert f"evidence/closure/CC-9.toml --head {LANDED}" in out
+    assert "evidence/closure/CC-9.toml --closed" in out
     assert "--pre-merge" not in out and "origin/main`)" in out  # run from a main checkout
 
 
@@ -197,10 +203,20 @@ def test_a_closed_ticket_with_no_record_on_main_points_at_jira(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     fields = {"status": DONE, "description": doc(DESCRIPTION)}
-    monkeypatch.setattr(brief, "landed_at", lambda key, base: None)
+    monkeypatch.setattr(brief, "record_on", lambda key, base: False)
     assert run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9") == 1
     out = capsys.readouterr().out
     assert "closure.py check" not in out and "close comment is the record" in out
+
+
+def test_a_closed_ticket_whose_base_git_cannot_read_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fields = {"status": DONE, "description": doc(DESCRIPTION)}
+    monkeypatch.setattr(brief, "record_on", lambda key, base: None)
+    assert run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9") == 1
+    out = capsys.readouterr().out
+    assert "git cannot read origin/main" in out and "close comment is the record" not in out
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -222,16 +238,34 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record(repo: Path) -> None:
-    assert brief.landed_at("CC-9", "main") is None
+def test_whether_main_holds_the_record_and_when_git_cannot_say(repo: Path) -> None:
+    assert brief.record_on("CC-9", "main") is False
     (repo / "evidence" / "closure" / "CC-9.toml").write_text("x = 1\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "record")
-    landed = git(repo, "rev-parse", "HEAD")
-    (repo / "later.txt").write_text("later\n", encoding="utf-8")
+    assert brief.record_on("CC-9", "main") is True
+    assert brief.record_on("CC-9", "no-such-ref") is None
+
+
+def test_a_non_ascii_path_in_the_change_is_read_whole(repo: Path) -> None:
+    git(repo, "checkout", "-q", "-b", "work")
+    (repo / "docs" / "playbooks" / "Área.md").write_text("x\n", encoding="utf-8")
     git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "later work")
-    assert brief.landed_at("CC-9", "main") == landed
+    git(repo, "commit", "-q", "-m", "accent")
+    assert brief.changed_files("main") == ["docs/playbooks/Área.md"]
+
+
+@pytest.mark.parametrize("taken", [set(), {"gate2.txt", "gate2-cold.txt"}, {"gate2-cold.txt"}])
+def test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round(taken: set[str]) -> None:
+    text = " ".join(brief.brief("gate2", "CC-9", [], "e", existing=taken).split())
+    suffix = "" if not taken else "-r2"
+    assert f"e/gate2{suffix}.txt" in text and f"e/gate2-cold{suffix}.txt" in text
+    assert all(f"e/{name} " not in text and f"e/{name}." not in text for name in taken)
+
+
+def test_a_third_round_is_r3() -> None:
+    taken = {"gate1.txt", "gate1-r2.txt"}
+    assert "e/gate1-r3.txt" in brief.brief("gate1", "CC-9", [], "e", existing=taken)
 
 
 def test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change(repo: Path) -> None:

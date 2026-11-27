@@ -103,8 +103,9 @@ chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment
 (needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
 MCP — same path in Claude Code and Cursor.
 
-What `.claude/PLAN.md` may hold: the rule at its top. Board: `docs/slices.md`. Name `CC-N`
-in commits/PRs (housekeeping commits need none); Jira comments link to the PR or `evidence/`.
+What `.claude/PLAN.md` may hold: the rule at its top. Board: `docs/slices.md`. Every branch is
+`<conventional type>/...` naming one `CC-N`, whose closure file CI checks; name it in PRs (a
+housekeeping commit on that branch needs none). Jira comments link to the PR or `evidence/`.
 Recommend an epic and ask before filing a ticket into one.
 
 ## Slice workflow

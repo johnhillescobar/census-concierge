@@ -99,3 +99,63 @@ C5  one or more PRs per slice vs every row PASS per PR: the multi-PR question is
 C6-C8  pre-existing: 30-evals-and-tests.mdc baseline, transcript folder wording, PLAN route
     ownership. Unchanged; outside this ticket.
 Jira: the AC10 correction comment and the AC12 list wait until the epic closes (owner).
+
+
+== Round 2: the one permitted re-run (gate2-cold-r2.txt, gate2-r2.txt) -> fixes ==
+No third Gate 2 (run-slice.md section 5). Mutation check: gate2-fixes-r2-mutations.txt.
+
+owner  (chat, after the re-run) The past is the past: rules apply forward; do not repair merged
+       branches or closed tickets, and do not ask the owner to.
+
+F1 (high, a regression of the M1 fix) the fingerprint was the empty hash for Jira's real shape,
+    one paragraph holding a lead-in line and AC1, AC2 ... joined by hard breaks.
+    closure.criteria_blocks: a criterion starts at an id line and runs on through the following
+    lines of the same block; a block may hold several; a lead-in line belongs to none; table rows
+    and id headings as before. The four real fixtures (CC-104/105 before/after) give one block per
+    id (25, 25, 9, 9; 0 under the regression); CC-145's approved fingerprint is unchanged
+    (c38c9650...), and CC-104's equals the pre-M1 line rule's (a8117984...).
+    tests: test_closure_gate.py test_every_criterion_of_a_real_jira_description_is_fingerprinted[4],
+    test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[4],
+    test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own.
+F2 / M4 partial: a closed ticket read as broken (CC-138 once this branch lands; affects and
+    evidence read from main's tip). Owner rule: closed stays closed. closure.py check --closed:
+    whole, PASS, evidence intact, post-merge run recorded, no row judged stale against later code.
+    The closed brief prints `closure.py check evidence/closure/CC-N.toml --closed`, run from a main
+    checkout; landed_at is gone. All seven closed manifests read CLOSURE OK under --closed on this
+    branch (CC-138 included, after its rename).
+    tests: test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is,
+    test_a_closed_record_still_needs_its_evidence_intact,
+    test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed.
+F3  an id the owner adds by amendment was never required. A re-approval amendment carries
+    approved_ids (the full list); brief.compare accepts it only when that list equals the live ids
+    and its criteria_sha256 the live fingerprint; closure requires a row for each listed id.
+    tests: test_an_id_added_by_owner_reapproval_needs_its_row_to_close,
+    test_a_reapproval_without_its_ids_is_incomplete, test_a_reapproval_must_list_exactly_the_live_ids.
+F4  consequence of the owner's branch rule; rule kept, applied forward only (owner).
+    CLAUDE.md now states it (K4 below).
+F5 / K2  requirements.md states the product we want (owner); it now says so, says ask-path.md is
+    /ask as it runs, and names CC-104 for the ambiguous-place and unclear-level stop.
+F6  not a regression; a block after a paragraph criterion (its list, code block or table) is still
+    outside it, so owner decision paragraphs do not move the fingerprint. Recorded limit.
+F7  changed_files reads git's -z output as UTF-8. test_a_non_ascii_path_in_the_change_is_read_whole.
+F8  record_on: True / False / None (git cannot read the base); the closed brief says which.
+    tests: test_whether_main_holds_the_record_and_when_git_cannot_say,
+    test_a_closed_ticket_with_no_record_on_main_points_at_jira,
+    test_a_closed_ticket_whose_base_git_cannot_read_says_so.
+F9  closure.adf_text reads mention, emoji, date (ISO day), status and link-card attributes, so
+    they are fingerprinted. test_a_text_kept_in_an_attribute_is_part_of_a_criterion.
+F10 jira_fetch renders blockCard/embedCard, emoji shortName and dates through the same helper.
+    test_a_comment_keeps_text_that_is_not_a_plain_paragraph (date, blockCard, emoji cases added).
+F11 branch_ticket takes ASCII digits only. test_a_superscript_digit_is_no_ticket_number[2].
+I1  a brief names the next free evidence files (-r2, -r3 ...), never an earlier round.
+    tests: test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[3],
+    test_a_third_round_is_r3.
+I2  the AC12 list is refreshed when the PR is ready.
+U1  raw live output now in u1-live.txt (CC-144 and CC-145: MATCH).
+K1  DESIGN.md section 3 item 2 and section 4 now draw the candidates / incomplete-question line.
+K3  requirements.md: a shared name carries ambiguous_place, a missing parent geography_unsupported;
+    geography_level_unverified is for a clear level the model did not state, and an unclear level
+    is not answered.
+K4  CLAUDE.md: every branch is <conventional type>/... naming one CC-N whose closure file CI checks;
+    a housekeeping commit on it needs no key.
+K5-K7  pre-existing (C5-C8); unchanged.

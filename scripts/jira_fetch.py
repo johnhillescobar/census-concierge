@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import closure  # the ADF helpers the closure gate reads criteria with
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -295,6 +296,10 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                 else:
                     render_node(child, indent=f"{indent}  ")
             return
+        if node_type in ("blockCard", "embedCard"):  # a link shown as a card, not inline
+            link = closure.attr_text(node)
+            chunks.extend([f"{indent}{link}", ""] if link else [])
+            return
         if node_type == "codeBlock":
             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
             return
@@ -325,11 +330,8 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                     parts.append(text)
             elif child.get("type") == "hardBreak":
                 parts.append("\n")
-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
-                attrs = child.get("attrs") or {}  # a node with no text of its own
-                parts.append(
-                    str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
-                )
+            elif child.get("type") in closure.ATTR_TEXT_NODES:  # its text is in its attributes
+                parts.append(closure.attr_text(child))
             else:
                 inner = child.get("content")
                 if isinstance(inner, list):

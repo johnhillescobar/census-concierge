@@ -1,6 +1,8 @@
 # Response contract and guards
 
-The short copy lives in `.claude/DESIGN.md` §4. This file is the catalog.
+The short copy lives in `.claude/DESIGN.md` §4. This file is the catalog of the product we want (owner,
+2026-11-26); `docs/ask-path.md` describes `/ask` as it runs, and a gap between them is a ticket's work
+(the ambiguous-place and unclear-level stop: CC-104).
 None of these block except an incomplete geography (below): warn (or decline a computation) and ship the answer.
 
 ## Every response
@@ -21,7 +23,8 @@ A silently short series is the same failure as a wrong one: dropped years, geogr
 A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or block
 group needs the state; one county or place by number, the state; one tract, state and county; one block
 group, state, county and tract. One that carries less, or points at a place without naming it ("my county"),
-is not answered: `geography_unsupported`, an answer saying what is missing and asking for it, and empty
+is not answered: `geography_unsupported` (`ambiguous_place` for a shared name), an answer saying what is
+missing and asking for it, and empty
 `urls[]`, `rows` and `alternatives`. No guess, table search or fetch. The same holds for a place name several
 states share with no state the user wrote ("population of Springfield", Cook County; a state the model adds
 is not the user's) and for a question whose geography level is unclear. A unique place (Chicago, Washington
@@ -58,7 +61,7 @@ typed after an answer in the same chat; a question on its own is never one.
 | `zcta_not_zip` | ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
-| `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
+| `geography_level_unverified` | The model stated no level for a question whose level is clear, or code inferred one. Check the URL's `for=`. A question whose level is unclear is not answered (Geography completeness). |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |
 | `shared_sample` | Place-vs-parent (and other nested pairs) share ACS sample. |

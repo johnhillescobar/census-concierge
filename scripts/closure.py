@@ -33,7 +33,7 @@ import subprocess
 import sys
 import tomllib
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +85,20 @@ def _is_commit_hash(value: Any) -> bool:
     return isinstance(value, str) and 7 <= len(value) <= 40 and set(value.lower()) <= HEX
 
 
+ATTR_TEXT_NODES = {"mention", "emoji", "date", "status", "inlineCard", "blockCard", "embedCard"}
+
+
+def attr_text(node: dict[str, Any]) -> str:
+    """The text of an ADF node that keeps it in its attributes; a date is its ISO day."""
+    attrs = node.get("attrs") or {}
+    if node.get("type") == "date" and str(attrs.get("timestamp") or "").isdecimal():
+        return datetime.fromtimestamp(int(attrs["timestamp"]) / 1000, tz=UTC).date().isoformat()
+    for key in ("text", "shortName", "url"):
+        if attrs.get(key):
+            return str(attrs[key])
+    return ""
+
+
 def adf_text(node: object) -> str:
     """Plain text of a Jira description (Atlassian Document Format), one line per break."""
     if isinstance(node, str):
@@ -95,6 +109,8 @@ def adf_text(node: object) -> str:
         return str(node.get("text") or "")
     if node.get("type") == "hardBreak":
         return "\n"
+    if node.get("type") in ATTR_TEXT_NODES:  # a mention, date, link card ... carries no text node
+        return attr_text(node)
     inner = "".join(adf_text(child) for child in node.get("content") or [])
     return inner + "\n" if node.get("type") in LINE_NODES else inner
 
@@ -142,11 +158,14 @@ def _first_line(text: str) -> str:
 
 
 def criteria_blocks(description: object) -> list[str]:
-    """Each criterion's whole text, whitespace collapsed, in order. A criterion is the block whose
-    first line carries its id: a paragraph with its hard breaks, a list item with its sub-items,
-    a table row whose first cell is the id, or a heading and everything under it up to the next
-    heading or criterion. A paragraph after a paragraph criterion is not part of it, so editing
-    a decision paragraph does not move the fingerprint. A plain string is read line by line."""
+    """Each criterion's whole text, whitespace collapsed, in order. A criterion starts at a line
+    that carries its id and runs on through the following lines of the same block: a hard break,
+    a list item's sub-items. A block may hold several ("Acceptance criteria" then AC1, AC2 ... in
+    one paragraph); a lead-in line before the first id belongs to none. A table row whose first
+    cell is an id is one criterion. An id heading opens a criterion that takes in every block up
+    to the next heading or id. Outside an id heading, the next block is not part of a criterion,
+    so a decision paragraph the owner adds does not move the fingerprint. A plain string is read
+    line by line."""
     if isinstance(description, str):
         return [" ".join(line.split()) for line in description.splitlines() if required_ids(line)]
     out: list[list[str]] = []
@@ -160,15 +179,27 @@ def criteria_blocks(description: object) -> list[str]:
             if kind == "heading":
                 section = [text] if required_ids(_first_line(text)) else None
                 out.extend([section] if section else [])
-                continue
-            cells = node.get("content") or [] if kind == "tableRow" else []
-            starts = adf_text(cells[0]) if cells else text
-            if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
-                section = None
-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
-            elif section is not None:
-                section.append(text)
-            else:  # a container, or an item with a criterion further in
+            elif kind == "tableRow":
+                cells = [adf_text(c).strip() for c in node.get("content") or []]
+                row = " | ".join(cells)
+                if cells and required_ids(_first_line(cells[0])):
+                    section = None
+                    out.append([row])
+                elif section is not None:
+                    section.append(row)
+            elif kind in ITEM_NODES:
+                current: list[str] | None = None  # the criterion this block's lines run into
+                for line in text.splitlines():
+                    if required_ids(line):
+                        section, current = None, [line]
+                        out.append(current)
+                    elif current is not None:
+                        current.append(line)
+                    elif section is not None:
+                        section.append(line)
+            elif section is not None and not required_ids(text):
+                section.append(text)  # a list, table or panel under an id heading
+            else:  # a container with criteria further in
                 walk(node.get("content") or [])
 
     walk(description.get("content") or [] if isinstance(description, dict) else [])
@@ -195,8 +226,9 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
     pairs = zip(words, [*words[1:], ""], strict=True)
-    keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
-    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+    number = lambda s: s.isascii() and s.isdigit()  # noqa: E731  ("²" is a digit to str.isdigit)
+    keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and number(n)}
+    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and number(w[2:])}
     if len(keys) != 1:
         found = ", ".join(sorted(keys)) or "none"
         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
@@ -204,12 +236,16 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
 
 
 def amendment_problems(amendment: dict[str, Any]) -> list[str]:
-    """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+    """The fields an owner amendment lacks: id, ISO date, owner, reason, destination; and, for a
+    re-approval of the criteria (criteria_sha256), the full list of ids it approves."""
     missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
     try:
         date.fromisoformat(str(amendment.get("date")))
     except ValueError:
         missing.append("date (ISO)")
+    listed = amendment.get("approved_ids")
+    if amendment.get("criteria_sha256") and not (isinstance(listed, list) and listed):
+        missing.append("approved_ids")
     return missing
 
 
@@ -235,7 +271,13 @@ def _evidence_problems(item: Any, where: str, root: Path, *, pinned: bool = Fals
 
 
 def _row_problems(
-    row: dict[str, Any], root: Path, head: str, amended: set[str], readiness: bool, git: GitFn
+    row: dict[str, Any],
+    root: Path,
+    head: str,
+    amended: set[str],
+    readiness: bool,
+    git: GitFn,
+    closed: bool = False,
 ) -> list[str]:
     name = str(row.get("id") or "?")
     status = str(row.get("status") or "")
@@ -263,8 +305,8 @@ def _row_problems(
     tested = row.get("tested_head")
     if _text(tested) and not _is_commit_hash(tested):
         return [*out, f"{name}: tested_head must be a commit hash, not {tested!r}"]
-    if not readiness or not _is_commit_hash(tested):
-        return out
+    if not readiness or closed or not _is_commit_hash(tested):
+        return out  # a closed ticket's row is not judged against code that came after it
     affects = row.get("affects")
     if (
         not isinstance(affects, list)
@@ -358,10 +400,14 @@ def problems(
     base: str = "origin/main",
     git: GitFn = _git,
     path: str | None = None,
+    closed: bool = False,
 ) -> list[str]:
     """Every reason this manifest cannot back a closure. `readiness=False` checks only that the
     record is well formed, which is all a work-in-progress manifest in the tree must be. `path` is
-    the manifest's own path in the repository, which names the merges that carried the ticket."""
+    the manifest's own path in the repository, which names the merges that carried the ticket.
+    `closed=True` reads a closed ticket's record as it closed: whole, PASS, evidence intact and
+    post-merge run recorded, but no row is stale against code that came after it; a regression
+    in what it shipped is caught by its tests in `make check`."""
     out: list[str] = []
     rows = [r for r in manifest.get("row") or [] if isinstance(r, dict)]
     ids = [str(r.get("id") or "") for r in rows]
@@ -378,7 +424,7 @@ def problems(
     # does not remove its id, so it cannot stand in for that row's evidence.
     amended = {str(a.get("id")) for a in amendments if not a.get("criteria_sha256")}
     for row in rows:
-        out += _row_problems(row, root, head, amended, readiness, git)
+        out += _row_problems(row, root, head, amended, readiness, git, closed)
     if not readiness:
         return out
     if not rows:
@@ -387,8 +433,9 @@ def problems(
     if not isinstance(declared, list) or not declared or not all(_text(i) for i in declared):
         out.append("the manifest must declare `required`, the AC/TC ids it covers")
         declared = []
-    approved = manifest.get("approved_ids")  # approved at pre-flight (scripts/brief.py)
-    approved = [str(i) for i in approved] if isinstance(approved, list) else []
+    # approved at pre-flight, and every id a later owner re-approval names (scripts/brief.py)
+    lists = [manifest.get("approved_ids"), *(a.get("approved_ids") for a in amendments)]
+    approved = [str(i) for ids_ in lists if isinstance(ids_, list) for i in ids_]
     wanted = list(dict.fromkeys([*declared, *approved, *(required or [])]))
     out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
     block = manifest.get("post_merge") or {}
@@ -454,6 +501,9 @@ def main() -> int:
     check.add_argument("--ref", default="origin/main")
     check.add_argument("--require", default="")
     check.add_argument("--pre-merge", action="store_true", help="skip the post-merge E2E")
+    check.add_argument(
+        "--closed", action="store_true", help="a closed ticket: no row is stale against later code"
+    )
     ticket = sub.add_parser("ticket", help="print the ticket key a branch names; exit 1 if none")
     ticket.add_argument("branch")
     args = parser.parse_args()
@@ -467,6 +517,7 @@ def main() -> int:
         head=args.head,
         done=not args.pre_merge,
         base=args.ref,
+        closed=args.closed,
     )
     for line in found:
         print(f"  BLOCKED  {line}")

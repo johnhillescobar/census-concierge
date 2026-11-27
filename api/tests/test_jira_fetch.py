@@ -190,7 +190,12 @@ def text(value: str) -> dict[str, Any]:
             "https://example.com/pr/1",
         ),
         (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
-        (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "1764115200000"),
+        (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+        (
+            node("doc", node("blockCard", url="https://example.com/pr/2")),
+            "https://example.com/pr/2",
+        ),
+        (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
         (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
     ],
 )

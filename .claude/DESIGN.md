@@ -31,15 +31,17 @@ GIS professionals and non-profit researchers. Expert in a handful of tables,
 lost in the other thousand. Consequences:
 
 1. **Discovery is the product.** Effort belongs in the index and its eval.
-2. **No blocking clarification.** Candidates are results plus an editable plan strip.
+2. **No blocking clarification.** A complete question gets its pick plus candidates as results and
+   an editable plan strip, because retrieval can miss (`CLAUDE.md`, Alternatives).
 3. **Always show alternatives.** That is the concierge value.
 4. **No silent wrong answers.** Universe errors and missing MOEs destroy trust.
 
 ## 4. Requirements
 
 Every response that returns data ships URL (even on fetch failure), MOE, GEOID,
-universe, and alternatives; a question too incomplete to search returns none. Guards
-warn and still ship; none block. Catalog: `docs/requirements.md`.
+universe, and alternatives. A question too incomplete to search, an ambiguous place or an
+unclear level included, returns none: the answer says what is missing and asks for it. Every
+other guard warns and still ships. Catalog: `docs/requirements.md`.
 
 ## 5. Architecture (intent)
 
