@@ -1,0 +1,99 @@
+"""Run each CC-145 criterion's command and save its raw output as rows/<ID>.txt (CC-145 closure).
+
+    uv run python evidence/slice-6/cc-145/rows/run_rows.py [ID ...]
+
+Each file records the command, the HEAD it ran at, the exit code and the full output. The closure
+rows in evidence/closure/CC-145.toml pin these files by sha256.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4]
+OUT = Path(__file__).resolve().parent
+PYTEST = "uv run pytest -q -p no:cacheprovider"
+ROWS: dict[str, list[str]] = {
+    "AC1": [f"{PYTEST} api/tests/test_jira_fetch.py"],
+    "AC2": [
+        "uv run python scripts/brief.py preflight CC-145",
+        f"{PYTEST} api/tests/test_brief.py -k 'approved or added or removed or order or amendment or reapproval or nothing_approved'",
+    ],
+    "AC3": [
+        "uv run python scripts/brief.py gate2 CC-145",
+        "git ls-files scripts/gate.sh scripts/gate.ps1",
+        "git grep -n -e 'gate.sh' -e 'gate.ps1' -- Makefile docs/playbooks .claude/skills .cursor/commands .agents/skills",
+        f"{PYTEST} api/tests/test_brief.py -k 'opens_with or status_commands or phase'",
+    ],
+    "AC4": [f"{PYTEST} api/tests/test_process.py"],
+    "AC5": [f"{PYTEST} api/tests/test_context_hook.py"],
+    "AC7": [
+        "uv run python scripts/check_invariants.py --base origin/main",
+        "git ls-files evidence",
+        "git grep -n -i -e 'STATE.md' -e 'plan file' -e 'close pointer' -- .claude/PLAN.md AGENTS.md docs/slices.md docs/ARCHITECTURE.md README.md .cursor/rules/00-guardrails.mdc docs/playbooks CLAUDE.md .github",
+        "git grep -n -i 'stop and ask' -- .cursor/rules/00-guardrails.mdc",
+    ],
+    "AC8": [
+        "uv run python scripts/check_invariants.py --base origin/main",
+        f"{PYTEST} api/tests/test_invariants.py -k 'status or plan'",
+    ],
+    "AC11": [
+        "uv run python scripts/check_budgets.py --structural-only",
+        "git diff origin/main -- budgets.toml",
+    ],
+    "AC12": ["git worktree list"],
+    "AC13": [
+        "uv run python scripts/brief.py preflight CC-145",
+        f"{PYTEST} api/tests/test_brief.py api/tests/test_closure_gate.py -k 'fingerprint or reworded or rewording or criterion or lead_in or attribute'",
+    ],
+    "AC14": [
+        "uv run python scripts/brief.py gate2 CC-145",
+        f"{PYTEST} api/tests/test_brief.py -k 'contradiction or rule_file or prescriptive or rerun or third_round or non_ascii or space'",
+    ],
+    "AC15": [
+        f"{PYTEST} api/tests/test_process.py -k 'plan_md or point_at or close_pointer'",
+        "git grep -n 'Jira alone says' -- CLAUDE.md AGENTS.md .claude docs .cursor .agents",
+    ],
+    "AC16": [
+        "uv run python scripts/check_invariants.py --base origin/main",
+        f"{PYTEST} api/tests/test_invariants.py -k 'evidence_path or plan_doc or plan_scope'",
+        "git grep -n -e 'evidence/' -e 'close pointer' -- .claude/PLAN.md",
+    ],
+    "TC1": [f"{PYTEST} api/tests/test_invariants.py -k 'status_or_plan_file or other_evidence_files'"],
+    "TC2": [f"{PYTEST} api/tests/test_invariants.py -k 'measured_number or integer_targets'"],
+    "TC3": [f"{PYTEST} api/tests/test_jira_fetch.py -k unreachable"],
+    "TC4": [f"{PYTEST} api/tests/test_brief.py -k 'added_in_jira or reapproval or incomplete_amendment or main_command'"],
+    "TC6": [f"{PYTEST} api/tests/test_brief.py api/tests/test_closure_gate.py -k 'reworded or rewording'"],
+    "TC7": [f"{PYTEST} api/tests/test_brief.py -k 'contradiction'"],
+    "TC8": [f"{PYTEST} api/tests/test_invariants.py -k 'evidence_path'"],
+}
+
+
+def run(command: str) -> tuple[int, str]:
+    done = subprocess.run(
+        command, shell=True, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    lines = [ln for ln in (done.stdout + done.stderr).splitlines() if "VIRTUAL_ENV" not in ln]
+    return done.returncode, "\n".join(lines)
+
+
+def main() -> int:
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    wanted = sys.argv[1:] or list(ROWS)
+    worst = 0
+    for key in wanted:
+        parts = [f"CC-145 {key}, HEAD {head}, {datetime.now(UTC).isoformat(timespec='seconds')}"]
+        for command in ROWS[key]:
+            code, output = run(command)
+            worst = max(worst, code if not command.startswith("git grep") else 0)
+            parts += ["", f"$ {command}", output, f"exit {code}"]
+        (OUT / f"{key}.txt").write_bytes(("\n".join(parts) + "\n").encode("utf-8"))
+        print(key, "written")
+    return worst
+
+
+if __name__ == "__main__":
+    sys.exit(main())

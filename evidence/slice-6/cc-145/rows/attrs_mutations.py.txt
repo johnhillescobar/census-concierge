@@ -1,0 +1,65 @@
+"""CC-145: mutation check of the attrs fix (adf_text attribute text is opt-in, criteria opt in).
+
+    uv run python evidence/slice-6/cc-145/rows/attrs_mutations.py.txt
+
+Each mutation edits scripts/closure.py, runs only the test that covers it, records the result,
+and restores the file byte for byte.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4]
+TARGET = ROOT / "scripts" / "closure.py"
+MUTATIONS = [
+    (
+        "default-reads-attribute-text (CC-144's gate line must not see hidden attrs)",
+        "def adf_text(node: object, *, attrs: bool = False) -> str:",
+        "def adf_text(node: object, *, attrs: bool = True) -> str:",
+        "api/tests/test_jira_gate_line.py -k test_a_copy_carrying_what_its_text_does_not_show",
+    ),
+    (
+        "criteria-ignore-attribute-text (F9: a date in a criterion must move the fingerprint)",
+        'kind, text = node.get("type"), adf_text(node, attrs=True)',
+        'kind, text = node.get("type"), adf_text(node)',
+        "api/tests/test_closure_gate.py -k test_a_text_kept_in_an_attribute_is_part_of_a_criterion",
+    ),
+]
+
+
+def main() -> int:
+    original = TARGET.read_bytes()
+    bad = 0
+    try:
+        for name, old, new, test in MUTATIONS:
+            text = original.decode("utf-8")
+            assert text.count(old) == 1, name
+            TARGET.write_bytes(text.replace(old, new).encode("utf-8"))
+            done = subprocess.run(
+                f"uv run pytest -q -p no:cacheprovider {test}",
+                shell=True,
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            TARGET.write_bytes(original)
+            tail = [ln for ln in done.stdout.splitlines() if "passed" in ln or "failed" in ln]
+            label = "GOOD" if done.returncode else "BAD"
+            bad += label == "BAD"
+            print(f"{label}  {name}")
+            print(f"      $ uv run pytest -q {test}")
+            print(f"      {tail[-1] if tail else done.stdout[-300:]}  (exit {done.returncode})")
+    finally:
+        TARGET.write_bytes(original)
+    restored = TARGET.read_bytes() == original
+    print(f"restored={'yes' if restored else 'NO'}")
+    return 1 if bad or not restored else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

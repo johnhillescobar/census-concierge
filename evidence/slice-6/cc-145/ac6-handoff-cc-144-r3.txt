@@ -1,0 +1,58 @@
+CC-145 AC6 handoff proof, closed ticket, run 3 (supplemental, on the final code). 2026-11-26.
+Fresh general-purpose agent, no caller history, in the detached worktree .worktrees/cc-145-proof
+moved to 01a3b1e (no .env: Jira was read through the main checkout's). Prompt given (verbatim):
+the same as ac6-handoff-cc-145.txt with "Ticket: CC-144". Runs 1 and 2: ac6-handoff-cc-144.txt,
+ac6-handoff-cc-144-r2.txt. This run follows the round-1 and round-2 changes to the closed brief
+(--closed). AC6's "before anything is deleted" was met by runs 1 and 2 and ac6-handoff-cc-145.txt.
+
+Agent reply (verbatim):
+
+**CC-144 is Done in Jira and is closed for good. No phase may start on it.** Its record passes the closed-ticket check (`CLOSURE OK`). The only leftovers are follow-ups that no criterion requires.
+
+**What AGENTS.md says to do:** for ticket work, print the phase brief with `uv run python scripts/brief.py <phase> CC-N`. The brief reads Jira first. Because CC-144 is Done, it printed the closed-ticket brief instead of a phase prompt and exited 1. That brief names the two status commands and says to state the approved criteria and decisions, the commit tested, and what is left for the owner.
+
+**Commands I ran.** All were read-only, from this worktree, with HEAD at 01a3b1e (detached) and a clean tree:
+1. `git rev-parse HEAD` and `uv run python scripts/brief.py --help`
+2. `uv run python scripts/brief.py final CC-144` printed "CC-144 is Done in Jira and stays closed: no phase may start on it…" and exited 1.
+3. `uv run python scripts/jira_fetch.py issue CC-144 --md` (status command 1) exited 0.
+4. `uv run python scripts/closure.py check --help`, `git rev-parse origin/main`, `git log -1 origin/main`, `git diff --stat HEAD origin/main -- evidence/closure/CC-144.toml evidence/slice-6/cc-144`, `git worktree list`
+5. `git show origin/main:scripts/closure.py | grep -- "--closed"` (no match), `git merge-base HEAD origin/main`, `git diff --stat origin/main...HEAD`
+6. `git status --porcelain` (clean), `git diff --name-status HEAD origin/main -- <same paths>`, then `uv run python scripts/closure.py check evidence/closure/CC-144.toml --closed` (status command 2), which printed `CLOSURE OK` and exited 0.
+
+**I did not run status command 2 exactly as the brief asks.** The brief says to run it from a checkout of origin/main (ab4c27d). I ran it in this worktree, because I was told to stay in this folder and not change git state. These differences matter:
+- **The record is the same.** `evidence/closure/CC-144.toml` is byte-identical here and on origin/main. Under `evidence/slice-6/cc-144/`, the only difference is `plan.md`, which origin/main has and this checkout does not; the record does not reference it.
+- **The checker is not the same.** origin/main's `closure.py` has no `--closed` flag, which arrives with this CC-145 branch. So the command as printed only runs with this branch's checker.
+
+**What Jira and the record say:**
+- **Ticket:** "One line names the gate in every open ticket", a Story under epic CC-142.
+- **Approved criteria:** AC1–AC4 and TC1–TC3, all PASS in the record.
+  - AC1: a dry run read 54 open tickets and found 20 to change, 0 refused.
+  - AC2: 428 tests passed; any change to criterion IDs is refused.
+  - AC3: 20 tickets written, with IDs unchanged.
+  - AC4: the closure check rejects a row that has no command.
+  - TC1: 4 passed. TC2: `--apply` exits 2 and writes nothing. TC3: a second dry run found 0 left to change.
+- **Decisions:**
+  - Owner, 2026-11-24: the bulk edit was approved, after the owner approves the snapshots.
+  - Owner comment on 2026-11-26: approved snapshot manifest b586fe37…, and accepted removing the rule "unresolved review findings block shipping and Done".
+  - No final E2E run is owed, because no `api/src`, `evals/` or run-harness file changed.
+- **Commits tested:**
+  - The record's `head` is 1d5af21; AC3 and TC3 were tested there.
+  - AC1, AC2, TC1 and TC2 were tested at 1957a77; AC4 was rerun at 5931fb4.
+  - PR #151 merged as a315b55. The checks after the merge ran on main ab4c27d.
+- **Close comment (agent-written):** CLOSURE OK on main, 583 tests passed, budget and invariant checks exit 0, CI green. The live Jira commands (AC1, AC3, TC3) were not rerun after the merge.
+
+**What is left for the owner:**
+- **Review limits, stated in the close comment:** no cold bug review read 6f054c5, the fix of the re-run's findings. No separate reviewer read the changes after 3dfc74b, including the AC4 rerun at 5931fb4.
+- **Unfiled follow-ups (F4–F7, F9, F10), none required by a CC-144 criterion:**
+  - F4: other open tickets keep stale or conflicting gate text, including CC-3 AC4, CC-104 and CC-132.
+  - F5: `.claude/DESIGN.md` section 8 and the PLAN latency paragraph.
+  - F6: the one-time script and its tests stay on main.
+  - F7: stale notes in `approval.md` and `plan.md`.
+  - F9: the playbook sentence was added to an existing line.
+  - F10: amended rows need no command (a default).
+
+  Filing any of these is the owner's call.
+
+Files: `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\evidence\closure\CC-144.toml`, `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\scripts\brief.py`, `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\AGENTS.md`
+
+Nothing was edited or created, git state is unchanged, and nothing was written to Jira.

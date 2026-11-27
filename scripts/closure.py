@@ -99,8 +99,11 @@ def attr_text(node: dict[str, Any]) -> str:
     return ""
 
 
-def adf_text(node: object) -> str:
-    """Plain text of a Jira description (Atlassian Document Format), one line per break."""
+def adf_text(node: object, *, attrs: bool = False) -> str:
+    """Plain text of a Jira description (Atlassian Document Format), one line per break. With
+    `attrs`, a mention, date or link card adds the text it keeps in its attributes; without it
+    (the default, which jira_gate_line.py relies on to see what a block's text does not show)
+    those nodes add nothing."""
     if isinstance(node, str):
         return node
     if not isinstance(node, dict):
@@ -109,9 +112,9 @@ def adf_text(node: object) -> str:
         return str(node.get("text") or "")
     if node.get("type") == "hardBreak":
         return "\n"
-    if node.get("type") in ATTR_TEXT_NODES:  # a mention, date, link card ... carries no text node
-        return attr_text(node)
-    inner = "".join(adf_text(child) for child in node.get("content") or [])
+    if node.get("type") in ATTR_TEXT_NODES:
+        return attr_text(node) if attrs else ""
+    inner = "".join(adf_text(child, attrs=attrs) for child in node.get("content") or [])
     return inner + "\n" if node.get("type") in LINE_NODES else inner
 
 
@@ -175,12 +178,12 @@ def criteria_blocks(description: object) -> list[str]:
         for node in nodes:
             if not isinstance(node, dict):
                 continue
-            kind, text = node.get("type"), adf_text(node)
+            kind, text = node.get("type"), adf_text(node, attrs=True)
             if kind == "heading":
                 section = [text] if required_ids(_first_line(text)) else None
                 out.extend([section] if section else [])
             elif kind == "tableRow":
-                cells = [adf_text(c).strip() for c in node.get("content") or []]
+                cells = [adf_text(c, attrs=True).strip() for c in node.get("content") or []]
                 row = " | ".join(cells)
                 if cells and required_ids(_first_line(cells[0])):
                     section = None
