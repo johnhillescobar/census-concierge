@@ -20,6 +20,7 @@ import argparse
 import base64
 import json
 import os
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -28,14 +29,33 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import closure  # the ADF helpers the closure gate reads criteria with
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SITE = "johnhillescobar.atlassian.net"
 
 
-def _load_env() -> None:
-    load_dotenv(ROOT / ".env")
+def env_file(root: Path = ROOT) -> Path | None:
+    """This checkout's `.env`, or else the main checkout's: git does not copy an ignored file
+    into a new worktree, and a worktree's git common dir is the main checkout's `.git`."""
+    if (root / ".env").is_file():
+        return root / ".env"
+    found = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    main = Path(found.stdout.strip()).parent / ".env" if found.returncode == 0 else None
+    return main if main and found.stdout.strip() and main.is_file() else None
+
+
+def load_env(root: Path = ROOT) -> None:
+    path = env_file(root)
+    if path:
+        load_dotenv(path)
 
 
 def _site() -> str:
@@ -69,8 +89,8 @@ def _api(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str
         print(f"Jira HTTP {exc.code} {method} {path}", file=sys.stderr)
         print(exc.read().decode(errors="replace")[:1000], file=sys.stderr)
         sys.exit(1)
-    except urllib.error.URLError as exc:
-        print(f"Jira transport error {method} {path}: {exc.reason}", file=sys.stderr)
+    except (OSError, ValueError) as exc:  # URLError, a timeout mid-read, a body that is not JSON
+        print(f"Jira unreachable {method} {path}: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -194,30 +214,38 @@ def _summarize(issue: dict[str, Any]) -> IssueSummary:
     )
 
 
-def _print_issue_markdown(issue: dict[str, Any]) -> None:
-    summary = _summarize(issue)
-    print(f"## {summary.key} — {summary.summary}")
-    print()
-    print(f"- Type: {summary.issue_type}")
-    print(f"- Status: {summary.status}")
-    print(f"- Epic: {summary.epic or '—'}")
-    print()
-    fields = issue.get("fields") or {}
-    if not isinstance(fields, dict):
-        return
-    raw = fields.get("description")
+def _comments(key: str, last: int) -> list[dict[str, Any]]:
+    """The ticket's newest `last` comments, oldest first."""
+    if last <= 0:
+        return []
+    query = urllib.parse.urlencode({"orderBy": "-created", "maxResults": last})
+    page = _api("GET", f"/issue/{key}/comment?{query}").get("comments")
+    return [c for c in page if isinstance(c, dict)][::-1] if isinstance(page, list) else []
+
+
+def _body_markdown(raw: Any) -> str:
     if isinstance(raw, dict) and raw.get("type") == "doc":
-        rendered = _adf_to_markdown(raw)
-        if rendered.strip():
-            print("### Description")
-            print()
-            print(rendered.rstrip())
-            print()
-    elif isinstance(raw, str) and raw.strip():
-        print("### Description")
-        print()
-        print(raw.strip())
-        print()
+        return _adf_to_markdown(raw).rstrip()
+    return raw.strip() if isinstance(raw, str) else ""
+
+
+def issue_markdown(issue: dict[str, Any], comments: list[dict[str, Any]]) -> str:
+    """The ticket as markdown: header, description, then its last comments. Built whole before
+    anything is printed, so a failed fetch prints no part of a ticket."""
+    summary = _summarize(issue)
+    out = [f"## {summary.key} — {summary.summary}", ""]
+    out += [f"- Type: {summary.issue_type}", f"- Status: {summary.status}"]
+    out += [f"- Epic: {summary.epic or '—'}", ""]
+    fields = issue.get("fields") if isinstance(issue.get("fields"), dict) else {}
+    description = _body_markdown(fields.get("description"))
+    out += ["### Description", "", description, ""] if description else []
+    if comments:
+        out += [f"### Last {len(comments)} comment(s), oldest first", ""]
+    for comment in comments:
+        author = (comment.get("author") or {}).get("displayName") or "?"
+        out += [f"#### {comment.get('created', '?')} — {author}", ""]
+        out += [_body_markdown(comment.get("body")) or "(empty)", ""]
+    return "\n".join(out).rstrip() + "\n"
 
 
 def _adf_to_markdown(doc: dict[str, Any]) -> str:
@@ -268,6 +296,19 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                 else:
                     render_node(child, indent=f"{indent}  ")
             return
+        if node_type in ("blockCard", "embedCard"):  # a link shown as a card, not inline
+            link = closure.attr_text(node)
+            chunks.extend([f"{indent}{link}", ""] if link else [])
+            return
+        if node_type == "codeBlock":
+            chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+            return
+        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
+            mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+            mark = mark if node_type == "taskItem" else "- "
+            text = _render_inline(node.get("content") or [])
+            chunks.extend([f"{indent}{mark}{text.strip()}"] if text.strip() else [])
+            return
 
         # Fallback: try rendering children.
         for child in node.get("content") or []:
@@ -289,6 +330,8 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                     parts.append(text)
             elif child.get("type") == "hardBreak":
                 parts.append("\n")
+            elif child.get("type") in closure.ATTR_TEXT_NODES:  # its text is in its attributes
+                parts.append(closure.attr_text(child))
             else:
                 inner = child.get("content")
                 if isinstance(inner, list):
@@ -312,7 +355,7 @@ def cmd_issue(args: argparse.Namespace) -> int:
         print(json.dumps(issue, indent=2))
         return 0
     if args.md:
-        _print_issue_markdown(issue)
+        print(issue_markdown(issue, _comments(args.key.upper(), args.comments)), end="")
         return 0
     summary = _summarize(issue)
     print(f"{summary.key}  {summary.status}  {summary.issue_type}")
@@ -361,7 +404,9 @@ def cmd_epic(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    _load_env()
+    load_env()
+    if hasattr(sys.stdout, "reconfigure"):  # a Windows console is cp1252; comments are not
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -369,6 +414,9 @@ def main() -> int:
     issue.add_argument("key")
     issue.add_argument("--raw", action="store_true", help="print full JSON")
     issue.add_argument("--md", action="store_true", help="print a small markdown summary")
+    issue.add_argument(
+        "--comments", type=int, default=5, help="with --md: how many of the last comments"
+    )
     issue.set_defaults(fn=cmd_issue)
 
     epic = sub.add_parser("epic", help="fetch an epic or list its children")

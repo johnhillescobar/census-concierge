@@ -22,12 +22,12 @@ per `docs/playbooks/run-slice.md`. This ordering applies in every host.
   `docs/requirements.md`
 - `POST /ask` behavior: `docs/ask-path.md`
 - Index, search, rerank, or retrieval eval: `docs/retrieval.md`
-- Scope or status: `docs/slices.md`
+- Which epic carries which slice: `docs/slices.md`
 
 Slice work follows `docs/playbooks/run-slice.md`: pre-flight claim check, Gate 1
 (tests + mutation check), Gate 2 (cold review), E2E before and after merge. Every
-phase persists its output to git / the PR / `evidence/slice-<N>/` before the next
-begins; a fresh context rebuilds from those, never from chat history.
+phase persists its output to git / the PR / `evidence/` / Jira before the next begins; a
+fresh context rebuilds from the two status commands of the phase brief, never from chat history.
 
 ## Budgets — the one rule that matters
 
@@ -59,7 +59,8 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 - Do not reinterpret question wording with regex, keyword, substring, or equivalent semantic heuristics, including legacy fallbacks. Downstream code must consume and validate structured intent (CLAUDE.md).
 - Do not ship with unverified AC/TC or failed cumulative metric gates; follow PLAN and the canonical run-slice evidence matrix.
 - Do not ask a blocking clarification question. Users who do not know the ecosystem
-  **cannot answer one.** Show candidates as results plus an editable plan strip.
+  **cannot answer one.** A complete question gets its pick plus candidates as results and an
+  editable plan strip; why, and the incomplete case: `CLAUDE.md` (Alternatives; Geography).
 - Do not add a graph node for branching. Nodes are durable checkpoints only.
 - Do not create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
   `*_strategy`, or `*_service`.
@@ -67,8 +68,8 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 - Do not introduce an abstraction before a second caller exists; inline it.
 - Do not work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
   later slice, say which one and stop.
-- Do not carry slice state in the conversation. Persist each phase to the repo; a reset
-  session rebuilds from `.claude/PLAN.md` + `evidence/slice-<N>/` + the PR body.
+- Do not carry ticket state in the conversation or in a file under `evidence/`; read it with
+  the two status commands of `scripts/brief.py` (where status lives: `.claude/PLAN.md`, top).
 - Do not ship a new test without mutation-checking it: revert the behaviour it covers,
   confirm the test fails, restore.
 - Do not read the sealed eval set or tune against its misses (owner-held, outside the

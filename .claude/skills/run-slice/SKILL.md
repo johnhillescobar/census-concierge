@@ -1,13 +1,6 @@
 ---
 name: run-slice
-description: Drive one slice (or a PR within it) through this project's anti-drift pipeline - pre-flight claim check, Gate 1 tests + mutation check, Gate 2 cold review, E2E before and after merge - with the token-heavy gate phases delegated to fresh subagents so state carries through the repo, not conversation history. Use when implementing a slice end to end, especially unattended, or when resuming one after a context reset.
+description: Drive one ticket of a slice through this project's pipeline - pre-flight, implement, Gate 1, Gate 2, final run - from the phase brief, so state comes from Jira and the closure file, not conversation history. Use when implementing a ticket end to end or resuming one after a context reset.
 ---
 
-# Running a slice
-
-Read `CLAUDE.md` and **`docs/playbooks/run-slice.md`**, the canonical procedure.
-Use the phase-specific prompt from `scripts/gate.ps1` or `scripts/gate.sh`.
-In Claude Code, delegate each gate to a fresh `general-purpose` subagent, not
-`fork`; use `isolation: worktree` when needed. Follow the playbook's cold-review
-ordering, mutation checks, persisted handoffs and evidence/reporting limits. Bug
-pass: `/code-review`, or the `gate2-cold` agent when delegated; then invariants.
+Read `AGENTS.md`. Print the brief, `uv run python scripts/brief.py <phase> CC-N`, and follow it.

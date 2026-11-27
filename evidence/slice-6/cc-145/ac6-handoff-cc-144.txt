@@ -1,0 +1,47 @@
+CC-145 AC6 handoff proof, closed ticket, run 1. 2026-11-26.
+Fresh general-purpose agent, no caller history, in a fresh detached worktree
+.worktrees/cc-145-proof at 6d415de (no .env: Jira was read through the main checkout's).
+Prompt given (verbatim): the same as ac6-handoff-cc-145.txt with "Ticket: CC-144".
+Outcome: the agent stated the status correctly (Done, all rows PASS on main, no post-merge E2E
+owed, no next step) and found two CC-145 defects, fixed after this run and re-proved in
+ac6-handoff-cc-144-r2.txt: (1) status command 2 judged a closed ticket against the current
+branch's HEAD, so another ticket's branch made its AC4 look stale; (2) brief.py refused every
+phase for a ticket whose closure file predates approved_ids/approved_sha256.
+
+Agent reply (verbatim):
+
+CC-144 is Done in Jira, and its record holds up on merged main. The second of the two status commands fails in this worktree, though, and the phase brief will not print. Neither failure means anything is wrong with CC-144.
+
+**Commands run** (all from `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof`, all read-only):
+1. Read `AGENTS.md`, `CLAUDE.md`, `.claude/PLAN.md` and `scripts/brief.py`. AGENTS.md says to print the phase brief. brief.py defines the two status commands every brief opens with.
+2. `uv run python scripts/jira_fetch.py issue CC-144 --md`
+3. `uv run python scripts/closure.py check evidence/closure/CC-144.toml --pre-merge` gave exit 1.
+4. `git rev-parse --abbrev-ref HEAD; git rev-parse HEAD; git status --short; git log --oneline -8`
+5. `git diff --name-only 5931fb419ebf818c38792b6470351019a886c992 HEAD -- scripts/closure.py api/tests/test_closure_gate.py docs/playbooks/run-slice.md`, then the same diff against `origin/main`, plus `git rev-parse origin/main` and `git log --oneline -3 origin/main`
+6. `uv run python scripts/closure.py check evidence/closure/CC-144.toml --pre-merge --head origin/main` gave exit 0, and the same without `--pre-merge` gave exit 0.
+7. `git log --oneline origin/main..HEAD -- scripts/closure.py docs/playbooks/run-slice.md`
+8. `uv run python scripts/brief.py final CC-144 --after-merge` gave exit 1.
+9. Grep of `evidence/closure/CC-144.toml` for `approved_ids|approved_sha256|amendment|post_merge` found no matches.
+
+**What they show**
+- **Jira (command 2):** CC-144 "One line names the gate in every open ticket" is a Story under epic CC-142, status **Done**.
+  - The close comment dated 2026-11-26 12:56 says PR #151 merged as a315b55, and AC1–AC4 and TC1–TC3 are all PASS.
+  - It says no post-merge E2E is owed, because the merge changed no `api/src`, `evals/`, `web/` or run-harness file.
+  - Checks it lists on main ab4c27d: closure OK, 583 tests passed, budgets and invariants exit 0, CI green.
+  - The owner approved snapshot manifest b586fe37… (20 tickets edited).
+  - Review limits it records: no cold bug review read 6f054c5, and no reviewer read the changes after 3dfc74b, including the AC4 rerun at 5931fb4.
+  - Follow-ups F4–F7, F9 and F10 are still open and no ticket has been filed for them. None is required by a CC-144 criterion.
+- **Closure check as written (command 3):** `BLOCKED AC4: stale, 2 covered file(s) changed since 5931fb4`, then `CLOSURE BLOCKED: 1 problem(s)`. This is not a CC-144 problem:
+  - The worktree is on branch `cc-145/one-source` at HEAD 6d415de, with one untracked file: `evidence/slice-6/cc-145/ac12-worktrees.txt`.
+  - The two changed files are `scripts/closure.py` and `docs/playbooks/run-slice.md`. They were changed by CC-145 commits 3361d2a and 6d415de, which are not on main.
+  - Between 5931fb4 and origin/main (ab4c27d), none of AC4's covered files changed.
+- **Closure check against main (command 6):** `--head origin/main` gives `CLOSURE OK`, both with and without `--pre-merge`. So the full closure check, including the post-merge rule, passes on merged main.
+- **Phase brief (commands 8 and 9):** brief.py stops with `STOP no criteria were approved at pre-flight: run the preflight brief first`. CC-144's record predates the `approved_ids` / `approved_sha256` fields CC-145 adds, so it has neither. As written, brief.py refuses every phase after pre-flight for any ticket whose record is older than CC-145.
+
+**Conclusion:** CC-144 is Done. All seven rows pass, it closed on merged main at ab4c27d, and no post-merge E2E is owed. The ticket has no next step; the only leftovers are the unfiled follow-ups F4–F7, F9 and F10.
+
+Two findings concern CC-145, not CC-144:
+- **The status command depends on the branch.** Run as written on a branch that touches a covered file, the closure check reports another ticket's AC4 as stale.
+- **brief.py cannot brief an older ticket.** It refuses any ticket closed before the approved-criteria fields existed, so a fresh agent following AGENTS.md cannot get a brief for CC-144.
+
+Files: `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\evidence\closure\CC-144.toml`, `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\scripts\brief.py`, `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof\scripts\closure.py`.

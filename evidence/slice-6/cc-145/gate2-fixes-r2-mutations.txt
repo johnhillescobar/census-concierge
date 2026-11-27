@@ -1,0 +1,2148 @@
+CC-145 round-2 fix mutations (run-slice.md section 5: fixes are new code, tests plus a mutation check)
+=======================================================================================================
+
+repo:     C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145 (git worktree)
+branch:   feat/cc-145-one-source
+HEAD at start: adbebe61743f83061bbeeb91226914c80095da42 (the round-2 fix commit; parent 1045f94 is the code
+               the Gate 2 re-run read). Working tree clean at start.
+HEAD at end, before this evidence commit: edde086 (test(CC-145): the --closed flag and the evidence folder
+               reach the check and the brief). Working tree clean after every restore.
+Fix map: evidence/slice-6/cc-145/gate2-fixes.txt, "Round 2".
+Scope: every test `git diff 1045f94 adbebe6 -- api/tests` adds or changes, against the behaviour it covers
+in `git diff 1045f94 adbebe6 -- scripts`.
+
+Method. One behaviour at a time: a helper (scratchpad, not in the repo) replaced one exact snippet in one
+script (asserting it occurs exactly once), printed `git diff` of the mutation, ran only the covering test(s)
+with `uv run pytest <nodes> -q -p no:cacheprovider`, then restored with `git checkout -- <file>` and checked
+`git diff --quiet` on it. GOOD = pytest exit 1 (the test failed on the mutation); BAD = exit 0 (it passed).
+Each mutation's raw diff and raw pytest output follow below.
+
+RESULT
+------
+Round 1 (tests as committed in adbebe6): 26 mutations, 24 GOOD, 2 BAD.
+Round 2 (after two new tests, committed in edde086 before mutating): the 2 BAD mutations re-run, 2 GOOD.
+Totals: 28 runs, 26 GOOD, 2 BAD; 26 of 26 behaviours now caught by a test that fails on their revert.
+
+  #  label  mutation (what it reverts)                                                     failures
+  1  GOOD   criteria_blocks reverted to the previous first-line rule                       9 failed
+  2  GOOD   a criterion's continuation lines dropped                                       1 failed
+  3  GOOD   one criterion per block (a second id runs into the first)                      5 failed
+  4  GOOD   attr_text dropped from adf_text                                                1 failed
+  5  GOOD   a date read as its raw timestamp, not its ISO day                              2 failed, 9 passed
+  6  GOOD   an emoji's shortName not read                                                  1 failed, 9 passed
+  7  GOOD   jira_fetch blockCard/embedCard not rendered                                    1 failed, 9 passed
+  8  GOOD   jira_fetch inline attribute nodes reverted to the old text/url/timestamp read  2 failed, 8 passed
+  9  GOOD   the --closed skip removed (a closed row judged stale against later code)       1 failed
+ 10  GOOD   a closed record skips its evidence check                                       1 failed
+ 11  BAD    closure.py check ignores --closed on the command line                          2 passed
+ 12  GOOD   the closed brief prints --pre-merge, not --closed                              1 failed
+ 13  GOOD   no record on main still prints the record command                              1 failed
+ 14  GOOD   git cannot read the base, read as no record on main                            1 failed
+ 15  GOOD   record_on without the ref check (an unreadable base reads as False)            1 failed
+ 16  GOOD   a re-approval accepted on its fingerprint alone (approved_ids not compared)    1 failed
+ 17  GOOD   a re-approval's ids compared with the pre-flight ids, not the live ones        1 failed
+ 18  GOOD   a re-approval without approved_ids counted whole                               1 failed
+ 19  GOOD   approved_ids demanded of every amendment, not only a re-approval               1 failed
+ 20  GOOD   re-approval approved_ids dropped from the required set                         1 failed
+ 21  GOOD   changed_files without the UTF-8 decode                                         1 failed
+ 22  GOOD   branch_ticket without the ASCII-digit check                                    2 failed
+ 23  GOOD   the -r2 naming removed (a re-run writes the first round's files)               3 failed, 1 passed
+ 24  GOOD   the cold-review file not counted when choosing a round                         1 failed, 2 passed
+ 25  GOOD   rounds stop at -r2                                                             1 failed
+ 26  BAD    brief main does not pass the evidence folder's files (existing)                4 passed
+ 11' GOOD   closure.py check ignores --closed on the command line (new test)               2 failed
+ 26' GOOD   brief main does not pass the evidence folder's files (existing) (new test)     1 failed
+
+Notes on how some mutations fail (all are the reverted defect itself, not a harness error):
+- 21: without encoding="utf-8", Windows decodes git's -z output as cp1252; byte 0x81 of "Á" is undefined
+  there, the reader thread raises, stdout comes back None and changed_files crashes (AttributeError). The
+  test fails on exactly the defect the fix removed.
+- 22: without isascii(), "²" passes str.isdigit and int("²") raises ValueError: the crash the fix prevents.
+- 25: with only ("", "-r2") available and both taken, next() raises StopIteration: no -r3 is ever named.
+
+Tests added or tightened (no product or rule change), commit edde086, committed before mutating again:
+- api/tests/test_closure_gate.py::test_the_closed_flag_on_the_command_line_reaches_the_check[2]
+  covers F2's CLI wiring (`closure.py check ... --closed` must reach problems(closed=True)); mutation 11
+  passed every existing test because they call closure.problems(closed=True) directly.
+- api/tests/test_brief.py::test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder
+  covers I1's wiring in brief.main (the evidence folder's files reach the round naming); mutation 26 passed
+  every existing test because they call brief.brief(existing=...) directly.
+
+Not mutated, with the reason: the reworded refusal line in brief.compare (`... and approved_ids = [...]`) is
+message prose (CLAUDE.md: do not assert on wording); `import closure` in jira_fetch.py is structural and is
+exercised by mutations 5-8. The changed `amendment()` helper in test_brief.py is covered by mutation 17.
+
+End state: `git diff HEAD -- scripts .claude .github docs CLAUDE.md AGENTS.md` is empty and the six test
+files pass (451 passed), raw output at the end of this file.
+
+=================================== RAW OUTPUT ===================================
+
+--- start state ---
+$ pwd; git branch --show-current; git rev-parse HEAD; git status --short
+/c/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145
+feat/cc-145-one-source
+adbebe61743f83061bbeeb91226914c80095da42
+(clean)
+
+--- status command 1 ---
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+## CC-145 — One source of truth: Jira is the contract, status comes from two commands
+
+- Type: Story
+- Status: In Progress
+- Epic: CC-142
+
+### Description
+
+Why. Status lives in Jira, `STATE.md`, plan files, `.claude/PLAN.md`, the PR body, the README and Claude Code's memory, and they disagree. `STATE.md` is cut to its first 2 KB when it is delivered to a new session.
+
+`.claude/PLAN.md` has drifted from a plan into a ledger. Since 2026-09-12 (`88a0341`), `CLAUDE.md`, the playbook and `docs/slices.md` have told agents to write a "close pointer (floors met, evidence path, epic URL)" into it at every close. It now carries closure paragraphs with metrics for CC-103, CC-114, CC-125 and CC-126, baseline numbers, and lists of tickets that are Done. PLAN.md exists to manage context: it gives an agent the context it needs to start, keeps what is done to one line, and points at the Jira ticket, where the details are explained and expanded.
+
+Scope. `scripts/jira_fetch.py`, `scripts/jira_transition.py`, `scripts/closure.py`, `scripts/check_invariants.py`, one new brief script replacing `scripts/gate.sh` and `scripts/gate.ps1`, `Makefile`, `.claude/hooks/ctx.py`, `.claude/settings.json`, `.github/workflows/check.yml`, the host pointer files, the playbook and the rule files that restate status. No `api/src` change. Every criterion names the command that proves it; "(new)" marks a command this ticket creates.
+
+Acceptance criteria
+
+- AC1. `jira_fetch.py issue CC-N --md` prints the last comments, and exits non-zero with no partial ticket when Jira is unreachable. Both Jira scripts work in a fresh worktree by falling back to the main checkout's `.env`. Command: `uv run pytest api/tests/test_jira_fetch.py -q` (new).
+
+- AC2. The closure file records the criterion IDs approved at pre-flight. At the start of a phase the comparison with the Jira description fails when the IDs differ and there is no owner amendment row. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC3. One Python script prints the brief for pre-flight, implement, Gate 1, Gate 2 and the final run, keyed by ticket, and each brief opens with the two status commands. `gate.sh` and `gate.ps1` are deleted and `Makefile`, the playbook and the three host pointer files are updated. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC4. The three host pointer files say only: read `AGENTS.md`, print the brief, follow it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC5. Auto-compaction is off in the project settings. The hook no longer prints `STATE.md`, and its warning no longer tells the agent to write one. Command: `uv run pytest api/tests/test_context_hook.py -q`.
+
+- AC6. Handoff proof, before anything is deleted: in a fresh worktree, a fresh agent given only a ticket key states the approved criteria and decisions, the commit tested, which evidence is stale or missing, and the next permitted step, once for an in-progress ticket and once for a closed one. Command: the two status commands; the agent's two replies are saved as evidence.
+
+- AC7. After AC6: the two `STATE.md` files and the plan files under `evidence/` are deleted on `main` (`evidence/slice-6/cc-138/plan.md` is renamed and its two closure paths updated). Status and plan wording is removed from the playbook, `AGENTS.md`, `.claude/PLAN.md`, `docs/slices.md`, `docs/ARCHITECTURE.md`, `README.md`, `.cursor/rules/00-guardrails.mdc`, `docs/playbooks/review-pr.md`, `CLAUDE.md` and the two `.github` files. "When unsure: stop and ask" stays. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC8. Two offline checks: a `STATE.md` or plan file under `evidence/` fails; status words or metric numbers in `.claude/PLAN.md` or `docs/slices.md` fail. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC9. CI runs the offline closure check for the ticket named in the branch. Command: the `check` workflow on the PR.
+
+- AC10. Each auto-memory rule is moved into a repo rule file or deleted, and auto-memory is off in the project settings. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC11. Prescriptive docs end at or under 1820 lines; no budget is raised. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC12. The owner receives a list of worktrees that still serve the old host files; none is removed without the owner naming it. Command: `git worktree list`.
+
+- AC13. The closure file also records a fingerprint (sha256) of the approved criteria text. The phase-start comparison fails when the criteria text in Jira no longer matches it and there is no owner amendment row, even if the IDs are unchanged. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC14. When the change under review touches a prescriptive rule file (the files counted by the documentation budget), the Gate 2 brief adds an instruction to read all of those files and list any contradictions between them. The script decides this from the change itself. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC15. One rule file, and no other, states the relationship: `.claude/PLAN.md` holds the plan (slice order, scope, what is not in each slice, and why) and the context an agent needs to start; it mentions finished work only as one line that links the Jira ticket, with no numbers, dates of closure or evidence paths; Jira alone says whether a ticket is open or done and holds its details. `CLAUDE.md`, `AGENTS.md`, `docs/slices.md` and the playbook point to that rule instead of restating it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC16. No rule file asks for a close pointer, floors or numbers in `.claude/PLAN.md`. At close, numbers and evidence links go to the Jira ticket only, and `.claude/PLAN.md` changes at most to the one-line link of AC15. On `main`, the existing closure paragraphs, baseline numbers and Done lists in `.claude/PLAN.md` are reduced to one-line Jira links. An `evidence/` path in `.claude/PLAN.md` fails the offline check. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+
+Test cases
+
+- TC1. A new `evidence/slice-9/cc-999/STATE.md` fails the invariant check.
+
+- TC2. A metric number added to `.claude/PLAN.md` fails the invariant check.
+
+- TC3. With Jira unreachable, `jira_fetch.py` exits non-zero and prints no ticket text.
+
+- TC4. A criterion ID added in Jira without an amendment row fails the phase-start comparison.
+
+- TC5. `make check` passes after the deletions, including the CC-138 closure file.
+
+- TC6. A criterion reworded in Jira with its ID unchanged fails the phase-start comparison.
+
+- TC7. The Gate 2 brief contains the contradiction instruction for a change that touches `CLAUDE.md` and omits it for a change that touches only `api/src`.
+
+- TC8. A closure line for a ticket that carries an `evidence/` path, added to `.claude/PLAN.md`, fails the invariant check; the same line reduced to the ticket key and its Jira link passes.
+
+
+Final run. Not required: no `api/src`, `evals/` or run-harness change (acceptance-gate ticket CC-143, AC11).
+
+Decisions (owner, 2026-11-24)
+
+- Old `STATE.md` and plan files are deleted after the handoff proof; git keeps them.
+
+- Auto-memory is switched off once its rules are in the repo.
+
+- Only the owner edits a ticket description; agents comment.
+
+- AC13, AC14, TC6 and TC7 were added on the owner's instruction before pre-flight: the comparison covers criteria text as well as IDs, and a rule-file change triggers a contradiction read.
+
+
+Decisions (owner, 2026-11-26)
+
+- `.claude/PLAN.md` is the plan; Jira is the only source of status. PLAN.md links to Jira for status and holds no status of its own. Earlier closes polluted it; the intent is to manage context by giving an agent the context it needs, keeping what is done to one line, and pointing at the ticket where the details are explained and expanded.
+
+- AC15, AC16 and TC8 were added on the owner's instruction before pre-flight. The edit was made by an agent at the owner's request in the session.
+
+### Last 1 comment(s), oldest first
+
+#### 2026-11-26T14:24:26.277-0600 — John Hill Escobar
+
+Pre-flight done (2026-11-26), branch cc-145/one-source at b6559fd, not pushed. Record: evidence/slice-6/cc-145/preflight.txt; approved criteria: evidence/closure/CC-145.toml (24 IDs AC1-AC16, TC1-TC8; criteria fingerprint c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f).
+
+Owner decisions (chat, 2026-11-26):
+- AC8 rule: a file under evidence/ named STATE.md, plan.md or *-plan.md fails (cc-138/plan.md renamed to cc-138/scope-record.md). In .claude/PLAN.md and docs/slices.md a Jira status name (Done, To Do, In Progress) or "closed" as a whole word fails, and so does a decimal number; integer targets stay as plan scope. The slices.md board loses its status column.
+- The budgets.toml exception/waiver route stays unchanged, so a ticket can close with an owner-excepted red metric (e.g. p95).
+- AC9: CI runs closure.py check --pre-merge for the ticket in the branch name.
+- AC10 is open for discussion with the owner; no memory file is moved or deleted yet.
+
+Defaults (revertible): the two status commands are jira_fetch.py issue CC-N --md and closure.py check evidence/closure/CC-N.toml --pre-merge; AC6 uses CC-145 (in progress) and CC-144 (closed).
+
+Correction to the description: SessionStart hook output is capped at 10,000 characters (code.claude.com docs/en/hooks.md), not 2 KB; past the cap, the hook output is replaced by a file path and a 2,000-character preview.
+exit 0
+
+--- status command 2 ---
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+  BLOCKED  AC1: NOT RUN blocks closure
+  BLOCKED  AC2: NOT RUN blocks closure
+  BLOCKED  AC3: NOT RUN blocks closure
+  BLOCKED  AC4: NOT RUN blocks closure
+  BLOCKED  AC5: NOT RUN blocks closure
+  BLOCKED  AC6: NOT RUN blocks closure
+  BLOCKED  AC7: NOT RUN blocks closure
+  BLOCKED  AC8: NOT RUN blocks closure
+  BLOCKED  AC9: NOT RUN blocks closure
+  BLOCKED  AC10: NOT RUN blocks closure
+  BLOCKED  AC11: NOT RUN blocks closure
+  BLOCKED  AC12: NOT RUN blocks closure
+  BLOCKED  AC13: NOT RUN blocks closure
+  BLOCKED  AC14: NOT RUN blocks closure
+  BLOCKED  AC15: NOT RUN blocks closure
+  BLOCKED  AC16: NOT RUN blocks closure
+  BLOCKED  TC1: NOT RUN blocks closure
+  BLOCKED  TC2: NOT RUN blocks closure
+  BLOCKED  TC3: NOT RUN blocks closure
+  BLOCKED  TC4: NOT RUN blocks closure
+  BLOCKED  TC5: NOT RUN blocks closure
+  BLOCKED  TC6: NOT RUN blocks closure
+  BLOCKED  TC7: NOT RUN blocks closure
+  BLOCKED  TC8: NOT RUN blocks closure
+CLOSURE BLOCKED: 24 problem(s)
+exit 1
+
+--- baseline at adbebe6, unmutated (tail -5) ---
+$ uv run pytest api/tests/test_brief.py api/tests/test_jira_fetch.py api/tests/test_closure_gate.py -q -p no:cacheprovider
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+258 passed, 1 warning in 124.65s (0:02:04)
+
+--- round 1: helper summary ---
+$ uv run python mutate.py round1.log all
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+GOOD: criteria_blocks reverted to the previous first-line rule -> 9 failed, 1 warning in 0.66s
+GOOD: a criterion's continuation lines dropped -> 1 failed, 1 warning in 0.32s
+GOOD: one criterion per block (a second id runs into the first) -> 5 failed, 1 warning in 0.51s
+GOOD: attr_text dropped from adf_text -> 1 failed, 1 warning in 0.37s
+GOOD: a date read as its raw timestamp, not its ISO day -> 2 failed, 9 passed, 1 warning in 0.36s
+GOOD: an emoji's shortName not read -> 1 failed, 9 passed, 1 warning in 0.28s
+GOOD: jira_fetch blockCard/embedCard not rendered -> 1 failed, 9 passed, 1 warning in 0.29s
+GOOD: jira_fetch inline attribute nodes reverted to the old text/url/timestamp read -> 2 failed, 8 passed, 1 warning in 0.34s
+GOOD: the --closed skip removed (a closed row judged stale against later code) -> 1 failed, 1 warning in 3.73s
+GOOD: a closed record skips its evidence check -> 1 failed, 1 warning in 2.97s
+BAD: closure.py check ignores --closed on the command line -> 2 passed, 1 warning in 5.21s
+GOOD: the closed brief prints --pre-merge, not --closed -> 1 failed, 1 warning in 0.36s
+GOOD: no record on main still prints the record command -> 1 failed, 1 warning in 0.33s
+GOOD: git cannot read the base, read as no record on main -> 1 failed, 1 warning in 0.39s
+GOOD: record_on without the ref check (an unreadable base reads as False) -> 1 failed, 1 warning in 4.02s
+GOOD: a re-approval accepted on its fingerprint alone (approved_ids not compared) -> 1 failed, 1 warning in 0.32s
+GOOD: a re-approval's ids compared with the pre-flight ids, not the live ones -> 1 failed, 1 warning in 0.24s
+GOOD: a re-approval without approved_ids counted whole -> 1 failed, 1 warning in 0.27s
+GOOD: approved_ids demanded of every amendment, not only a re-approval -> 1 failed, 1 warning in 0.25s
+GOOD: re-approval approved_ids dropped from the required set -> 1 failed, 1 warning in 0.33s
+GOOD: changed_files without the UTF-8 decode -> 1 failed, 2 warnings in 3.83s
+GOOD: branch_ticket without the ASCII-digit check -> 2 failed, 1 warning in 0.37s
+GOOD: the -r2 naming removed (a re-run writes the first round's files) -> 3 failed, 1 passed, 1 warning in 0.28s
+GOOD: the cold-review file not counted when choosing a round -> 1 failed, 2 passed, 1 warning in 0.32s
+GOOD: rounds stop at -r2 -> 1 failed, 1 warning in 0.30s
+BAD: brief main does not pass the evidence folder's files (existing) -> 4 passed, 1 warning in 0.06s
+
+--- round 1: per-mutation raw output ---
+
+=== GOOD: criteria_blocks reverted to the previous first-line rule ===
+GOOD (pytest exit 1): 9 failed, 1 warning in 0.66s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..3c43bb3 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -179,27 +179,15 @@ def criteria_blocks(description: object) -> list[str]:
+             if kind == "heading":
+                 section = [text] if required_ids(_first_line(text)) else None
+                 out.extend([section] if section else [])
+-            elif kind == "tableRow":
+-                cells = [adf_text(c).strip() for c in node.get("content") or []]
+-                row = " | ".join(cells)
+-                if cells and required_ids(_first_line(cells[0])):
+-                    section = None
+-                    out.append([row])
+-                elif section is not None:
+-                    section.append(row)
+-            elif kind in ITEM_NODES:
+-                current: list[str] | None = None  # the criterion this block's lines run into
+-                for line in text.splitlines():
+-                    if required_ids(line):
+-                        section, current = None, [line]
+-                        out.append(current)
+-                    elif current is not None:
+-                        current.append(line)
+-                    elif section is not None:
+-                        section.append(line)
+-            elif section is not None and not required_ids(text):
+-                section.append(text)  # a list, table or panel under an id heading
+-            else:  # a container with criteria further in
++                continue
++            cells = node.get("content") or [] if kind == "tableRow" else []
++            starts = adf_text(cells[0]) if cells else text
++            if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
++                section = None
++                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++            elif section is not None:
++                section.append(text)
++            else:  # a container, or an item with a criterion further in
+                 walk(node.get("content") or [])
+ 
+     walk(description.get("content") or [] if isinstance(description, dict) else [])
+$ uv run pytest api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted api/tests/test_closure_gate.py::test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own -q -p no:cacheprovider
+FFFFFFFFF                                                                [100%]
+================================== FAILURES ===================================
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...] and 0 == 25)
+E        +  where 0 = len([])
+E        +    where [] = <function criteria_blocks at 0x0000027676D72660>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x0000027676D72660> = closure.criteria_blocks
+E        +  and   25 = len(['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...] and 0 == 25)
+E        +  where 0 = len([])
+E        +    where [] = <function criteria_blocks at 0x0000027676D72660>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x0000027676D72660> = closure.criteria_blocks
+E        +  and   25 = len(['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...] and 0 == 9)
+E        +  where 0 = len([])
+E        +    where [] = <function criteria_blocks at 0x0000027676D72660>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x0000027676D72660> = closure.criteria_blocks
+E        +  and   9 = len(['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...] and 0 == 9)
+E        +  where 0 = len([])
+E        +    where [] = <function criteria_blocks at 0x0000027676D72660>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x0000027676D72660> = closure.criteria_blocks
+E        +  and   9 = len(['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-104.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        before = closure.criteria_fingerprint(doc)
+        assert reword_first_criterion(doc)
+>       assert closure.criteria_fingerprint(doc) != before
+E       AssertionError: assert 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+E        +  where 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' = <function criteria_fingerprint at 0x0000027676D72700>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +    where <function criteria_fingerprint at 0x0000027676D72700> = closure.criteria_fingerprint
+
+api\tests\test_closure_gate.py:1203: AssertionError
+_ test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-104.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        before = closure.criteria_fingerprint(doc)
+        assert reword_first_criterion(doc)
+>       assert closure.criteria_fingerprint(doc) != before
+E       AssertionError: assert 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+E        +  where 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' = <function criteria_fingerprint at 0x0000027676D72700>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +    where <function criteria_fingerprint at 0x0000027676D72700> = closure.criteria_fingerprint
+
+api\tests\test_closure_gate.py:1203: AssertionError
+_ test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-105.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        before = closure.criteria_fingerprint(doc)
+        assert reword_first_criterion(doc)
+>       assert closure.criteria_fingerprint(doc) != before
+E       AssertionError: assert 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+E        +  where 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' = <function criteria_fingerprint at 0x0000027676D72700>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +    where <function criteria_fingerprint at 0x0000027676D72700> = closure.criteria_fingerprint
+
+api\tests\test_closure_gate.py:1203: AssertionError
+_ test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-105.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        before = closure.criteria_fingerprint(doc)
+        assert reword_first_criterion(doc)
+>       assert closure.criteria_fingerprint(doc) != before
+E       AssertionError: assert 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+E        +  where 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' = <function criteria_fingerprint at 0x0000027676D72700>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +    where <function criteria_fingerprint at 0x0000027676D72700> = closure.criteria_fingerprint
+
+api\tests\test_closure_gate.py:1203: AssertionError
+___ test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own ____
+
+    def test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own() -> None:
+        doc = lines_doc("Acceptance criteria|AC1. One.|more of one|AC2. Two.", "Decisions|We chose.")
+>       assert closure.criteria_blocks(doc) == ["AC1. One. more of one", "AC2. Two."]
+E       AssertionError: assert [] == ['AC1. One. m..., 'AC2. Two.']
+E         
+E         Right contains 2 more items, first extra item: 'AC1. One. more of one'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1220: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.before]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.after]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.before]
+FAILED api/tests/test_closure_gate.py::test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-104.after]
+FAILED api/tests/test_closure_gate.py::test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-104.before]
+FAILED api/tests/test_closure_gate.py::test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-105.after]
+FAILED api/tests/test_closure_gate.py::test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint[CC-105.before]
+FAILED api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own
+9 failed, 1 warning in 0.66s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: a criterion's continuation lines dropped ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.32s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..00d9514 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -194,7 +194,7 @@ def criteria_blocks(description: object) -> list[str]:
+                         section, current = None, [line]
+                         out.append(current)
+                     elif current is not None:
+-                        current.append(line)
++                        pass
+                     elif section is not None:
+                         section.append(line)
+             elif section is not None and not required_ids(text):
+$ uv run pytest api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own ____
+
+    def test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own() -> None:
+        doc = lines_doc("Acceptance criteria|AC1. One.|more of one|AC2. Two.", "Decisions|We chose.")
+>       assert closure.criteria_blocks(doc) == ["AC1. One. more of one", "AC2. Two."]
+E       AssertionError: assert ['AC1. One.', 'AC2. Two.'] == ['AC1. One. m..., 'AC2. Two.']
+E         
+E         At index 0 diff: 'AC1. One.' != 'AC1. One. more of one'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1220: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own
+1 failed, 1 warning in 0.32s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: one criterion per block (a second id runs into the first) ===
+GOOD (pytest exit 1): 5 failed, 1 warning in 0.51s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..958b43e 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,7 +190,7 @@ def criteria_blocks(description: object) -> list[str]:
+             elif kind in ITEM_NODES:
+                 current: list[str] | None = None  # the criterion this block's lines run into
+                 for line in text.splitlines():
+-                    if required_ids(line):
++                    if required_ids(line) and current is None:
+                         section, current = None, [line]
+                         out.append(current)
+                     elif current is not None:
+$ uv run pytest api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own -q -p no:cacheprovider
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...] and 2 == 25)
+E        +  where 2 = len(['AC1. Structured scope, output level, entities and parent references determine execution; original prose is absent fr... using approved aggregates only. The restrictions on reading sealed questions and E2E transcripts apply to both runs.'])
+E        +    where ['AC1. Structured scope, output level, entities and parent references determine execution; original prose is absent fr... using approved aggregates only. The restrictions on reading sealed questions and E2E transcripts apply to both runs.'] = <function criteria_blocks at 0x000001D3355D2520>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x000001D3355D2520> = closure.criteria_blocks
+E        +  and   25 = len(['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-104.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...] and 2 == 25)
+E        +  where 2 = len(['AC1. Structured scope, output level, entities and parent references determine execution; original prose is absent fr... using approved aggregates only. The restrictions on reading sealed questions and E2E transcripts apply to both runs.'])
+E        +    where ['AC1. Structured scope, output level, entities and parent references determine execution; original prose is absent fr... using approved aggregates only. The restrictions on reading sealed questions and E2E transcripts apply to both runs.'] = <function criteria_blocks at 0x000001D3355D2520>({'content': [{'content': [{'text': 'Owned outcome\nMigrate existing geography interpretation/recovery while retaining ...NTY or detect_level as semantic fallbacks.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x000001D3355D2520> = closure.criteria_blocks
+E        +  and   25 = len(['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.after] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.after.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...] and 2 == 9)
+E        +  where 2 = len(['AC1. Use published county-or-part relationships where supported, recording every parent and resolved child selection...TC4. Partial API failure exposes missing coverage. TC5. Intersection versus clipped estimates remain distinguishable.'])
+E        +    where ['AC1. Use published county-or-part relationships where supported, recording every parent and resolved child selection...TC4. Partial API failure exposes missing coverage. TC5. Intersection versus clipped estimates remain distinguishable.'] = <function criteria_blocks at 0x000001D3355D2520>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x000001D3355D2520> = closure.criteria_blocks
+E        +  and   9 = len(['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+_ test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.before] _
+
+path = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145/api/tests/fixtures/gate_wording/CC-105.before.json')
+
+    @pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+    def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        ids = closure.required_ids(closure.adf_text(doc))
+>       assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+E       AssertionError: assert (['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...] and 2 == 9)
+E        +  where 2 = len(['AC1. Use published county-or-part relationships where supported, recording every parent and resolved child selection...TC4. Partial API failure exposes missing coverage. TC5. Intersection versus clipped estimates remain distinguishable.'])
+E        +    where ['AC1. Use published county-or-part relationships where supported, recording every parent and resolved child selection...TC4. Partial API failure exposes missing coverage. TC5. Intersection versus clipped estimates remain distinguishable.'] = <function criteria_blocks at 0x000001D3355D2520>({'content': [{'content': [{'text': 'Owned outcome\nReturn the requested child membership or accurately disclose unavai...s distinct. General crosswalks stay CC-77.', 'type': 'text'}], 'type': 'paragraph'}, ...], 'type': 'doc', 'version': 1})
+E        +      where <function criteria_blocks at 0x000001D3355D2520> = closure.criteria_blocks
+E        +  and   9 = len(['AC1', 'AC2', 'AC3', 'AC4', 'TC1', 'TC2', ...])
+
+api\tests\test_closure_gate.py:1194: AssertionError
+___ test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own ____
+
+    def test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own() -> None:
+        doc = lines_doc("Acceptance criteria|AC1. One.|more of one|AC2. Two.", "Decisions|We chose.")
+>       assert closure.criteria_blocks(doc) == ["AC1. One. more of one", "AC2. Two."]
+E       AssertionError: assert ['AC1. One. m...ne AC2. Two.'] == ['AC1. One. m..., 'AC2. Two.']
+E         
+E         At index 0 diff: 'AC1. One. more of one AC2. Two.' != 'AC1. One. more of one'
+E         Right contains one more item: 'AC2. Two.'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1220: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.after]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-104.before]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.after]
+FAILED api/tests/test_closure_gate.py::test_every_criterion_of_a_real_jira_description_is_fingerprinted[CC-105.before]
+FAILED api/tests/test_closure_gate.py::test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own
+5 failed, 1 warning in 0.51s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: attr_text dropped from adf_text ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.37s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..ea53466 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -109,8 +109,6 @@ def adf_text(node: object) -> str:
+         return str(node.get("text") or "")
+     if node.get("type") == "hardBreak":
+         return "\n"
+-    if node.get("type") in ATTR_TEXT_NODES:  # a mention, date, link card ... carries no text node
+-        return attr_text(node)
+     inner = "".join(adf_text(child) for child in node.get("content") or [])
+     return inner + "\n" if node.get("type") in LINE_NODES else inner
+ 
+$ uv run pytest api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_a_text_kept_in_an_attribute_is_part_of_a_criterion ___________
+
+    def test_a_text_kept_in_an_attribute_is_part_of_a_criterion() -> None:
+        def with_date(stamp: str) -> dict[str, Any]:
+            date_node = {"type": "date", "attrs": {"timestamp": stamp}}
+            text = {"type": "text", "text": "AC1. Ships by "}
+            return {"type": "doc", "content": [{"type": "paragraph", "content": [text, date_node]}]}
+    
+        one, two = with_date("1764115200000"), with_date("1764201600000")
+>       assert closure.criteria_blocks(one) == ["AC1. Ships by 2025-11-26"]
+E       AssertionError: assert ['AC1. Ships by'] == ['AC1. Ships by 2025-11-26']
+E         
+E         At index 0 diff: 'AC1. Ships by' != 'AC1. Ships by 2025-11-26'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1230: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion
+1 failed, 1 warning in 0.37s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: a date read as its raw timestamp, not its ISO day ===
+GOOD (pytest exit 1): 2 failed, 9 passed, 1 warning in 0.36s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..e122bde 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -92,7 +92,7 @@ def attr_text(node: dict[str, Any]) -> str:
+     """The text of an ADF node that keeps it in its attributes; a date is its ISO day."""
+     attrs = node.get("attrs") or {}
+     if node.get("type") == "date" and str(attrs.get("timestamp") or "").isdecimal():
+-        return datetime.fromtimestamp(int(attrs["timestamp"]) / 1000, tz=UTC).date().isoformat()
++        return str(attrs["timestamp"])
+     for key in ("text", "shortName", "url"):
+         if attrs.get(key):
+             return str(attrs[key])
+$ uv run pytest api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider
+F......F...                                                              [100%]
+================================== FAILURES ===================================
+___________ test_a_text_kept_in_an_attribute_is_part_of_a_criterion ___________
+
+    def test_a_text_kept_in_an_attribute_is_part_of_a_criterion() -> None:
+        def with_date(stamp: str) -> dict[str, Any]:
+            date_node = {"type": "date", "attrs": {"timestamp": stamp}}
+            text = {"type": "text", "text": "AC1. Ships by "}
+            return {"type": "doc", "content": [{"type": "paragraph", "content": [text, date_node]}]}
+    
+        one, two = with_date("1764115200000"), with_date("1764201600000")
+>       assert closure.criteria_blocks(one) == ["AC1. Ships by 2025-11-26"]
+E       AssertionError: assert ['AC1. Ships ...764115200000'] == ['AC1. Ships by 2025-11-26']
+E         
+E         At index 0 diff: 'AC1. Ships by 1764115200000' != 'AC1. Ships by 2025-11-26'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1230: AssertionError
+__ test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body6-2025-11-26] __
+
+body = {'type': 'doc', 'content': [{'type': 'paragraph', 'content': [{'type': 'date', 'content': [], 'attrs': {'timestamp': '1764115200000'}}], 'attrs': {}}], 'attrs': {}}
+shown = '2025-11-26'
+
+    @pytest.mark.parametrize(
+        ("body", "shown"),
+        [
+            (node("doc", node("codeBlock", text("make check"))), "make check"),
+            (
+                node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+                "rerun AC4",
+            ),
+            (
+                node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+                "keep the waiver",
+            ),
+            (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+            (
+                node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+                "https://example.com/pr/1",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+            (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+            (
+                node("doc", node("blockCard", url="https://example.com/pr/2")),
+                "https://example.com/pr/2",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
+            (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+        ],
+    )
+    def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+        body: dict[str, Any], shown: str
+    ) -> None:
+        out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+>       assert shown in out and "(empty)" not in out
+E       AssertionError: assert ('2025-11-26' in '## CC-9 � A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: �\n\n### Description\n\nAC1. it works\n\n### Last 1 comment(s), oldest first\n\n#### 2026-11-26 � ?\n\n1764115200000\n')
+
+api\tests\test_jira_fetch.py:206: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_text_kept_in_an_attribute_is_part_of_a_criterion
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body6-2025-11-26]
+2 failed, 9 passed, 1 warning in 0.36s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: an emoji's shortName not read ===
+GOOD (pytest exit 1): 1 failed, 9 passed, 1 warning in 0.28s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..37be387 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -93,7 +93,7 @@ def attr_text(node: dict[str, Any]) -> str:
+     attrs = node.get("attrs") or {}
+     if node.get("type") == "date" and str(attrs.get("timestamp") or "").isdecimal():
+         return datetime.fromtimestamp(int(attrs["timestamp"]) / 1000, tz=UTC).date().isoformat()
+-    for key in ("text", "shortName", "url"):
++    for key in ("text", "url"):
+         if attrs.get(key):
+             return str(attrs[key])
+     return ""
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider
+........F.                                                               [100%]
+================================== FAILURES ===================================
+____ test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body8-:tada:] ____
+
+body = {'type': 'doc', 'content': [{'type': 'paragraph', 'content': [{'type': 'emoji', 'content': [], 'attrs': {'shortName': ':tada:'}}], 'attrs': {}}], 'attrs': {}}
+shown = ':tada:'
+
+    @pytest.mark.parametrize(
+        ("body", "shown"),
+        [
+            (node("doc", node("codeBlock", text("make check"))), "make check"),
+            (
+                node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+                "rerun AC4",
+            ),
+            (
+                node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+                "keep the waiver",
+            ),
+            (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+            (
+                node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+                "https://example.com/pr/1",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+            (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+            (
+                node("doc", node("blockCard", url="https://example.com/pr/2")),
+                "https://example.com/pr/2",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
+            (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+        ],
+    )
+    def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+        body: dict[str, Any], shown: str
+    ) -> None:
+        out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+>       assert shown in out and "(empty)" not in out
+E       AssertionError: assert (':tada:' in '## CC-9 � A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: �\n\n### Description\n\nAC1. it works\n\n### Last 1 comment(s), oldest first\n\n#### 2026-11-26 � ?\n\n(empty)\n')
+
+api\tests\test_jira_fetch.py:206: AssertionError
+============================== warnings summary ===============================
+api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body0-make check]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body8-:tada:]
+1 failed, 9 passed, 1 warning in 0.28s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: jira_fetch blockCard/embedCard not rendered ===
+GOOD (pytest exit 1): 1 failed, 9 passed, 1 warning in 0.29s
+mutated: scripts/jira_fetch.py
+$ git diff -- scripts/jira_fetch.py
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index b0eb7c6..edf4bd8 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -296,10 +296,6 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                 else:
+                     render_node(child, indent=f"{indent}  ")
+             return
+-        if node_type in ("blockCard", "embedCard"):  # a link shown as a card, not inline
+-            link = closure.attr_text(node)
+-            chunks.extend([f"{indent}{link}", ""] if link else [])
+-            return
+         if node_type == "codeBlock":
+             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+             return
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider
+.......F..                                                               [100%]
+================================== FAILURES ===================================
+_ test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body7-https://example.com/pr/2] _
+
+body = {'type': 'doc', 'content': [{'type': 'blockCard', 'content': [], 'attrs': {'url': 'https://example.com/pr/2'}}], 'attrs': {}}
+shown = 'https://example.com/pr/2'
+
+    @pytest.mark.parametrize(
+        ("body", "shown"),
+        [
+            (node("doc", node("codeBlock", text("make check"))), "make check"),
+            (
+                node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+                "rerun AC4",
+            ),
+            (
+                node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+                "keep the waiver",
+            ),
+            (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+            (
+                node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+                "https://example.com/pr/1",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+            (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+            (
+                node("doc", node("blockCard", url="https://example.com/pr/2")),
+                "https://example.com/pr/2",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
+            (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+        ],
+    )
+    def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+        body: dict[str, Any], shown: str
+    ) -> None:
+        out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+>       assert shown in out and "(empty)" not in out
+E       AssertionError: assert ('https://example.com/pr/2' in '## CC-9 � A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: �\n\n### Description\n\nAC1. it works\n\n### Last 1 comment(s), oldest first\n\n#### 2026-11-26 � ?\n\n(empty)\n')
+
+api\tests\test_jira_fetch.py:206: AssertionError
+============================== warnings summary ===============================
+api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body0-make check]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body7-https://example.com/pr/2]
+1 failed, 9 passed, 1 warning in 0.29s
+exit code: 1
+$ git checkout -- scripts/jira_fetch.py  (exit 0); clean after restore: True
+
+=== GOOD: jira_fetch inline attribute nodes reverted to the old text/url/timestamp read ===
+GOOD (pytest exit 1): 2 failed, 8 passed, 1 warning in 0.34s
+mutated: scripts/jira_fetch.py
+$ git diff -- scripts/jira_fetch.py
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index b0eb7c6..b5233fe 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -330,8 +330,11 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in closure.ATTR_TEXT_NODES:  # its text is in its attributes
+-                parts.append(closure.attr_text(child))
++            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++                attrs = child.get("attrs") or {}  # a node with no text of its own
++                parts.append(
++                    str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
++                )
+             else:
+                 inner = child.get("content")
+                 if isinstance(inner, list):
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider
+......F.F.                                                               [100%]
+================================== FAILURES ===================================
+__ test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body6-2025-11-26] __
+
+body = {'type': 'doc', 'content': [{'type': 'paragraph', 'content': [{'type': 'date', 'content': [], 'attrs': {'timestamp': '1764115200000'}}], 'attrs': {}}], 'attrs': {}}
+shown = '2025-11-26'
+
+    @pytest.mark.parametrize(
+        ("body", "shown"),
+        [
+            (node("doc", node("codeBlock", text("make check"))), "make check"),
+            (
+                node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+                "rerun AC4",
+            ),
+            (
+                node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+                "keep the waiver",
+            ),
+            (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+            (
+                node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+                "https://example.com/pr/1",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+            (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+            (
+                node("doc", node("blockCard", url="https://example.com/pr/2")),
+                "https://example.com/pr/2",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
+            (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+        ],
+    )
+    def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+        body: dict[str, Any], shown: str
+    ) -> None:
+        out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+>       assert shown in out and "(empty)" not in out
+E       AssertionError: assert ('2025-11-26' in '## CC-9 � A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: �\n\n### Description\n\nAC1. it works\n\n### Last 1 comment(s), oldest first\n\n#### 2026-11-26 � ?\n\n1764115200000\n')
+
+api\tests\test_jira_fetch.py:206: AssertionError
+____ test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body8-:tada:] ____
+
+body = {'type': 'doc', 'content': [{'type': 'paragraph', 'content': [{'type': 'emoji', 'content': [], 'attrs': {'shortName': ':tada:'}}], 'attrs': {}}], 'attrs': {}}
+shown = ':tada:'
+
+    @pytest.mark.parametrize(
+        ("body", "shown"),
+        [
+            (node("doc", node("codeBlock", text("make check"))), "make check"),
+            (
+                node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+                "rerun AC4",
+            ),
+            (
+                node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+                "keep the waiver",
+            ),
+            (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+            (
+                node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+                "https://example.com/pr/1",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+            (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "2025-11-26"),
+            (
+                node("doc", node("blockCard", url="https://example.com/pr/2")),
+                "https://example.com/pr/2",
+            ),
+            (node("doc", node("paragraph", node("emoji", shortName=":tada:"))), ":tada:"),
+            (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+        ],
+    )
+    def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+        body: dict[str, Any], shown: str
+    ) -> None:
+        out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+>       assert shown in out and "(empty)" not in out
+E       AssertionError: assert (':tada:' in '## CC-9 � A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: �\n\n### Description\n\nAC1. it works\n\n### Last 1 comment(s), oldest first\n\n#### 2026-11-26 � ?\n\n(empty)\n')
+
+api\tests\test_jira_fetch.py:206: AssertionError
+============================== warnings summary ===============================
+api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body0-make check]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body6-2025-11-26]
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body8-:tada:]
+2 failed, 8 passed, 1 warning in 0.34s
+exit code: 1
+$ git checkout -- scripts/jira_fetch.py  (exit 0); clean after restore: True
+
+=== GOOD: the --closed skip removed (a closed row judged stale against later code) ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 3.73s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..a8ca284 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -305,7 +305,7 @@ def _row_problems(
+     tested = row.get("tested_head")
+     if _text(tested) and not _is_commit_hash(tested):
+         return [*out, f"{name}: tested_head must be a commit hash, not {tested!r}"]
+-    if not readiness or closed or not _is_commit_hash(tested):
++    if not readiness or not _is_commit_hash(tested):
+         return out  # a closed ticket's row is not judged against code that came after it
+     affects = row.get("affects")
+     if (
+$ uv run pytest api/tests/test_closure_gate.py::test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is ___
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4477/test_a_closed_record_is_not_st0')
+
+    def test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is(tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        tested = git(repo, "rev-parse", "HEAD")
+        (repo / "src" / "code.py").write_text("two\n")
+        git(repo, "commit", "-q", "-am", "later work")
+        manifest = {"required": ["AC1"], "row": [pass_row(repo, tested, ["src/code.py"])]}
+        later = closure.problems(manifest, repo, done=False)
+        assert any("stale" in p for p in later)
+>       assert closure.problems(manifest, repo, done=False, closed=True) == []
+E       AssertionError: assert ['AC1: stale,...ince a71fc24'] == []
+E         
+E         Left contains one more item: 'AC1: stale, 1 covered file(s) changed since a71fc24'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1258: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is
+1 failed, 1 warning in 3.73s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: a closed record skips its evidence check ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 2.97s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..354feac 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -290,6 +290,8 @@ def _row_problems(
+     if status != "PASS":
+         return unnamed + ([f"{name}: {status} blocks closure"] if readiness else [])
+     out = unnamed + [f"{name}: missing {key}" for key in ROW_FIELDS if not _text(row.get(key))]
++    if closed:
++        return out
+     evidence = row.get("evidence")
+     if not isinstance(evidence, list) or not evidence:
+         out.append(f"{name}: evidence must be a non-empty list")
+$ uv run pytest api/tests/test_closure_gate.py::test_a_closed_record_still_needs_its_evidence_intact -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_a_closed_record_still_needs_its_evidence_intact _____________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4478/test_a_closed_record_still_nee0')
+
+    def test_a_closed_record_still_needs_its_evidence_intact(tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        tested = git(repo, "rev-parse", "HEAD")
+        manifest = {"required": ["AC1"], "row": [pass_row(repo, tested, ["src/code.py"])]}
+        assert closure.problems(manifest, repo, done=False, closed=True) == []
+        (repo / "gate1.txt").write_text("rewritten\n")
+>       assert any(
+            "changed since" in p for p in closure.problems(manifest, repo, done=False, closed=True)
+        )
+E       assert False
+E        +  where False = any(<generator object test_a_closed_record_still_needs_its_evidence_intact.<locals>.<genexpr> at 0x000001955A0476B0>)
+
+api\tests\test_closure_gate.py:1267: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_closed_record_still_needs_its_evidence_intact
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_closed_record_still_needs_its_evidence_intact
+1 failed, 1 warning in 2.97s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== BAD: closure.py check ignores --closed on the command line ===
+BAD (pytest exit 0): 2 passed, 1 warning in 5.21s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..a0960a9 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -517,7 +517,6 @@ def main() -> int:
+         head=args.head,
+         done=not args.pre_merge,
+         base=args.ref,
+-        closed=args.closed,
+     )
+     for line in found:
+         print(f"  BLOCKED  {line}")
+$ uv run pytest api/tests/test_closure_gate.py::test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is api/tests/test_closure_gate.py::test_a_closed_record_still_needs_its_evidence_intact -q -p no:cacheprovider
+..                                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 1 warning in 5.21s
+exit code: 0
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: the closed brief prints --pre-merge, not --closed ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.36s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..057ce18 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -36,7 +36,7 @@ def status_commands(key: str, *, closed: bool = False) -> list[str]:
+     check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
+     return [
+         f"uv run python scripts/jira_fetch.py issue {key} --md",
+-        f"{check} --closed" if closed else f"{check} --pre-merge",
++        f"{check} --pre-merge",
+     ]
+ 
+ 
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed ____
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4480/test_a_closed_ticket_stays_clo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000260FDA3CEC0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000260FDA3D6A0>
+
+    def test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fields = {"status": DONE, "description": doc(DESCRIPTION)}
+        monkeypatch.setattr(brief, "record_on", lambda key, base: True)
+        assert run_main(tmp_path, monkeypatch, fields, None, "final", "CC-9", "--after-merge") == 1
+        out = capsys.readouterr().out
+        assert "brief." not in out and "no phase may start" in out and "stays closed" in out
+>       assert "evidence/closure/CC-9.toml --closed" in out
+E       AssertionError: assert 'evidence/closure/CC-9.toml --closed' in 'CC-9 is Done in Jira and stays closed: no phase may start on it. Its status comes\nfrom these two commands, never fro... owner. A regression in what it shipped is caught by its tests\nin `make check`; the change that caused it fixes it.\n'
+
+api\tests\test_brief.py:198: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_closed_ticket_stays_closed_and_its_record_is_read_as_it_closed
+1 failed, 1 warning in 0.36s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: no record on main still prints the record command ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.33s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..017d50d 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -69,7 +69,7 @@ def closed_status(key: str, status: str, base: str, on_main: bool | None) -> str
+     first, second = status_commands(key, closed=True)
+     record = {
+         True: f"  {second}",
+-        False: f"  (no closure file on {base}: Jira's close comment is the record)",
++        False: f"  {second}",
+         None: f"  (git cannot read {base}; fetch it, then run: {second})",
+     }[on_main]
+     lines = [
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_closed_ticket_with_no_record_on_main_points_at_jira __________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4481/test_a_closed_ticket_with_no_r0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000288FEFF29C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000288FEFF3140>
+
+    def test_a_closed_ticket_with_no_record_on_main_points_at_jira(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fields = {"status": DONE, "description": doc(DESCRIPTION)}
+        monkeypatch.setattr(brief, "record_on", lambda key, base: False)
+        assert run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9") == 1
+        out = capsys.readouterr().out
+>       assert "closure.py check" not in out and "close comment is the record" in out
+E       AssertionError: assert ('closure.py check' not in 'CC-9 is Don... fixes it.\n'
+E         
+E         'closure.py check' is contained here:
+E           n scripts/closure.py check evidence/closure/CC-9.toml --closed
+E         ?           ++++++++++++++++
+E           From them state: the approved criteria and decisions, the commit tested, and what, if
+E           anything, is left for the owner. A regression in what it shipped is caught by its tests
+E           in `make check`; the change that caused it fixes it.)
+
+api\tests\test_brief.py:209: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira
+1 failed, 1 warning in 0.33s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: git cannot read the base, read as no record on main ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.39s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..52b0120 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -70,7 +70,7 @@ def closed_status(key: str, status: str, base: str, on_main: bool | None) -> str
+     record = {
+         True: f"  {second}",
+         False: f"  (no closure file on {base}: Jira's close comment is the record)",
+-        None: f"  (git cannot read {base}; fetch it, then run: {second})",
++        None: f"  (no closure file on {base}: Jira's close comment is the record)",
+     }[on_main]
+     lines = [
+         f"{key} is {status} in Jira and stays closed: no phase may start on it. Its status comes",
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_whose_base_git_cannot_read_says_so -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_a_closed_ticket_whose_base_git_cannot_read_says_so ___________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4482/test_a_closed_ticket_whose_bas0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015A9DA12990>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000015A9DA13110>
+
+    def test_a_closed_ticket_whose_base_git_cannot_read_says_so(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fields = {"status": DONE, "description": doc(DESCRIPTION)}
+        monkeypatch.setattr(brief, "record_on", lambda key, base: None)
+        assert run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9") == 1
+        out = capsys.readouterr().out
+>       assert "git cannot read origin/main" in out and "close comment is the record" not in out
+E       AssertionError: assert ('git cannot read origin/main' in 'CC-9 is Done in Jira and stays closed: no phase may start on it. Its status comes\nfrom these two commands, never fro... owner. A regression in what it shipped is caught by its tests\nin `make check`; the change that caused it fixes it.\n')
+
+api\tests\test_brief.py:219: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_closed_ticket_whose_base_git_cannot_read_says_so
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_closed_ticket_whose_base_git_cannot_read_says_so
+1 failed, 1 warning in 0.39s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: record_on without the ref check (an unreadable base reads as False) ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 4.02s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..2070301 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -54,8 +54,6 @@ def record_on(key: str, base: str) -> bool | None:
+         capture_output=True,
+         check=False,
+     )
+-    if known.returncode:
+-        return None
+     found = subprocess.run(
+         ["git", "cat-file", "-e", f"{base}:evidence/closure/{key}.toml"],
+         cwd=ROOT,
+$ uv run pytest api/tests/test_brief.py::test_whether_main_holds_the_record_and_when_git_cannot_say -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_whether_main_holds_the_record_and_when_git_cannot_say __________
+
+repo = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4483/test_whether_main_holds_the_re0')
+
+    def test_whether_main_holds_the_record_and_when_git_cannot_say(repo: Path) -> None:
+        assert brief.record_on("CC-9", "main") is False
+        (repo / "evidence" / "closure" / "CC-9.toml").write_text("x = 1\n", encoding="utf-8")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", "record")
+        assert brief.record_on("CC-9", "main") is True
+>       assert brief.record_on("CC-9", "no-such-ref") is None
+E       AssertionError: assert False is None
+E        +  where False = <function record_on at 0x000001B88BAAAD40>('CC-9', 'no-such-ref')
+E        +    where <function record_on at 0x000001B88BAAAD40> = brief.record_on
+
+api\tests\test_brief.py:247: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_whether_main_holds_the_record_and_when_git_cannot_say
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_whether_main_holds_the_record_and_when_git_cannot_say
+1 failed, 1 warning in 4.02s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: a re-approval accepted on its fingerprint alone (approved_ids not compared) ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.32s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..831f2dc 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -101,7 +101,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+         return []
+     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
+     whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
+-    if any(a.get("criteria_sha256") == sha and a.get("approved_ids") == ids for a in whole):
++    if any(a.get("criteria_sha256") == sha for a in whole):
+         return []  # the owner re-approved exactly these criteria, and closure requires their rows
+     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
+     out += [f"criterion {i} was approved but is gone from Jira" for i in approved if i not in ids]
+$ uv run pytest api/tests/test_brief.py::test_a_reapproval_must_list_exactly_the_live_ids -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_a_reapproval_must_list_exactly_the_live_ids _______________
+
+    def test_a_reapproval_must_list_exactly_the_live_ids() -> None:
+        live = DESCRIPTION + "\nAC3. A new one."
+        short = {**amendment(live), "approved_ids": ["AC1", "AC2", "TC1"]}  # leaves out AC3
+>       assert brief.compare(approved(amendment=[short]), live, "gate2") != []
+E       assert [] != []
+E        +  where [] = <function compare at 0x0000020A56DBAD40>({'approved_ids': ['AC1', 'AC2', 'TC1'], 'approved_sha256': '9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011...amendment': [{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}]}, 'Why. Context.\nAC1. The thing works.\nAC2. It fails closed.\nTC1. A test.\nDecisions\nAC3. A new one.', 'gate2')
+E        +    where <function compare at 0x0000020A56DBAD40> = brief.compare
+E        +    and   {'approved_ids': ['AC1', 'AC2', 'TC1'], 'approved_sha256': '9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011...amendment': [{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}]} = approved(amendment=[{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}])
+
+api\tests\test_brief.py:76: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_reapproval_must_list_exactly_the_live_ids
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_reapproval_must_list_exactly_the_live_ids
+1 failed, 1 warning in 0.32s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: a re-approval's ids compared with the pre-flight ids, not the live ones ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.24s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..b02653a 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -101,7 +101,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+         return []
+     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
+     whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
+-    if any(a.get("criteria_sha256") == sha and a.get("approved_ids") == ids for a in whole):
++    if any(a.get("criteria_sha256") == sha and a.get("approved_ids") == approved for a in whole):
+         return []  # the owner re-approved exactly these criteria, and closure requires their rows
+     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
+     out += [f"criterion {i} was approved but is gone from Jira" for i in approved if i not in ids]
+$ uv run pytest api/tests/test_brief.py::test_an_amendment_naming_the_new_fingerprint_lets_the_change_through -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_an_amendment_naming_the_new_fingerprint_lets_the_change_through _____
+
+    def test_an_amendment_naming_the_new_fingerprint_lets_the_change_through() -> None:
+        live = DESCRIPTION + "\nAC3. A new one."
+>       assert brief.compare(approved(amendment=[amendment(live)]), live, "gate2") == []
+E       AssertionError: assert ['criterion A...nds a ticket'] == []
+E         
+E         Left contains 2 more items, first extra item: 'criterion AC3 is in Jira but was not approved'
+E         Use -v to get more diff
+
+api\tests\test_brief.py:70: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_an_amendment_naming_the_new_fingerprint_lets_the_change_through
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_an_amendment_naming_the_new_fingerprint_lets_the_change_through
+1 failed, 1 warning in 0.24s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: a re-approval without approved_ids counted whole ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.27s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..1e6ea3e 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -244,7 +244,7 @@ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     except ValueError:
+         missing.append("date (ISO)")
+     listed = amendment.get("approved_ids")
+-    if amendment.get("criteria_sha256") and not (isinstance(listed, list) and listed):
++    if False:
+         missing.append("approved_ids")
+     return missing
+ 
+$ uv run pytest api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_a_reapproval_without_its_ids_is_incomplete _______________
+
+    def test_a_reapproval_without_its_ids_is_incomplete() -> None:
+        reapproval = {
+            "id": "AC2",
+            "date": "2026-11-26",
+            "owner": "o",
+            "reason": "r",
+            "destination": "d",
+        }
+>       assert "approved_ids" in closure.amendment_problems({**reapproval, "criteria_sha256": "0" * 64})
+E       AssertionError: assert 'approved_ids' in []
+E        +  where [] = <function amendment_problems at 0x000001E67FBB2700>({'id': 'AC2', 'date': '2026-11-26', 'owner': 'o', 'reason': 'r', ...})
+E        +    where <function amendment_problems at 0x000001E67FBB2700> = closure.amendment_problems
+
+api\tests\test_closure_gate.py:1294: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete
+1 failed, 1 warning in 0.27s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: approved_ids demanded of every amendment, not only a re-approval ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.25s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..5bc574e 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -244,7 +244,7 @@ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     except ValueError:
+         missing.append("date (ISO)")
+     listed = amendment.get("approved_ids")
+-    if amendment.get("criteria_sha256") and not (isinstance(listed, list) and listed):
++    if not (isinstance(listed, list) and listed):
+         missing.append("approved_ids")
+     return missing
+ 
+$ uv run pytest api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_a_reapproval_without_its_ids_is_incomplete _______________
+
+    def test_a_reapproval_without_its_ids_is_incomplete() -> None:
+        reapproval = {
+            "id": "AC2",
+            "date": "2026-11-26",
+            "owner": "o",
+            "reason": "r",
+            "destination": "d",
+        }
+        assert "approved_ids" in closure.amendment_problems({**reapproval, "criteria_sha256": "0" * 64})
+>       assert closure.amendment_problems(reapproval) == []  # a scope removal needs no id list
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['approved_ids'] == []
+E         
+E         Left contains one more item: 'approved_ids'
+E         Use -v to get more diff
+
+api\tests\test_closure_gate.py:1295: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_reapproval_without_its_ids_is_incomplete
+1 failed, 1 warning in 0.25s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: re-approval approved_ids dropped from the required set ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.33s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..b324f55 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -434,7 +434,7 @@ def problems(
+         out.append("the manifest must declare `required`, the AC/TC ids it covers")
+         declared = []
+     # approved at pre-flight, and every id a later owner re-approval names (scripts/brief.py)
+-    lists = [manifest.get("approved_ids"), *(a.get("approved_ids") for a in amendments)]
++    lists = [manifest.get("approved_ids")]
+     approved = [str(i) for ids_ in lists if isinstance(ids_, list) for i in ids_]
+     wanted = list(dict.fromkeys([*declared, *approved, *(required or [])]))
+     out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
+$ uv run pytest api/tests/test_closure_gate.py::test_an_id_added_by_owner_reapproval_needs_its_row_to_close -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_an_id_added_by_owner_reapproval_needs_its_row_to_close _________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4484/test_an_id_added_by_owner_reap0')
+
+    def test_an_id_added_by_owner_reapproval_needs_its_row_to_close(tmp_path: Path) -> None:
+        reapproval = {
+            "id": "AC2",
+            "date": "2026-11-26",
+            "owner": "owner",
+            "reason": "added",
+            "destination": "this ticket",
+            "criteria_sha256": "0" * 64,
+            "approved_ids": ["AC1", "AC2"],
+        }
+        manifest = {"required": ["AC1"], "approved_ids": ["AC1"], "amendment": [reapproval], "row": []}
+>       assert "AC2: absent from the manifest" in closure.problems(manifest, tmp_path, done=False)
+E       AssertionError: assert 'AC2: absent from the manifest' in ['the manifest has no rows; it cannot back a closure', 'AC1: absent from the manifest']
+E        +  where ['the manifest has no rows; it cannot back a closure', 'AC1: absent from the manifest'] = <function problems at 0x00000218AAA02AC0>({'required': ['AC1'], 'approved_ids': ['AC1'], 'amendment': [{'id': 'AC2', 'date': '2026-11-26', 'owner': 'owner', 'reason': 'added', ...}], 'row': []}, WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4484/test_an_id_added_by_owner_reap0'), done=False)
+E        +    where <function problems at 0x00000218AAA02AC0> = closure.problems
+
+api\tests\test_closure_gate.py:1283: AssertionError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_an_id_added_by_owner_reapproval_needs_its_row_to_close
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_an_id_added_by_owner_reapproval_needs_its_row_to_close
+1 failed, 1 warning in 0.33s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: changed_files without the UTF-8 decode ===
+GOOD (pytest exit 1): 1 failed, 2 warnings in 3.83s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..07039b6 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -126,8 +126,6 @@ def changed_files(base: str) -> list[str] | None:
+         cwd=ROOT,
+         capture_output=True,
+         text=True,
+-        encoding="utf-8",  # git writes paths as UTF-8 under -z; Windows would read cp1252
+-        errors="replace",
+         check=False,
+     )
+     return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
+$ uv run pytest api/tests/test_brief.py::test_a_non_ascii_path_in_the_change_is_read_whole -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_a_non_ascii_path_in_the_change_is_read_whole ______________
+
+repo = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4485/test_a_non_ascii_path_in_the_c0')
+
+    def test_a_non_ascii_path_in_the_change_is_read_whole(repo: Path) -> None:
+        git(repo, "checkout", "-q", "-b", "work")
+        (repo / "docs" / "playbooks" / "�rea.md").write_text("x\n", encoding="utf-8")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", "accent")
+>       assert brief.changed_files("main") == ["docs/playbooks/�rea.md"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_brief.py:255: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+base = 'main'
+
+    def changed_files(base: str) -> list[str] | None:
+        """The paths this branch changes against `base`, or None when git cannot say. Renames are
+        split into a deletion and an addition, so a rule file moved out of the rule set is seen."""
+        done = subprocess.run(
+            ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
+                           ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'split'
+
+scripts\brief.py:131: AttributeError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_non_ascii_path_in_the_change_is_read_whole
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+api/tests/test_brief.py::test_a_non_ascii_path_in_the_change_is_read_whole
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-17 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 16: character maps to <undefined>
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_non_ascii_path_in_the_change_is_read_whole
+1 failed, 2 warnings in 3.83s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: branch_ticket without the ASCII-digit check ===
+GOOD (pytest exit 1): 2 failed, 1 warning in 0.37s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..9bd0fb9 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -226,7 +226,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+-    number = lambda s: s.isascii() and s.isdigit()  # noqa: E731  ("²" is a digit to str.isdigit)
++    number = lambda s: s.isdigit()  # noqa: E731  ("²" is a digit to str.isdigit)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and number(n)}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and number(w[2:])}
+     if len(keys) != 1:
+$ uv run pytest api/tests/test_closure_gate.py::test_a_superscript_digit_is_no_ticket_number -q -p no:cacheprovider
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_________ test_a_superscript_digit_is_no_ticket_number[feat/cc-\xb2] __________
+
+branch = 'feat/cc-�'
+
+    @pytest.mark.parametrize("branch", ["feat/cc-�", "feat/cc��-x"])
+    def test_a_superscript_digit_is_no_ticket_number(branch: str) -> None:
+>       key, why = closure.branch_ticket(branch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_closure_gate.py:1300: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+branch = 'feat/cc-�'
+
+    def branch_ticket(branch: str) -> tuple[str | None, str]:
+        """The Jira key a branch names, or None and why not. A branch is `<type>/...`, its type a
+        conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+        fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+        kind, _, rest = branch.partition("/")
+        if kind.lower() not in BRANCH_TYPES or not rest:
+            types = ", ".join(BRANCH_TYPES)
+            return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+        words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+        pairs = zip(words, [*words[1:], ""], strict=True)
+        number = lambda s: s.isdigit()  # noqa: E731  ("�" is a digit to str.isdigit)
+>       keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and number(n)}
+                      ^^^^^^
+E       ValueError: invalid literal for int() with base 10: '�'
+
+scripts\closure.py:230: ValueError
+_______ test_a_superscript_digit_is_no_ticket_number[feat/cc\xb9\xb2-x] _______
+
+branch = 'feat/cc��-x'
+
+    @pytest.mark.parametrize("branch", ["feat/cc-�", "feat/cc��-x"])
+    def test_a_superscript_digit_is_no_ticket_number(branch: str) -> None:
+>       key, why = closure.branch_ticket(branch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_closure_gate.py:1300: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+branch = 'feat/cc��-x'
+
+    def branch_ticket(branch: str) -> tuple[str | None, str]:
+        """The Jira key a branch names, or None and why not. A branch is `<type>/...`, its type a
+        conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+        fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+        kind, _, rest = branch.partition("/")
+        if kind.lower() not in BRANCH_TYPES or not rest:
+            types = ", ".join(BRANCH_TYPES)
+            return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+        words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+        pairs = zip(words, [*words[1:], ""], strict=True)
+        number = lambda s: s.isdigit()  # noqa: E731  ("�" is a digit to str.isdigit)
+        keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and number(n)}
+>       keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and number(w[2:])}
+                       ^^^^^^^^^^
+E       ValueError: invalid literal for int() with base 10: '��'
+
+scripts\closure.py:231: ValueError
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_a_superscript_digit_is_no_ticket_number[feat/cc-\xb2]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_a_superscript_digit_is_no_ticket_number[feat/cc-\xb2]
+FAILED api/tests/test_closure_gate.py::test_a_superscript_digit_is_no_ticket_number[feat/cc\xb9\xb2-x]
+2 failed, 1 warning in 0.37s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: the -r2 naming removed (a re-run writes the first round's files) ===
+GOOD (pytest exit 1): 3 failed, 1 passed, 1 warning in 0.28s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..ba463e2 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -157,7 +157,7 @@ def brief(
+     names = [name, "gate2-cold"] if phase == "gate2" else [name]
+     taken = existing or set()
+     rounds = ("", *(f"-r{n}" for n in range(2, 100)))  # a re-run never overwrites a round
+-    suffix = next(s for s in rounds if not any(f"{n}{s}.txt" in taken for n in names))
++    suffix = ""
+     out_file, cold = f"{folder}/{name}{suffix}.txt", f"{folder}/gate2-cold{suffix}.txt"
+     lines = [
+         f"{key} {name} brief. Status comes from these two commands, never from chat or memory:",
+$ uv run pytest api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round api/tests/test_brief.py::test_a_third_round_is_r3 -q -p no:cacheprovider
+.FFF                                                                     [100%]
+================================== FAILURES ===================================
+_ test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken1] _
+
+taken = {'gate2-cold.txt', 'gate2.txt'}
+
+    @pytest.mark.parametrize("taken", [set(), {"gate2.txt", "gate2-cold.txt"}, {"gate2-cold.txt"}])
+    def test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round(taken: set[str]) -> None:
+        text = " ".join(brief.brief("gate2", "CC-9", [], "e", existing=taken).split())
+        suffix = "" if not taken else "-r2"
+>       assert f"e/gate2{suffix}.txt" in text and f"e/gate2-cold{suffix}.txt" in text
+E       AssertionError: assert ('e/gate2-r2.txt' in 'CC-9 gate2 brief. Status comes from these two commands, never from chat or memory: uv run python scripts/jira_fetch.p...sts: a fresh session, code only first. Capture raw output to e/gate2.txt. Report the path, a verdict and the findings.')
+
+api\tests\test_brief.py:262: AssertionError
+_ test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken2] _
+
+taken = {'gate2-cold.txt'}
+
+    @pytest.mark.parametrize("taken", [set(), {"gate2.txt", "gate2-cold.txt"}, {"gate2-cold.txt"}])
+    def test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round(taken: set[str]) -> None:
+        text = " ".join(brief.brief("gate2", "CC-9", [], "e", existing=taken).split())
+        suffix = "" if not taken else "-r2"
+>       assert f"e/gate2{suffix}.txt" in text and f"e/gate2-cold{suffix}.txt" in text
+E       AssertionError: assert ('e/gate2-r2.txt' in 'CC-9 gate2 brief. Status comes from these two commands, never from chat or memory: uv run python scripts/jira_fetch.p...sts: a fresh session, code only first. Capture raw output to e/gate2.txt. Report the path, a verdict and the findings.')
+
+api\tests\test_brief.py:262: AssertionError
+__________________________ test_a_third_round_is_r3 ___________________________
+
+    def test_a_third_round_is_r3() -> None:
+        taken = {"gate1.txt", "gate1-r2.txt"}
+>       assert "e/gate1-r3.txt" in brief.brief("gate1", "CC-9", [], "e", existing=taken)
+E       AssertionError: assert 'e/gate1-r3.txt' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...above the real failure counts.\nCapture raw output to e/gate1.txt. Report back only the path and a one-line verdict.\n'
+E        +  where 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...above the real failure counts.\nCapture raw output to e/gate1.txt. Report back only the path and a one-line verdict.\n' = <function brief at 0x000001569CDD6FC0>('gate1', 'CC-9', [], 'e', existing={'gate1-r2.txt', 'gate1.txt'})
+E        +    where <function brief at 0x000001569CDD6FC0> = brief.brief
+
+api\tests\test_brief.py:268: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken0]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken1]
+FAILED api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken2]
+FAILED api/tests/test_brief.py::test_a_third_round_is_r3 - AssertionError: as...
+3 failed, 1 passed, 1 warning in 0.28s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: the cold-review file not counted when choosing a round ===
+GOOD (pytest exit 1): 1 failed, 2 passed, 1 warning in 0.32s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..907677f 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -154,7 +154,7 @@ def brief(
+     name = (
+         "e2e-post" if phase == "final" and after_merge else "e2e-pre" if phase == "final" else phase
+     )
+-    names = [name, "gate2-cold"] if phase == "gate2" else [name]
++    names = [name]
+     taken = existing or set()
+     rounds = ("", *(f"-r{n}" for n in range(2, 100)))  # a re-run never overwrites a round
+     suffix = next(s for s in rounds if not any(f"{n}{s}.txt" in taken for n in names))
+$ uv run pytest api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round -q -p no:cacheprovider
+..F                                                                      [100%]
+================================== FAILURES ===================================
+_ test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken2] _
+
+taken = {'gate2-cold.txt'}
+
+    @pytest.mark.parametrize("taken", [set(), {"gate2.txt", "gate2-cold.txt"}, {"gate2-cold.txt"}])
+    def test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round(taken: set[str]) -> None:
+        text = " ".join(brief.brief("gate2", "CC-9", [], "e", existing=taken).split())
+        suffix = "" if not taken else "-r2"
+>       assert f"e/gate2{suffix}.txt" in text and f"e/gate2-cold{suffix}.txt" in text
+E       AssertionError: assert ('e/gate2-r2.txt' in 'CC-9 gate2 brief. Status comes from these two commands, never from chat or memory: uv run python scripts/jira_fetch.p...sts: a fresh session, code only first. Capture raw output to e/gate2.txt. Report the path, a verdict and the findings.')
+
+api\tests\test_brief.py:262: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken0]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken2]
+1 failed, 2 passed, 1 warning in 0.32s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== GOOD: rounds stop at -r2 ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.30s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..e8fcc5e 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -156,7 +156,7 @@ def brief(
+     )
+     names = [name, "gate2-cold"] if phase == "gate2" else [name]
+     taken = existing or set()
+-    rounds = ("", *(f"-r{n}" for n in range(2, 100)))  # a re-run never overwrites a round
++    rounds = ("", "-r2")  # a re-run never overwrites a round
+     suffix = next(s for s in rounds if not any(f"{n}{s}.txt" in taken for n in names))
+     out_file, cold = f"{folder}/{name}{suffix}.txt", f"{folder}/gate2-cold{suffix}.txt"
+     lines = [
+$ uv run pytest api/tests/test_brief.py::test_a_third_round_is_r3 -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________________ test_a_third_round_is_r3 ___________________________
+
+    def test_a_third_round_is_r3() -> None:
+        taken = {"gate1.txt", "gate1-r2.txt"}
+>       assert "e/gate1-r3.txt" in brief.brief("gate1", "CC-9", [], "e", existing=taken)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_brief.py:268: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+phase = 'gate1', key = 'CC-9', changed = [], folder = 'e', after_merge = False
+approve = None, existing = {'gate1-r2.txt', 'gate1.txt'}
+
+    def brief(
+        phase: str,
+        key: str,
+        changed: list[str] | None,
+        folder: str,
+        *,
+        after_merge: bool = False,
+        approve: tuple[list[str], str] | None = None,
+        existing: set[str] | None = None,
+    ) -> str:
+        """The phase's prompt for a fresh agent. `changed` is the branch's diff (None: unknown);
+        `existing` names the files already in the evidence folder, so a re-run gets -r2, -r3 ..."""
+        first, second = status_commands(key)
+        name = (
+            "e2e-post" if phase == "final" and after_merge else "e2e-pre" if phase == "final" else phase
+        )
+        names = [name, "gate2-cold"] if phase == "gate2" else [name]
+        taken = existing or set()
+        rounds = ("", "-r2")  # a re-run never overwrites a round
+>       suffix = next(s for s in rounds if not any(f"{n}{s}.txt" in taken for n in names))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+scripts\brief.py:160: StopIteration
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_third_round_is_r3
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_third_round_is_r3 - StopIteration
+1 failed, 1 warning in 0.30s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+=== BAD: brief main does not pass the evidence folder's files (existing) ===
+BAD (pytest exit 0): 4 passed, 1 warning in 0.06s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..9682c94 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -273,7 +273,6 @@ def main() -> int:
+         folder,
+         after_merge=args.after_merge,
+         approve=approve,
+-        existing=existing,
+     )
+     print(text, end="")
+     return 0
+$ uv run pytest api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round api/tests/test_brief.py::test_a_third_round_is_r3 -q -p no:cacheprovider
+....                                                                     [100%]
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round[taken0]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 1 warning in 0.06s
+exit code: 0
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+--- tests added, committed before round 2 ---
+$ git show --stat edde086
+commit edde086a847f72c0efb54f502c8fe01fbc41c099
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Thu Nov 26 19:18:57 2026 -0600
+
+    test(CC-145): the --closed flag and the evidence folder reach the check and the brief
+    
+    Two round-2 fixes had no test that could fail: closure.py check dropping
+    --closed on the command line, and brief.main not passing the evidence
+    folder's files to the round naming. Both mutations passed the existing
+    tests; these two tests fail on them.
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ api/tests/test_brief.py        | 14 ++++++++++++++
+ api/tests/test_closure_gate.py | 11 +++++++++++
+ 2 files changed, 25 insertions(+)
+
+$ uv run ruff check / ruff format --check (the two test files); uv run pytest <the two new tests> -q
+All checks passed!
+2 files already formatted
+3 passed, 1 warning in 0.32s
+
+$ uv run python scripts/check_budgets.py --structural-only (tail)
+
+All budgets met.
+
+
+--- round 2: the two BAD mutations against the new tests ---
+
+=== GOOD: closure.py check ignores --closed on the command line (new test) ===
+GOOD (pytest exit 1): 2 failed, 1 warning in 0.34s
+mutated: scripts/closure.py
+$ git diff -- scripts/closure.py
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 5c5f06a..a0960a9 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -517,7 +517,6 @@ def main() -> int:
+         head=args.head,
+         done=not args.pre_merge,
+         base=args.ref,
+-        closed=args.closed,
+     )
+     for line in found:
+         print(f"  BLOCKED  {line}")
+$ uv run pytest api/tests/test_closure_gate.py::test_the_closed_flag_on_the_command_line_reaches_the_check -q -p no:cacheprovider
+FF                                                                       [100%]
+================================== FAILURES ===================================
+__ test_the_closed_flag_on_the_command_line_reaches_the_check[flags0-False] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AD40856A20>
+flags = [], closed = False
+
+    @pytest.mark.parametrize(("flags", "closed"), [([], False), (["--closed"], True)])
+    def test_the_closed_flag_on_the_command_line_reaches_the_check(
+        monkeypatch: pytest.MonkeyPatch, flags: list[str], closed: bool
+    ) -> None:
+        seen: dict[str, Any] = {}
+        monkeypatch.setattr(closure, "check_file", lambda path, **kwargs: seen.update(kwargs) or [])
+        monkeypatch.setattr(sys, "argv", ["closure.py", "check", "CC-9.toml", *flags])
+        assert closure.main() == 0
+>       assert seen.get("closed") is closed
+E       AssertionError: assert None is False
+E        +  where None = <built-in method get of dict object at 0x000001AD408D1440>('closed')
+E        +    where <built-in method get of dict object at 0x000001AD408D1440> = {'required': [], 'head': 'HEAD', 'done': True, 'base': 'origin/main'}.get
+
+api\tests\test_closure_gate.py:1306: AssertionError
+---------------------------- Captured stdout call -----------------------------
+CLOSURE OK
+___ test_the_closed_flag_on_the_command_line_reaches_the_check[flags1-True] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AD40856120>
+flags = ['--closed'], closed = True
+
+    @pytest.mark.parametrize(("flags", "closed"), [([], False), (["--closed"], True)])
+    def test_the_closed_flag_on_the_command_line_reaches_the_check(
+        monkeypatch: pytest.MonkeyPatch, flags: list[str], closed: bool
+    ) -> None:
+        seen: dict[str, Any] = {}
+        monkeypatch.setattr(closure, "check_file", lambda path, **kwargs: seen.update(kwargs) or [])
+        monkeypatch.setattr(sys, "argv", ["closure.py", "check", "CC-9.toml", *flags])
+        assert closure.main() == 0
+>       assert seen.get("closed") is closed
+E       AssertionError: assert None is True
+E        +  where None = <built-in method get of dict object at 0x000001AD40931140>('closed')
+E        +    where <built-in method get of dict object at 0x000001AD40931140> = {'required': [], 'head': 'HEAD', 'done': True, 'base': 'origin/main'}.get
+
+api\tests\test_closure_gate.py:1306: AssertionError
+---------------------------- Captured stdout call -----------------------------
+CLOSURE OK
+============================== warnings summary ===============================
+api/tests/test_closure_gate.py::test_the_closed_flag_on_the_command_line_reaches_the_check[flags0-False]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_closure_gate.py::test_the_closed_flag_on_the_command_line_reaches_the_check[flags0-False]
+FAILED api/tests/test_closure_gate.py::test_the_closed_flag_on_the_command_line_reaches_the_check[flags1-True]
+2 failed, 1 warning in 0.34s
+exit code: 1
+$ git checkout -- scripts/closure.py  (exit 0); clean after restore: True
+
+=== GOOD: brief main does not pass the evidence folder's files (existing) (new test) ===
+GOOD (pytest exit 1): 1 failed, 1 warning in 0.29s
+mutated: scripts/brief.py
+$ git diff -- scripts/brief.py
+diff --git a/scripts/brief.py b/scripts/brief.py
+index 07797eb..9682c94 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -273,7 +273,6 @@ def main() -> int:
+         folder,
+         after_merge=args.after_merge,
+         approve=approve,
+-        existing=existing,
+     )
+     print(text, end="")
+     return 0
+$ uv run pytest api/tests/test_brief.py::test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder -q -p no:cacheprovider
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder _
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4487/test_the_printed_brief_names_t0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002243E2FC2C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000002243E2FDA00>
+
+    def test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        folder = tmp_path / "evidence" / "slice-9" / "cc-9"
+        folder.mkdir(parents=True)
+        (folder / "gate1.txt").write_bytes(b"round one\n")
+        sha = closure.criteria_fingerprint(DESCRIPTION)
+        manifest = f'approved_ids = ["AC1", "AC2", "TC1"]\napproved_sha256 = "{sha}"\n'
+        fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+        assert run_main(tmp_path, monkeypatch, fields, manifest, "gate1", "CC-9") == 0
+        out = capsys.readouterr().out
+>       assert "evidence/slice-9/cc-9/gate1-r2.txt" in out and "cc-9/gate1.txt" not in out
+E       AssertionError: assert ('evidence/slice-9/cc-9/gate1-r2.txt' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...re counts.\nCapture raw output to evidence/slice-9/cc-9/gate1.txt. Report back only the path and a one-line verdict.\n')
+
+api\tests\test_brief.py:277: AssertionError
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder
+1 failed, 1 warning in 0.29s
+exit code: 1
+$ git checkout -- scripts/brief.py  (exit 0); clean after restore: True
+
+--- end state (HEAD edde086, before this evidence commit) ---
+$ git diff HEAD -- scripts .claude .github docs CLAUDE.md AGENTS.md
+(exit 0, bytes: 0)
+$ git status --short
+$ uv run pytest api/tests/test_brief.py api/tests/test_jira_fetch.py api/tests/test_closure_gate.py api/tests/test_process.py api/tests/test_invariants.py api/tests/test_context_hook.py -q
+api/tests/test_brief.py::test_the_approved_criteria_pass
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+451 passed, 1 warning in 139.18s (0:02:19)
+exit 0

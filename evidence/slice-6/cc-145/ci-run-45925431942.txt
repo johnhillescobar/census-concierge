@@ -1,0 +1,42 @@
+CC-145 AC9: the check workflow on PR #153, run 45925431942 (https://github.com/johnhillescobar/census-concierge/actions/runs/45925431942), head 8fa0c5b690619ff1b729c0a439e7bd4c7fa704c0
+Commands: gh run view 45925431942 --json jobs; gh run view 45925431942 --log (the closure step's lines)
+
+== step results (job check)
+success	Set up job
+success	Initialize containers
+success	Run actions/checkout@v4
+success	Run astral-sh/setup-uv@v5
+success	Run uv sync --frozen
+success	lint
+success	format
+success	types
+success	tests
+success	Run actions/setup-node@v4
+success	web tests
+success	generated client
+success	budgets (structural)
+success	invariants
+failure	closure (the ticket the branch names)
+skipped	Post Run actions/setup-node@v4
+skipped	Post Run astral-sh/setup-uv@v5
+success	Post Run actions/checkout@v4
+success	Stop containers
+success	Complete job
+
+== closure step log
+﻿2026-11-27T01:58:15.7214126Z ##[group]Run key="$(uv run python scripts/closure.py ticket "$BRANCH")"
+2026-11-27T01:58:15.7214621Z ^[[36;1mkey="$(uv run python scripts/closure.py ticket "$BRANCH")"^[[0m
+2026-11-27T01:58:15.7215055Z ^[[36;1muv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"^[[0m
+2026-11-27T01:58:15.7230913Z shell: /usr/bin/bash -e {0}
+2026-11-27T01:58:15.7231133Z env:
+2026-11-27T01:58:15.7231489Z   DATABASE_URL: ***localhost:5432/postgres
+2026-11-27T01:58:15.7231763Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+2026-11-27T01:58:15.7232032Z   BRANCH: feat/cc-145-one-source
+2026-11-27T01:58:15.7232291Z   TIP: 8fa0c5b690619ff1b729c0a439e7bd4c7fa704c0
+2026-11-27T01:58:15.7232524Z ##[endgroup]
+2026-11-27T01:58:15.8414155Z   BLOCKED  AC7: NOT RUN blocks closure
+2026-11-27T01:58:15.8414716Z   BLOCKED  AC9: NOT RUN blocks closure
+2026-11-27T01:58:15.8415123Z   BLOCKED  AC10: NOT RUN blocks closure
+2026-11-27T01:58:15.8415513Z   BLOCKED  AC16: NOT RUN blocks closure
+2026-11-27T01:58:15.8415959Z CLOSURE BLOCKED: 4 problem(s)
+2026-11-27T01:58:15.8478451Z ##[error]Process completed with exit code 1.

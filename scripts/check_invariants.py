@@ -889,6 +889,65 @@ def check_mandatory_catalogs() -> list[Violation]:
     return found
 
 
+STATUS_FILES = ("STATE.md", "plan.md")  # and any name ending in -plan.md
+PLAN_DOCS = (".claude/PLAN.md", "docs/slices.md")
+# Jira's status names and "closed", as whole words in any case; "To Do" only as Jira writes it,
+# since "nothing to do" is plain English.
+STATUS_WORDS = (("done",), ("closed",), ("in", "progress"))
+STATUS_EXACT = (("To", "Do"), ("TO", "DO"))
+
+
+def check_no_status_files() -> list[Violation]:
+    """Status lives in Jira and a plan in the ticket: a STATE.md or a plan file under evidence/ is
+    a second copy that drifts from both (CC-145)."""
+    return [
+        Violation(path.relative_to(ROOT).as_posix(), "a status or plan file; status is in Jira")
+        for path in sorted(EVIDENCE.rglob("*"))
+        if path.is_file() and (path.name in STATUS_FILES or path.name.endswith("-plan.md"))
+    ]
+
+
+def _words(line: str) -> list[str]:
+    """The line's words: runs of letters and digits, everything else a separator."""
+    return "".join(ch if ch.isalnum() else " " for ch in line).split()
+
+
+def _has_phrase(words: list[str], phrase: tuple[str, ...]) -> bool:
+    return any(tuple(words[i : i + len(phrase)]) == phrase for i in range(len(words)))
+
+
+def _has_decimal(line: str) -> bool:
+    return any(
+        line[i] == "." and line[i - 1].isdigit() and line[i + 1].isdigit()
+        for i in range(1, len(line) - 1)
+    )
+
+
+def plan_doc_problems(rel: str, text: str) -> list[str]:
+    """Why a line of PLAN.md or slices.md carries status: a Jira status name or "closed", a
+    decimal (a measured number), or, in PLAN.md, an evidence path. Finished work is one line
+    that links its ticket; numbers and evidence are on the ticket (.claude/PLAN.md, top)."""
+    out: list[str] = []
+    for number, line in enumerate(text.splitlines(), 1):
+        words = _words(line)
+        lower = [w.lower() for w in words]
+        found = [" ".join(p) for p in STATUS_WORDS if _has_phrase(lower, p)]
+        found += ["To Do"] if any(_has_phrase(words, p) for p in STATUS_EXACT) else []
+        found += ["a decimal number"] if _has_decimal(line) else []
+        found += ["an evidence/ path"] if rel == ".claude/PLAN.md" and "evidence/" in line else []
+        out += [f"line {number}: {', '.join(found)}"] if found else []
+    return out
+
+
+def check_plan_docs_hold_no_status() -> list[Violation]:
+    return [
+        Violation(rel, f"{problem}; status and numbers belong on the Jira ticket")
+        for rel in PLAN_DOCS
+        if (ROOT / rel).is_file()
+        for problem in plan_doc_problems(rel, (ROOT / rel).read_text(encoding="utf-8"))
+    ]
+
+
 CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("banned agent frameworks", check_banned_agent_frameworks),
     ("sqlite", check_no_sqlite),
@@ -904,6 +963,8 @@ CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("budget log matches values", check_budget_log_matches_values),
     ("eval phrasing in api/src", check_no_eval_phrasing_in_api_src),
     ("closure manifests", check_closure_manifests),
+    ("status or plan files", check_no_status_files),
+    ("status in PLAN.md and slices.md", check_plan_docs_hold_no_status),
 )
 
 

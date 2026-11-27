@@ -3,42 +3,26 @@
 Conversational discovery for the Census table ecosystem. Ask in plain language,
 get the table you did not know existed, the data, and the API URL to reuse.
 
-## Scoreboard
+## Numbers
 
-<!-- Copied from evidence/latest.json after `make eval` / `make demo`.
-     Those commands write the JSON; this table is not auto-updated. -->
-
-| metric | current | floor / ceiling |
-|---|---|---|
-| retriever @10 — long tail | 0.90 | 0.90 |
-| selector @1 — long tail | 0.85 | 0.70 |
-| synthetic alignment | 0.54 | 0.50 |
-| answered rate — long tail, geography-level scorer | 0.75 | 0.70 |
-| p95 latency (`demo.p95_latency_seconds`) | 18.9s | 20s |
-| api src LOC | 4396 | 4400 |
-
-As of the CC-103 post-merge run, 2026-10-04 (`evidence/slice-6/cc-103-e2e-post-demo-run2.txt`,
-`--repeat 3`). Run 1 of that pair measured long_tail 0.733 and p95 21.701s (over
-the ceiling); run 2, shown here, 0.750 and 18.928s. The CC-3 baseline is still the
-CC-38 geography-level scorer (long_tail 0.742, p95 21.701s,
-`evidence/slice-5/cc-38-e2e-post.txt`); answered_rate before CC-38 is not
-comparable. An over-ceiling p95 is not promoted to the top-level key, so quote
-`demo.p95_latency_seconds`.
+`make eval` and `make demo` write `evidence/latest.json`; quote `demo.p95_latency_seconds`, since an
+over-ceiling p95 is not promoted to the top-level key. Each ticket's numbers are in its Jira close
+comment, not in this file.
 
 ## Slices
 
 Each ends in a demo. Nothing in slice N+1 starts until N is demoed.
-Closed vs open: `docs/slices.md`. Jira is the status source of truth.
+Each slice's status is in Jira; `docs/slices.md` links its epic.
 
-| # | slice | done when |
+| # | slice | ships when |
 |---|---|---|
-| ~~0~~ | Table index + retrieval eval | `make eval` clears the long-tail floors |
-| ~~1~~ | `POST /ask` → answer, URL, rows, MOE, GEOID | you `curl` it and get a working URL |
-| ~~2~~ | Chat UI, one pane | you type in a browser and get an answer |
-| ~~3~~ | Series and comparisons | a defensible year series and a cross-geography compare |
-| ~~4~~ | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
-| ~~—~~ | Spike: LangGraph checkpointer | dated decision in DESIGN §9, not merged code |
-| ~~5~~ | Conversation persistence | restart the server; the canvas is still there |
+| 0 | Table index + retrieval eval | `make eval` clears the long-tail floors |
+| 1 | `POST /ask` → answer, URL, rows, MOE, GEOID | you `curl` it and get a working URL |
+| 2 | Chat UI, one pane | you type in a browser and get an answer |
+| 3 | Series and comparisons | a defensible year series and a cross-geography compare |
+| 4 | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
+| — | Spike: LangGraph checkpointer | dated decision in DESIGN §9, not merged code |
+| 5 | Conversation persistence | restart the server; the canvas is still there |
 | 6 | Follow-ups and reference resolution | a three-turn refinement hits the CC-3 floors, on sealed questions too |
 | 7 | PDF export as a background job | you download a real document |
 | 8 | Auth + hosted | someone else logs in and uses it |

@@ -1,0 +1,26 @@
+CC-145 AC11, HEAD 4463aede153fadbdaa4e195c081233d704a7e3b4, 2026-11-27T01:45:14+00:00
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1805 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+
+exit 0
+
+$ git diff origin/main -- budgets.toml
+
+exit 0

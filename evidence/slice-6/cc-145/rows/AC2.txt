@@ -1,0 +1,29 @@
+CC-145 AC2, HEAD 4463aede153fadbdaa4e195c081233d704a7e3b4, 2026-11-27T01:44:12+00:00
+
+$ uv run python scripts/brief.py preflight CC-145
+CC-145 preflight brief. Status comes from these two commands, never from chat or memory:
+  uv run python scripts/jira_fetch.py issue CC-145 --md
+  uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+From them state: the approved criteria and decisions, the commit tested, which evidence
+is stale or missing, and the next permitted step. Then read AGENTS.md and
+docs/playbooks/run-slice.md, and the catalogs matching the touched paths.
+
+Run every technical claim in the ticket against the thing it names before any code.
+Facts and their commands go to evidence/slice-6/cc-145/preflight.txt; decisions go to a Jira
+comment, each tagged owner or default. Ask one question batch, each with a default.
+Record in evidence/closure/CC-145.toml the approved criteria and one NOT RUN row per
+criterion, each naming the command that proves it.
+  approved_ids = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
+  approved_sha256 = "c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f"
+exit 0
+
+$ uv run pytest -q -p no:cacheprovider api/tests/test_brief.py -k 'approved or added or removed or order or amendment or reapproval or nothing_approved'
+............                                                             [100%]
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_the_approved_criteria_pass
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 44 deselected, 1 warning in 0.08s
+exit 0

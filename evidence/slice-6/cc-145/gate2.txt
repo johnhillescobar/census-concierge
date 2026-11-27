@@ -1,0 +1,296 @@
+GATE 2, PASS 2 (project invariants, docs/playbooks/review-pr.md) - transcript
+==========================================================================
+
+Reviewer        : general-purpose agent "Gate 2 invariants pass", no caller history
+Written         : 2026-11-26
+Repository      : C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145
+Branch          : cc-145/one-source (not pushed: `git ls-remote --heads origin cc-145/one-source` is empty)
+Review base     : origin/main ab4c27d
+Review head     : 702f2a6de293615c88a0b924e5103fd5e4aeb9bf (HEAD at start and end of this pass)
+git status --short at start : (empty)
+Pass 1 (generic bugs, cold) : evidence/slice-6/cc-145/gate2-cold.txt (committed in 702f2a6, read at
+                  1f38280). Not repeated here; its findings M1-M4, L1-L6, N1-N3 and U1 are cited by id.
+Not read        : E2E transcripts, sealed eval sets (none exist for this ticket; none were opened).
+Nothing was written to Jira. No product, rule, script or test file was changed.
+
+
+STATUS (the brief's two commands)
+---------------------------------
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+  Story, In Progress, epic CC-142. 16 ACs, 8 TCs. Decisions (owner) 2026-11-24 and 2026-11-26 in the
+  description. Last 1 comment(s): the 2026-11-26 pre-flight comment (b6559fd; 24 ids, fingerprint
+  c38c9650...; AC8, waiver route, AC9 rules; "AC10 is open for discussion"; defaults).
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+  BLOCKED AC1..AC16, TC1..TC8: NOT RUN blocks closure.  CLOSURE BLOCKED: 24 problem(s)   exit 1
+$ uv run python scripts/brief.py preflight CC-145     -> exit 0 (live criteria match approved ids + sha)
+$ uv run python scripts/brief.py gate2 CC-145         -> exit 0, prints the contradiction instruction
+                                                          naming the 11 rule files this diff touches
+
+Approved criteria: AC1-AC16, TC1-TC8, sha256 c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f,
+no [[amendment]] rows. Code last changed at 0305461 (tests); scripts at 1794e8d; rule files and
+deletions at 9bdd13f. Gate 1 ran at 0305461 (72 of 72 mutations caught). Commits after 0305461 are
+evidence only (1f38280, 702f2a6).
+Next permitted step per run-slice.md: 5 (fix) - every Gate 2 finding gets a fix with tests and a
+mutation check, then one Gate 2 re-run (the fixes will touch CI and error paths: non-trivial).
+
+
+MACHINES (review-pr.md, run in this order at 702f2a6)
+-----------------------------------------------------
+$ uv run python scripts/check_budgets.py
+  all structural rows ok; doc lines 1786 <= 1820; excpt p95 26.335 (CC-140), selector_at_1 0.425
+  (CC-149), answered_rate 0.675 (CC-148), all owner-approved; All budgets met (3 excepted). exit 0
+$ uv run python scripts/check_invariants.py --base origin/main
+  21 rows ok, incl. "closure manifests", "status or plan files", "status in PLAN.md and slices.md",
+  "budget increases", "protocol weakened"; info api/src regex call sites 55 (base 55, delta +0);
+  All invariants held. exit 0
+$ uv run ruff check .                -> All checks passed!          exit 0
+$ uv run ruff format --check .       -> 318 files already formatted exit 0
+$ uv run mypy api/src                -> Success: no issues found in 30 source files  exit 0
+$ uv run pytest -q -m "not integration" -p no:cacheprovider        (run from PowerShell)
+  FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+         AssertionError: assert '' == 'run python s...-head abc1234'   (test_process.py:472)
+  FAILED api/tests/test_process.py::test_ci_fails_when_the_closure_check_does
+         assert 0 != 0                                                (test_process.py:476)
+  2 failed, 2233 passed, 34 skipped, 8 xfailed, 1 warning in 407.05s          exit 1
+  Re-run of the same two tests:
+    from PowerShell : 2 failed (same assertions); `(Get-Command bash).Source` = C:\windows\system32\bash.exe
+    from Git Bash   : 2 passed (`which bash` = /usr/bin/bash); api/tests/test_process.py whole: 36 passed
+  So the machine is red only by shell. Gate 1 (gate1.txt, 2235 passed at 0305461) and pass 1 ran from
+  a shell where bash is Git Bash; no code changed since 0305461. The review continues on that basis,
+  and the failure is recorded as finding G1 below.
+budgets.toml, api/src, evals/ and web/ are not in `git diff origin/main...HEAD`.
+
+G1  MEDIUM (new in this pass, not in gate2-cold.txt). The CI-step tests go red from PowerShell or cmd.
+    Where : api/tests/test_process.py:442-463 (run_closure_step).
+    What  : `shutil.which("bash")` takes the first bash on PATH. On this machine, from PowerShell, that is
+            the WSL launcher C:\windows\system32\bash.exe. The probe `bash -c "exit 0"` passes, so the
+            test does not skip, but WSL does not inherit BRANCH, TIP or the Windows PATH (no WSLENV), so
+            the step sees an empty branch, takes the "names no ticket" exit 0, and never calls the stub.
+            Checked: `C:\windows\system32\bash.exe -c "exit 3"` returns 3, so exit codes pass through;
+            the stub's `called` file stays empty.
+    Effect: review-pr.md's pytest machine and the `make check` recipe lines, run from PowerShell as
+            CLAUDE.md allows ("Without make, run the recipe lines"), exit 1 on a correct tree. CI on
+            Linux is unaffected. Fix in the test (prefer Git Bash, or skip when the bash is WSL), with a
+            mutation check.
+
+
+THE CLAIM
+---------
+This is harness work, not a feature: no user of the product can do anything new. What changes is
+for agents and the owner: one script (scripts/brief.py) prints every phase brief, status comes from
+two commands (Jira + the closure file), STATE.md and evidence plan files are gone and banned,
+.claude/PLAN.md is cut back to plan, CI runs the closure check, auto-compaction and auto-memory are off.
+Evidence: no make eval / make demo is owed (no api/src, evals/ or run-harness file; CC-143 AC11), and
+none is claimed. That is consistent with closure.py's post-merge rule.
+
+
+SCOPE
+-----
+54 files changed (4109+ / 1609-), far over ~15. preflight.txt "File count" gives the reason: the ticket's
+scope list names them, 14 are deletions and one a rename, many are one-line pointers. Accepted as
+explained. Nothing outside the ticket's scope list was found except the AC10 memory moves, which the
+owner approved (preflight.txt, "AC10 (decided later in chat)"); one of those moves changes the product
+contract text - see C1, it is the main scope concern of this pass.
+
+
+SILENT-WRONG-ANSWER REVIEW
+--------------------------
+No response path, URL builder, CensusURL use, guard or model call is in the diff (api/src untouched).
+No code-level silent-wrong-answer finding. One documentation-level one: C1 below rewrites the
+ambiguous_place contract in docs/requirements.md to "no URL and no fetch", which CLAUDE.md, DESIGN.md
+and the live code (api/src/guards.py:214-227 warns and ships; ask-path.md "specs[0] is selected")
+do not do. A reviewer applying the catalog now judges against a contract the system does not have.
+
+
+SHAPE
+-----
+No new tool, route, Pydantic model or graph node. docs/ARCHITECTURE.md changed in the diff (status
+pointer). New module scripts/brief.py: not a banned name; it replaces two scripts (gate.sh, gate.ps1),
+so it is not an abstraction ahead of its callers.
+
+
+TESTS
+-----
+Five changed test files; Gate 1 mutation-checked every new test (72/72). No ticket-named test (the
+invariant row is ok). Several test_process.py tests assert rule-file wording (e.g. 'the rule at its
+top' in CLAUDE.md, the exact pointer sentence). They assert on rule files, not prompts or LLM prose, so
+CLAUDE.md's "do not assert on prompt wording" is not breached, but they will break on any rewording of
+those files; that is the cost of AC4/AC15's "say only" wording and is accepted here.
+Test gaps named by pass 1 stand: M1 (only id lines are reworded in test_brief.py), M2 (no skipped branch
+name carrying a ticket key), U1 (the comment-order fake ignores the query).
+
+
+CONTRADICTIONS BETWEEN THE PRESCRIPTIVE FILES (AC14 instruction)
+================================================================
+Files read, all 21 matched by check_budgets.DOC_PATTERNS (1786 lines): AGENTS.md, CLAUDE.md,
+.claude/DESIGN.md, .claude/PLAN.md, .cursor/rules/00-guardrails.mdc, 10-api-python.mdc,
+20-web-typescript.mdc, 30-evals-and-tests.mdc, 40-census-domain.mdc, .cursor/commands/review-pr.md,
+run-slice.md, .claude/skills/review-pr/SKILL.md, .claude/skills/run-slice/SKILL.md,
+.agents/skills/review-pr/SKILL.md, .agents/skills/run-slice/SKILL.md, docs/playbooks/review-pr.md,
+docs/playbooks/run-slice.md, docs/requirements.md, docs/ask-path.md, docs/retrieval.md, docs/slices.md.
+
+C1  INTRODUCED BY THIS DIFF, most important. An ambiguous place: "no URL" versus "the one exception".
+    docs/requirements.md:39 (ambiguous_place, new text): "Never guessed: no largest match, no population
+      dominance, and a state the model adds is not the user's; no URL and no fetch until the user names one."
+    against
+    CLAUDE.md:30-33: "Every answer renders the full Census API URL ... including when ... the agent is
+      unsure. ... The one exception is a question too incomplete to search."
+    docs/requirements.md:4: "None of these block except an incomplete geography (below)."
+    docs/requirements.md:10 (URLs, also new text): "Every planned leg is listed, including one a guard
+      refused to fetch."
+    .claude/DESIGN.md:40-42: "Guards warn and still ship; none block."
+    .cursor/rules/00-guardrails.mdc:54-55: "One exception: a question too incomplete for its geography level".
+    docs/ask-path.md:21 "None of them block."; :93-94 "NAME listing ranks by place class, population, then
+      GEO_ID; specs[0] is selected."
+    .cursor/rules/40-census-domain.mdc:51-52 and 10-api-python.mdc:219: candidates as results.
+    Live code agrees with the older files, not the new row: guards.ambiguous_place returns a warning with
+    candidates and the answer ships with the selected spec's URL and rows.
+    Either the owner's rule (memory "never guess ambiguous geography") is a second exception, and
+    CLAUDE.md, DESIGN §4, 00-guardrails and requirements.md:4 must say so and a ticket must change the
+    code, or the new row must be cut back to what ships. An owner decision, not an agent fix.
+
+C2  INTRODUCED. docs/requirements.md:27-28 "Known limit (owner, 2026-10-25): a county named without its
+    state still resolves, because the model adds the state" against the same file's :39 "a state the
+    model adds is not the user's; no URL and no fetch". A county name shared by several states (it is the
+    common case) is ambiguous under :39 and resolved under :27. The "known limit" label makes it an
+    acknowledged gap rather than a rule, but the two lines need one sentence saying which governs.
+
+C3  INTRODUCED. Who holds status: "Jira alone" versus "Jira and the closure file".
+    .claude/PLAN.md:5 "Jira alone says whether a ticket is open or finished"
+    against docs/playbooks/run-slice.md:126-127 "Status lives in Jira and the closure file only" and
+    .cursor/rules/00-guardrails.mdc:70-71 "status is in Jira and the closure file".
+    It also cuts across AC15 ("One rule file, and no other, states the relationship"): run-slice.md and
+    00-guardrails.mdc restate part of it in their own words. test_process.py's AC15 test does not catch
+    this because it looks for the PLAN.md rule's own phrasing.
+
+C4  INTRODUCED (partly sanctioned). PLAN.md says Jira alone carries open/finished, yet status words
+    stay in rule files the new check does not cover or does not recognise: PLAN.md:16 and :26
+    "Finished ..." (AC15 allows one line), PLAN.md:64 "CC-11 foundations shipped", "CC-120's completed
+    grid"; docs/slices.md:24 "What each shipped product slice delivered"; docs/ask-path.md:3 "(CC-2 Done)"
+    (outside the check's two files). Low: none is wrong today, all are status kept outside Jira. Same
+    root as pass-1 L3.
+
+C5  INTRODUCED. One ticket, several PRs. docs/playbooks/run-slice.md:8 "A slice ... ships as one or more
+    PRs, each through this pipeline" against run-slice.md:25-26 (new) "a draft until every row is PASS",
+    where rows are per ticket and .github/workflows/check.yml keeps every cc-N/ PR red until all rows
+    pass. A ticket split over PRs cannot make its first PR ready under its own branch name (pass-1 M2c).
+
+C6  PRE-EXISTING. A metric number in a rule file against the new "a ticket's numbers are on the
+    ticket" (CLAUDE.md:24-25): .cursor/rules/30-evals-and-tests.mdc:92 "the baseline after it is
+    0.742", while budgets.toml's answered_rate exception records baseline 0.683. Low.
+
+C7  PRE-EXISTING. Evidence layout: run-slice.md:68, :87, :102, :106, :169 put transcripts at
+    evidence/slice-<N>/<phase>.txt; brief.py and every recent ticket use evidence/slice-<N>/cc-<n>/.
+    The playbook is the canonical file and no longer matches the brief it tells agents to follow. Low.
+
+C8  PRE-EXISTING. .cursor/rules/10-api-python.mdc:162 "See .claude/PLAN.md for which slice owns which
+    route" - PLAN.md assigns no routes (only slice 7's POST /reports). Low, stale pointer.
+
+Checked and not contradictory: the three run-slice pointers and AGENTS.md; the review-pr pointers and
+review-pr.md; 00-guardrails "Do not carry ticket state ... in a file under evidence/" versus CLAUDE.md
+"Every phase persists to ... evidence/" (outputs, not state); CLAUDE.md and PLAN.md rule 3 on budget
+raises; DESIGN §8 and PLAN on gates; "When unsure: stop and ask" kept (00-guardrails.mdc:78-80).
+
+
+AC/TC MATRIX - substance against the Jira criteria and the evidence on disk
+==========================================================================
+(Status fields are NOT RUN by design at this phase. "Supports PASS" means evidence on disk would
+justify the row today; the row still needs its expected/observed/tested_head/evidence+sha fields.)
+
+AC1  Partly. test_jira_fetch.py, mutation-checked at 0305461. Fresh-worktree fallback proven live: the
+     AC6 agents ran in .worktrees/cc-145-proof with no .env and read Jira (ac6-handoff-*.txt). Missing:
+     proof that "the last comments" are the newest - U1 open (preflight.txt has no orderBy output; the
+     CC-145 ticket has one comment, so today's live output cannot tell). L2: codeBlock, task, decision,
+     mention and smart-link content in comments print as "(empty)".
+AC2  Supports PASS. brief.py preflight CC-145 exit 0 at 702f2a6; TC4 test at 0305461. Weakness L5
+     (an amendment row passes on criteria_sha256 alone).
+AC3  Supports PASS. brief.py prints all five phases (tests at 0305461; gate2 run live here); gate.sh /
+     gate.ps1 deleted; Makefile, run-slice.md and the three pointers updated. Nits N1, N3.
+AC4  Supports PASS. The three run-slice pointers read exactly "Read AGENTS.md. Print the brief, ... and
+     follow it." (read here); test_process.py at 0305461.
+AC5  Supports PASS. .claude/settings.json "autoCompactEnabled": false; ctx.py no longer prints or asks
+     for STATE.md; test_context_hook.py at 0305461. Settings key verified against docs, not by running
+     the client (preflight.txt).
+AC6  Supports PASS on the letter, weak in substance. ac6-handoff-cc-145.txt (6d415de) and
+     ac6-handoff-cc-144-r2.txt (1794e8d), both before the deletions at 9bdd13f. Gaps: (a) the in-progress
+     proof predates 1794e8d's brief.py change; (b) the closed-ticket proof used CC-144, the only one of
+     seven other manifests for which status command 2 is green on origin/main (pass-1 M4) - the general
+     closed-ticket case was not proven; (c) the in-progress agent reported "Jira is behind the repo on
+     AC10" and that is still true (see AC10).
+AC7  Supports PASS pre-merge. Two STATE.md and 11 plan files deleted, cc-138/plan.md renamed with both
+     closure paths re-pinned; status wording gone from the listed files (review-pr.md and the two .github
+     files had none to remove - checked here); "When unsure: stop and ask" stays. "on main" can only be
+     shown after merge; the row needs a post-merge check_invariants run on main.
+AC8  Supports PASS on the letter (invariant rows ok; TC1, TC2 tests). Substance weaknesses L3 (scope
+     prose fails, "finished"/"To do"/percentages pass) and L4 (state.md, status.md, handoff.md pass).
+AC9  NO EVIDENCE. The step exists in check.yml, but the branch is not pushed and no PR or workflow run
+     exists. The command is "the check workflow on the PR". Plus M2 (skips prefix/cc-N branches, 91 of
+     122 historical ticket branches) and M3 (judges only `required`, not approved_ids).
+AC10 Partly. autoMemoryEnabled false; the owner's split (preflight.txt) is visible in the repo: CLAUDE.md
+     regex lines, epic/housekeeping lines, heredoc note; run-slice.md playbook/E2E/waiver/draft/title/
+     epic-search/read-not-emit lines; requirements.md URL, ambiguity, known limit, follow-up; 40-census
+     API facts; PLAN "After" pointer. Gaps: (a) the 23 memory files are still present (owner: deleted only
+     after merge) - the row cannot pass before that; (b) the owner's AC10 decision is recorded only in
+     preflight.txt, while the only Jira comment still says "AC10 is open for discussion" - against this
+     ticket's own rule that decisions go to Jira; (c) ".claude/agents not counted" moved into a code
+     comment (scripts/check_budgets.py:148), not a rule file; (d) the ambiguity move created C1/C2;
+     (e) the named command (check_budgets --structural-only) does not test any of this.
+AC11 Supports PASS. doc lines 1786 <= 1820 at 702f2a6; budgets.toml not in the diff; "budget increases"
+     ok.
+AC12 Partly. evidence/slice-6/cc-145/ac12-worktrees.txt lists .worktrees/cc-104 and cc-127 (and the
+     proof worktree), none removed. Missing: delivery to the owner (a Jira comment or the PR body);
+     pass-1 L4 adds that origin/cc-104 and origin/cc-118 carry plan/STATE files that go red on merge.
+AC13 Supports PASS on CC-145's own description (each criterion is one paragraph; brief exit 0; TC6 test).
+     Substance gap M1: the fingerprint hashes only lines that start with an id, so a reworded sub-bullet,
+     table cell or heading paragraph is not caught - the exact failure AC13 exists to stop.
+AC14 Supports PASS. The gate2 brief for this branch carries the instruction (live run above); TC7 test.
+     Gap L1: a rename out of the rule set does not trigger it.
+AC15 Partly. PLAN.md:3-6 states the rule; CLAUDE.md, AGENTS.md, slices.md and run-slice.md point at "the
+     rule at its top" (test_process.py at 0305461). But run-slice.md:126-127 and 00-guardrails.mdc:70-71
+     restate part of the relationship, and differently (C3).
+AC16 Supports PASS. No rule file asks for a close pointer (grep here and test_process.py); PLAN.md
+     closure paragraphs and numbers reduced to one-line links; TC8 test. On main: after merge.
+TC1  Supports PASS (test_invariants.py at 0305461, mutation-checked).
+TC2  Supports PASS (same). L3 limits what "a metric number" covers (decimals only).
+TC3  Supports PASS (test_jira_fetch.py; cold pass confirmed the output is built whole before print).
+TC4  Supports PASS (test_brief.py).
+TC5  Supports PASS at 9bdd13f (evidence/slice-6/cc-145/make-check.txt, every recipe line exit 0, after the
+     deletions, CC-138 closure file included). Three test-only commits followed; the full pytest at
+     0305461 (gate1.txt) and the machines above at 702f2a6 are green, but make check's web and client
+     steps were not re-run at the head. Re-run after the fixes in any case. From PowerShell the pytest
+     step is red (G1); record which shell ran it.
+TC6  Supports PASS for a reworded id line only; see M1 for every other shape.
+TC7  Supports PASS (test_brief.py; and the live gate2 brief for this branch).
+TC8  Supports PASS (test_invariants.py).
+
+Summary: of 24 rows, AC9 has no evidence; AC1, AC10, AC12, AC15 are partly evidenced; AC7, AC10, AC16
+need a post-merge step; the rest would support PASS on the letter, with M1, M2, M3, M4 and L1-L5
+weakening AC6, AC8, AC9, AC13 and TC6 in substance.
+
+
+VERDICT: NOT YET
+================
+Most important reason first: the guards this ticket adds still say "fine" when they are not, and
+the ticket's whole claim is that they make status trustworthy. The criteria fingerprint misses any
+criterion text that is not on its id line (M1, AC13/TC6), and the CI closure step skips the commonest
+branch shape and ignores approved_ids (M2, M3, AC9); AC9 also has no evidence at all. These four
+medium findings from pass 1 are unfixed, and run-slice.md step 5 requires a fix with tests and a
+mutation check for every finding.
+
+Then, in order:
+2. C1: the AC10 memory move rewrote the ambiguous_place contract in docs/requirements.md to "no URL, no
+   fetch", contradicting CLAUDE.md's single exception, DESIGN §4, 00-guardrails, ask-path.md and the
+   live code. Needs an owner decision (second exception plus a product ticket, or cut the row back).
+3. AC10's owner decision is not in Jira (the only comment says "open for discussion"); record it as a
+   Jira comment, tagged owner, before the row can pass.
+4. C3: "Jira alone" (PLAN.md) versus "Jira and the closure file" (run-slice.md, 00-guardrails.mdc) -
+   pick one wording and keep it in PLAN.md only (AC15).
+5. M4: status command 2 for a closed ticket is red for six of seven manifests; AC6's closed-ticket proof
+   covered only the one that is green.
+6. G1: the pytest machine is red from PowerShell (WSL bash picked by the CI-step tests); green from
+   Git Bash. Fix the test so the machine does not depend on the shell; it also bears on TC5.
+7. AC12 list not yet delivered to the owner; AC7/AC10/AC16 need their post-merge checks.
+Lows L1-L6, C2, C4-C8 and the nits can follow in the same fix round or be listed as follow-ups.
+
+git status --short at end : ?? evidence/slice-6/cc-145/gate2.txt   (this file; nothing else)
+HEAD at end               : 702f2a6de293615c88a0b924e5103fd5e4aeb9bf

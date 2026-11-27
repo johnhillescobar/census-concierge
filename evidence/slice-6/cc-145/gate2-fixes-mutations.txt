@@ -1,0 +1,2881 @@
+CC-145 Gate 2 fixes: mutation check of every test the fix commit adds or changes. 2026-11-26.
+Playbook: docs/playbooks/run-slice.md section 5 ("tests plus a mutation check for every fix"),
+procedure of section 3 (revert one behaviour, run only its test, confirm it fails, restore).
+Fix map: evidence/slice-6/cc-145/gate2-fixes.txt.
+
+repo     C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145 (git worktree)
+branch   feat/cc-145-one-source
+HEAD at start  f029b69c21e3f9e5fc8a1e0d96a14d6b88196fe2 (fix commit; parent 556947b is the reviewed code)
+HEAD after test tightening  621f1eb26e43450adbc258277ce2459d74d2505b
+HEAD at end    the commit that adds this file (parent 621f1eb); no product or rule file changed
+
+Tests under check: `git diff 556947b f029b69 -- api/tests` (test_brief.py, test_closure_gate.py,
+test_jira_fetch.py, test_process.py). Behaviours mutated: `git diff 556947b f029b69 -- scripts
+.github` (brief.py, closure.py, check_budgets.py, jira_fetch.py, .github/workflows/check.yml).
+Each mutation is an exact string edit applied by a helper (scratchpad mutate.py/mutations.py, not
+committed), then `uv run pytest <only that test> -q`, then `git checkout -- <file>` and
+`git diff --quiet -- <file>` (restored=yes below). Label rule: GOOD = the test failed on the
+mutation; BAD = it passed. Each label sits above the real pytest failure lines and counts.
+
+== Result ==
+Round 1 (tests as committed in f029b69): GOOD 44 / BAD 6 of 50.
+  BAD compare-fingerprints-flattened-text      rewording test only asserted compare != [], which
+                                               a fingerprint mismatch also satisfies
+  BAD preflight-records-flattened-fingerprint  no test read the fingerprint main records
+  BAD segment-count-not-compared               no tested path was a pattern's leading directories
+  BAD emoji-not-rendered / date-not-rendered / status-lozenge-not-rendered
+                                               L2 fix renders these; no case covered them
+Tightened (test only, no product or rule change), committed before mutating again: 621f1eb
+  test_rewording_any_part_of_a_criterion_moves_the_fingerprint: also compare(approved(doc), doc) == []
+  test_preflight_records_the_fingerprint_of_the_document_it_read (new): preflight on a table-row
+    document prints criteria_fingerprint(document)
+  test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts: docs/playbooks and
+    .claude/skills/run-slice are not prescriptive
+  test_a_comment_keeps_text_that_is_not_a_plain_paragraph: emoji, date and status cases
+Round 2 (tests at 621f1eb, all 50 mutations again): GOOD 50 / BAD 0 of 50.
+
+Map items with no script behaviour to mutate: G1 (working_bash, test harness only: the CI-step tests
+ran, none skipped, see -rs run at the end); U1 (settled live, no code); C1-C3 (docs only).
+Note on bare-type-accepted-as-shape: GOOD because without `or not rest` a bare "feat" crashes the
+strict zip in branch_ticket (ValueError), which the [feat] case catches.
+
+== Status commands at start (HEAD f029b69) ==
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+(same ticket text as the end run below: Status In Progress, AC1-AC16, TC1-TC8, last comment
+ 2026-11-26T14:24:26.277-0600 "Pre-flight done ..."; the full raw text is kept once, at the end)
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+  BLOCKED  AC1: NOT RUN blocks closure
+  BLOCKED  AC2: NOT RUN blocks closure
+  BLOCKED  AC3: NOT RUN blocks closure
+  BLOCKED  AC4: NOT RUN blocks closure
+  BLOCKED  AC5: NOT RUN blocks closure
+  BLOCKED  AC6: NOT RUN blocks closure
+  BLOCKED  AC7: NOT RUN blocks closure
+  BLOCKED  AC8: NOT RUN blocks closure
+  BLOCKED  AC9: NOT RUN blocks closure
+  BLOCKED  AC10: NOT RUN blocks closure
+  BLOCKED  AC11: NOT RUN blocks closure
+  BLOCKED  AC12: NOT RUN blocks closure
+  BLOCKED  AC13: NOT RUN blocks closure
+  BLOCKED  AC14: NOT RUN blocks closure
+  BLOCKED  AC15: NOT RUN blocks closure
+  BLOCKED  AC16: NOT RUN blocks closure
+  BLOCKED  TC1: NOT RUN blocks closure
+  BLOCKED  TC2: NOT RUN blocks closure
+  BLOCKED  TC3: NOT RUN blocks closure
+  BLOCKED  TC4: NOT RUN blocks closure
+  BLOCKED  TC5: NOT RUN blocks closure
+  BLOCKED  TC6: NOT RUN blocks closure
+  BLOCKED  TC7: NOT RUN blocks closure
+  BLOCKED  TC8: NOT RUN blocks closure
+CLOSURE BLOCKED: 24 problem(s)
+(exit 1: every row is NOT RUN until the readiness update; expected at this phase)
+
+== Baseline at start (HEAD f029b69) ==
+$ uv run pytest api/tests/test_brief.py api/tests/test_jira_fetch.py api/tests/test_closure_gate.py api/tests/test_process.py api/tests/test_invariants.py api/tests/test_context_hook.py -q -rs
+419 passed, 1 warning in 128.70s (0:02:08)
+
+== Round 1: tests at f029b69 ==
+$ uv run python <scratchpad>/mutate.py round1.log
+
+== MUTATION closed-record-judged-on-origin-main ==
+reverts: a closed ticket's record is judged against origin/main again, not at the commit it landed
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..29f4711 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -36,7 +36,7 @@ def status_commands(key: str, *, landed: str | None = None) -> list[str]:
+     check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
+     return [
+         f"uv run python scripts/jira_fetch.py issue {key} --md",
+-        f"{check} --head {landed}" if landed else f"{check} --pre-merge",
++        f"{check} --head origin/main" if landed else f"{check} --pre-merge",
+     ]
+ 
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed
+1 failed, 1 warning in 1.54s
+exit=1  restored=yes
+
+== MUTATION closed-brief-drops-run-from-main-checkout ==
+reverts: the closed brief no longer says to run the record check from a checkout of main
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..436f84c 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -64,7 +64,7 @@ def closed_status(key: str, status: str, landed: str | None) -> str:
+     lines = [
+         f"{key} is {status} in Jira and stays closed: no phase may start on it. Its status comes",
+         "from these two commands, never from chat or memory. Run the second from a checkout of",
+-        "main (`git worktree add --detach <dir> origin/main`):",
++        "main:",
+         f"  {first}",
+         f"  {second}"
+         if landed
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed
+1 failed, 1 warning in 0.34s
+exit=1  restored=yes
+
+== MUTATION closed-brief-checks-a-record-main-never-had ==
+reverts: with no closure file on main the closed brief still prints a check command
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..2daead0 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -66,9 +66,7 @@ def closed_status(key: str, status: str, landed: str | None) -> str:
+         "from these two commands, never from chat or memory. Run the second from a checkout of",
+         "main (`git worktree add --detach <dir> origin/main`):",
+         f"  {first}",
+-        f"  {second}"
+-        if landed
+-        else "  (no closure file on main: Jira's close comment is the record)",
++        f"  {second}",
+         "From them state: the approved criteria and decisions, the commit tested, and what, if",
+         "anything, is left for the owner. A regression in what it shipped is caught by its tests",
+         "in `make check`; the change that caused it fixes it.",
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira
+1 failed, 1 warning in 3.15s
+exit=1  restored=yes
+
+== MUTATION landing-commit-is-main-tip ==
+reverts: landed_at returns the tip of main, not the last commit that changed the record
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..839e6ad 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -49,7 +49,7 @@ def is_closed(fields: dict[str, Any]) -> bool:
+ def landed_at(key: str, base: str) -> str | None:
+     """The commit on `base` that last changed the ticket's closure file, or None."""
+     done = subprocess.run(
+-        ["git", "log", "-1", "--format=%H", base, "--", f"evidence/closure/{key}.toml"],
++        ["git", "log", "-1", "--format=%H", base],
+         cwd=ROOT,
+         capture_output=True,
+         text=True,
+
+$ uv run pytest api/tests/test_brief.py::test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record
+1 failed, 1 warning in 3.76s
+exit=1  restored=yes
+
+== MUTATION renames-detected-again ==
+reverts: changed_files lets git detect renames, so a rule file moved away shows only its new path
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..1c6ac15 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -111,7 +111,7 @@ def changed_files(base: str) -> list[str] | None:
+     """The paths this branch changes against `base`, or None when git cannot say. Renames are
+     split into a deletion and an addition, so a rule file moved out of the rule set is seen."""
+     done = subprocess.run(
+-        ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...HEAD"],
++        ["git", "diff", "--name-only", "-z", f"{base}...HEAD"],
+         cwd=ROOT,
+         capture_output=True,
+         text=True,
+
+$ uv run pytest api/tests/test_brief.py::test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change
+1 failed, 1 warning in 3.55s
+exit=1  restored=yes
+
+== MUTATION paths-split-on-whitespace ==
+reverts: changed_files splits git's output on whitespace again
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..90b3b6a 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -117,7 +117,7 @@ def changed_files(base: str) -> list[str] | None:
+         text=True,
+         check=False,
+     )
+-    return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
++    return done.stdout.split() if done.returncode == 0 else None
+ 
+ 
+ def evidence_dir(key: str) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_a_path_with_a_space_is_one_path -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_path_with_a_space_is_one_path - Assert...
+1 failed, 1 warning in 4.62s
+exit=1  restored=yes
+
+== MUTATION compare-trusts-any-amendment-fingerprint ==
+reverts: compare accepts an amendment on criteria_sha256 alone, complete or not
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..75bc175 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -91,7 +91,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+     if ids == approved and sha == approved_sha:
+         return []
+     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
+-    whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
++    whole = amendments  # dated, owned, reasoned
+     if any(a.get("criteria_sha256") == sha for a in whole):
+         return []
+     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination]
+4 failed, 1 warning in 1.03s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-owner ==
+reverts: an amendment is complete without an owner
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..d0139b5 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "reason", "destination") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner]
+1 failed, 1 warning in 0.42s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-reason ==
+reverts: an amendment is complete without a reason
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..5458aa4 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "owner", "destination") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason]
+1 failed, 1 warning in 0.38s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-destination ==
+reverts: an amendment is complete without a destination
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c928933 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "owner", "reason") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination]
+1 failed, 1 warning in 0.84s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-date ==
+reverts: an amendment is complete without a date (presence and ISO check both gone)
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..2c6e48d 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,11 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
+-    try:
+-        date.fromisoformat(str(amendment.get("date")))
+-    except ValueError:
+-        missing.append("date (ISO)")
++    missing = [k for k in ("id", "owner", "reason", "destination") if not amendment.get(k)]
+     return missing
+ 
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date]
+1 failed, 1 warning in 0.30s
+exit=1  restored=yes
+
+== MUTATION unreadable-manifest-raises ==
+reverts: a manifest that is not TOML raises a traceback instead of a STOP with the reason
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..816b920 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -219,11 +219,7 @@ def main() -> int:
+         parser.error("--after-merge belongs to the final phase only")
+     key = args.key.upper()
+     path = ROOT / "evidence" / "closure" / f"{key}.toml"
+-    try:
+-        manifest = closure.load(path) if path.is_file() else None
+-    except (OSError, ValueError) as exc:  # tomllib.TOMLDecodeError is a ValueError
+-        print(f"  STOP  {path.name} cannot be read: {exc}", file=sys.stderr)
+-        return 1
++    manifest = closure.load(path) if path.is_file() else None
+     jira_fetch.load_env()
+     fields = jira_fetch._issue(key).get("fields") or {}
+     description = fields.get("description")
+
+$ uv run pytest api/tests/test_brief.py::test_a_manifest_that_is_not_toml_stops_with_a_reason -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_manifest_that_is_not_toml_stops_with_a_reason
+1 failed, 1 warning in 1.00s
+exit=1  restored=yes
+
+== MUTATION after-merge-allowed-in-any-phase ==
+reverts: --after-merge is accepted outside the final phase
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..d402a71 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -215,8 +215,6 @@ def main() -> int:
+     parser.add_argument("--base", default="origin/main")
+     parser.add_argument("--after-merge", action="store_true", help="final: the post-merge run")
+     args = parser.parse_args()
+-    if args.after_merge and args.phase != "final":
+-        parser.error("--after-merge belongs to the final phase only")
+     key = args.key.upper()
+     path = ROOT / "evidence" / "closure" / f"{key}.toml"
+     try:
+
+$ uv run pytest api/tests/test_brief.py::test_after_merge_belongs_to_the_final_phase_only -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_after_merge_belongs_to_the_final_phase_only
+1 failed, 1 warning in 0.44s
+exit=1  restored=yes
+
+== MUTATION compare-fingerprints-flattened-text ==
+reverts: compare fingerprints the flattened description text, not the Jira document
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..b491945 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -81,7 +81,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+     owner amendment for the new text, or (after pre-flight) nothing was approved. `description`
+     is the Jira document (or plain text, line by line)."""
+     ids = closure.required_ids(closure.adf_text(description))
+-    sha = closure.criteria_fingerprint(description)
++    sha = closure.criteria_fingerprint(closure.adf_text(description))
+     approved = (manifest or {}).get("approved_ids")
+     approved_sha = (manifest or {}).get("approved_sha256")
+     if not isinstance(approved, list) or not approved_sha:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+4 passed, 1 warning in 0.30s
+exit=0  restored=yes
+
+== MUTATION preflight-records-flattened-fingerprint ==
+reverts: main records the approved fingerprint from the flattened text, not the document
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..3282cc5 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -232,7 +232,7 @@ def main() -> int:
+         print(closed_status(key, status, landed_at(key, args.base)), end="")
+         return 1
+     ids = closure.required_ids(closure.adf_text(description))
+-    sha = closure.criteria_fingerprint(description)
++    sha = closure.criteria_fingerprint(closure.adf_text(description))
+     if problems := compare(manifest, description, args.phase):
+         for line in problems:
+             print(f"  STOP  {line}", file=sys.stderr)
+
+$ uv run pytest api/tests/test_brief.py -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+47 passed, 1 warning in 20.10s
+exit=0  restored=yes
+
+== MUTATION glob-star-crosses-slash ==
+reverts: is_prescriptive matches the whole path with fnmatch, so `*` crosses `/`
+file: scripts/check_budgets.py
+mutation diff:
+diff --git a/scripts/check_budgets.py b/scripts/check_budgets.py
+index 5154773..a66a101 100644
+--- a/scripts/check_budgets.py
++++ b/scripts/check_budgets.py
+@@ -166,12 +166,7 @@ DOC_PATTERNS = (
+ def is_prescriptive(rel: str) -> bool:
+     """Whether a repository path (posix, relative) is one of the files `doc_lines` counts: the
+     same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+-    parts = rel.split("/")
+-    return any(
+-        len(parts) == len(pattern.split("/"))
+-        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
+-        for pattern in DOC_PATTERNS
+-    )
++    return any(fnmatch.fnmatchcase(rel, pattern) for pattern in DOC_PATTERNS)
+ 
+ 
+ def _doc_lines() -> int:
+
+$ uv run pytest api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+1 failed, 1 warning in 0.65s
+exit=1  restored=yes
+
+== MUTATION segment-count-not-compared ==
+reverts: is_prescriptive zips segments without first comparing how many there are
+file: scripts/check_budgets.py
+mutation diff:
+diff --git a/scripts/check_budgets.py b/scripts/check_budgets.py
+index 5154773..6d629e4 100644
+--- a/scripts/check_budgets.py
++++ b/scripts/check_budgets.py
+@@ -168,8 +168,7 @@ def is_prescriptive(rel: str) -> bool:
+     same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+     parts = rel.split("/")
+     return any(
+-        len(parts) == len(pattern.split("/"))
+-        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
++        all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=False))
+         for pattern in DOC_PATTERNS
+     )
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+1 passed, 1 warning in 0.23s
+exit=0  restored=yes
+
+== MUTATION table-row-not-a-criterion ==
+reverts: a table row is not read as one criterion; only its id cell is
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..4f511ae 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -163,7 +163,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 continue
+             cells = node.get("content") or [] if kind == "tableRow" else []
+             starts = adf_text(cells[0]) if cells else text
+-            if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
++            if kind in ITEM_NODES and required_ids(_first_line(starts)):
+                 section = None
+                 out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
+             elif section is not None:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell]
+1 failed, 1 warning in 0.59s
+exit=1  restored=yes
+
+== MUTATION table-row-reads-only-its-id-cell ==
+reverts: a criterion table row keeps only its first cell's text
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..00b69c2 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -165,7 +165,7 @@ def criteria_blocks(description: object) -> list[str]:
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                out.append([adf_text(cells[0]) if cells else text])
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell]
+1 failed, 1 warning in 0.65s
+exit=1  restored=yes
+
+== MUTATION list-item-not-a-block ==
+reverts: a list item is not a criterion block, so its sub-items fall outside it
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..155136e 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -134,7 +134,7 @@ def required_ids(text: str) -> list[str]:
+     return found
+ 
+ 
+-ITEM_NODES = {"paragraph", "listItem", "taskItem", "decisionItem", "codeBlock", "blockquote"}
++ITEM_NODES = {"paragraph", "taskItem", "decisionItem", "codeBlock", "blockquote"}
+ 
+ 
+ def _first_line(text: str) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a sub-bullet] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a sub-bullet]
+1 failed, 1 warning in 0.49s
+exit=1  restored=yes
+
+== MUTATION criterion-ends-at-first-line ==
+reverts: a paragraph criterion stops at its first hard break (the old id-line fingerprint)
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e9e32a0 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -165,7 +165,7 @@ def criteria_blocks(description: object) -> list[str]:
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                out.append([" | ".join(adf_text(c) for c in cells) if cells else _first_line(text)])
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a hard break] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a hard break]
+1 failed, 1 warning in 0.42s
+exit=1  restored=yes
+
+== MUTATION id-heading-takes-no-body ==
+reverts: the paragraphs under an id heading are not part of its criterion
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..7a35573 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -166,8 +166,6 @@ def criteria_blocks(description: object) -> list[str]:
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+                 out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
+-            elif section is not None:
+-                section.append(text)
+             else:  # a container, or an item with a criterion further in
+                 walk(node.get("content") or [])
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[the paragraph under an id heading] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[the paragraph under an id heading]
+1 failed, 1 warning in 0.28s
+exit=1  restored=yes
+
+== MUTATION paragraph-criterion-swallows-next-paragraph ==
+reverts: a paragraph criterion opens a section, so the decision paragraph after it is included
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e6ec291 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -164,8 +164,8 @@ def criteria_blocks(description: object) -> list[str]:
+             cells = node.get("content") or [] if kind == "tableRow" else []
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+-                section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                section = [" | ".join(adf_text(c) for c in cells) if cells else text]
++                out.append(section)
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it
+1 failed, 1 warning in 0.39s
+exit=1  restored=yes
+
+== MUTATION heading-section-runs-past-next-heading ==
+reverts: a heading that is not a criterion does not end the id heading's section
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c28ba9a 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -158,7 +158,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 continue
+             kind, text = node.get("type"), adf_text(node)
+             if kind == "heading":
+-                section = [text] if required_ids(_first_line(text)) else None
++                section = [text] if required_ids(_first_line(text)) else section
+                 out.extend([section] if section else [])
+                 continue
+             cells = node.get("content") or [] if kind == "tableRow" else []
+
+$ uv run pytest api/tests/test_brief.py::test_a_heading_section_ends_at_the_next_heading -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_heading_section_ends_at_the_next_heading
+1 failed, 1 warning in 0.32s
+exit=1  restored=yes
+
+== MUTATION document-blocks-keep-raw-whitespace ==
+reverts: document criteria are not whitespace-collapsed, so they no longer match the line fingerprint
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..537f009 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -172,7 +172,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 walk(node.get("content") or [])
+ 
+     walk(description.get("content") or [] if isinstance(description, dict) else [])
+-    return [" ".join(" ".join(parts).split()) for parts in out]
++    return [" ".join(parts) for parts in out]
+ 
+ 
+ def criteria_fingerprint(description: object) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_a_plain_paragraph_description_keeps_its_line_fingerprint -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_plain_paragraph_description_keeps_its_line_fingerprint
+1 failed, 1 warning in 0.35s
+exit=1  restored=yes
+
+== MUTATION branch-rule-back-to-cc-n-first-segment ==
+reverts: the whole branch rule: only a cc-N/ first segment names a ticket
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..6799443 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -186,6 +186,13 @@ BRANCH_TYPES += ("revert", "evidence")  # conventional commits, plus this repo's
+ 
+ 
+ def branch_ticket(branch: str) -> tuple[str | None, str]:
++    first = branch.partition("/")[0]
++    if first.lower().startswith("cc-") and first[3:].isdigit():
++        return first.upper(), ""
++    return None, f"branch {branch!r} names no ticket"
++
++
++def _unused_branch_ticket(branch: str) -> tuple[str | None, str]:
+     """The Jira key a branch names, or None and why not. A branch is `<type>/...`, its type a
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[feat/cc-145-one-source-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[chore/cc-07-x-CC-7]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[cc-145/one-source]
+6 failed, 5 passed, 1 warning in 0.43s
+exit=1  restored=yes
+
+== MUTATION key-must-open-the-branch ==
+reverts: only the first word after the type is read for a key
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e7bd840 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -194,9 +194,9 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+-    pairs = zip(words, [*words[1:], ""], strict=True)
++    pairs = zip(words[:1], words[1:2], strict=False)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+-    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
++    keys |= {f"CC-{int(w[2:])}" for w in words[:1] if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+2 failed, 3 passed, 1 warning in 0.38s
+exit=1  restored=yes
+
+== MUTATION glued-key-not-read ==
+reverts: a key written without a separator (cc145) is not read
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..615c293 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -196,7 +196,6 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+-    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+1 failed, 4 passed, 1 warning in 0.38s
+exit=1  restored=yes
+
+== MUTATION leading-zeros-kept ==
+reverts: the number is not normalised, so cc-07 names CC-07
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..0506e9d 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -195,7 +195,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+-    keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
++    keys = {f"CC-{n}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[chore/cc-07-x-CC-7]
+1 failed, 4 passed, 1 warning in 0.46s
+exit=1  restored=yes
+
+== MUTATION key-case-sensitive ==
+reverts: an upper-case CC key is not read
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..1b34cbb 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -193,7 +193,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+-    words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
++    words = "".join(ch if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+1 failed, 4 passed, 1 warning in 0.42s
+exit=1  restored=yes
+
+== MUTATION underscore-not-a-separator ==
+reverts: an underscore does not separate words, so slice-6_cc_32 names nothing
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..87666f7 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -193,7 +193,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+-    words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
++    words = "".join(ch.lower() if ch.isalnum() or ch == "_" else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+1 failed, 4 passed, 1 warning in 0.33s
+exit=1  restored=yes
+
+== MUTATION evidence-not-a-branch-type ==
+reverts: this repo's evidence/ branches are not a recognised type
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..9a8f2aa 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -182,7 +182,7 @@ def criteria_fingerprint(description: object) -> str:
+ 
+ 
+ BRANCH_TYPES = ("feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci", "build", "style")
+-BRANCH_TYPES += ("revert", "evidence")  # conventional commits, plus this repo's evidence PRs
++BRANCH_TYPES += ("revert",)  # conventional commits, plus this repo's evidence PRs
+ 
+ 
+ def branch_ticket(branch: str) -> tuple[str | None, str]:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+1 failed, 4 passed, 1 warning in 0.41s
+exit=1  restored=yes
+
+== MUTATION untyped-branch-still-searched ==
+reverts: a branch with no conventional type is still searched for a key
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..d3e34fd 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,6 +190,8 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
++    if kind.lower() not in BRANCH_TYPES:
++        kind, rest = "feat", branch
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[cc-145/one-source]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feature/cc-145-x]
+2 failed, 4 passed, 1 warning in 0.79s
+exit=1  restored=yes
+
+== MUTATION type-matched-as-prefix ==
+reverts: a type is matched by prefix, so feature/ passes as feat/
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e6e5933 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,7 +190,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
+-    if kind.lower() not in BRANCH_TYPES or not rest:
++    if not kind.lower().startswith(BRANCH_TYPES) or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feature/cc-145-x]
+1 failed, 5 passed, 1 warning in 0.44s
+exit=1  restored=yes
+
+== MUTATION first-of-several-keys-taken ==
+reverts: a branch naming two tickets is accepted
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c025133 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -197,7 +197,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+-    if len(keys) != 1:
++    if not keys:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+     return keys.pop(), ""
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat/cc-145-and-cc-146]
+1 failed, 5 passed, 1 warning in 0.56s
+exit=1  restored=yes
+
+== MUTATION bare-type-accepted-as-shape ==
+reverts: a bare type with nothing after it passes the shape check
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b753a28 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,7 +190,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
+-    if kind.lower() not in BRANCH_TYPES or not rest:
++    if kind.lower() not in BRANCH_TYPES:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat]
+1 failed, 5 passed, 1 warning in 0.31s
+exit=1  restored=yes
+
+== MUTATION no-key-gives-no-reason ==
+reverts: a branch with no key returns no reason
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b1b51ad 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -199,7 +199,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+-        return None, f"branch {branch!r} must name exactly one ticket (found {found})"
++        return None, "" if not keys else f"branch {branch!r} must name exactly one ticket (found {found})"
+     return keys.pop(), ""
+ 
+ 
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat/one-source]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[chore/launch-inspect-ask]
+2 failed, 4 passed, 1 warning in 0.33s
+exit=1  restored=yes
+
+== MUTATION approved-ids-need-no-row ==
+reverts: the readiness check ignores approved_ids
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..3e74667 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -389,7 +389,7 @@ def problems(
+         declared = []
+     approved = manifest.get("approved_ids")  # approved at pre-flight (scripts/brief.py)
+     approved = [str(i) for i in approved] if isinstance(approved, list) else []
+-    wanted = list(dict.fromkeys([*declared, *approved, *(required or [])]))
++    wanted = list(dict.fromkeys([*declared, *(required or [])]))
+     out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
+     block = manifest.get("post_merge") or {}
+     if done:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_the_readiness_check_requires_every_id_approved_at_pre_flight -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_the_readiness_check_requires_every_id_approved_at_pre_flight
+1 failed, 1 warning in 0.44s
+exit=1  restored=yes
+
+== MUTATION reapproval-excuses-its-row ==
+reverts: an amendment that re-approves criteria text licenses an AMENDED row
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..038aa45 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -376,7 +376,7 @@ def problems(
+         )
+     # An amendment that re-approves the criteria text (criteria_sha256) adds or rewords scope; it
+     # does not remove its id, so it cannot stand in for that row's evidence.
+-    amended = {str(a.get("id")) for a in amendments if not a.get("criteria_sha256")}
++    amended = {str(a.get("id")) for a in amendments}
+     for row in rows:
+         out += _row_problems(row, root, head, amended, readiness, git)
+     if not readiness:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row
+1 failed, 1 warning in 0.35s
+exit=1  restored=yes
+
+== MUTATION ticket-command-exits-0-without-a-key ==
+reverts: `closure.py ticket` exits 0 when the branch names no ticket
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b96d1d1 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -460,7 +460,7 @@ def main() -> int:
+     if args.command == "ticket":
+         key, why = branch_ticket(args.branch)
+         print(key or why, file=sys.stdout if key else sys.stderr)
+-        return 0 if key else 1
++        return 0
+     found = check_file(
+         args.manifest,
+         required=[i for i in args.require.split(",") if i],
+
+$ uv run pytest api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+2 failed, 1 warning in 3.39s
+exit=1  restored=yes
+
+== MUTATION ci-step-back-to-cc-n-case ==
+reverts: the CI step reads the ticket from a cc-N/ first segment and skips other branches
+file: .github/workflows/check.yml
+mutation diff:
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index a6c4c18..f4f5bab 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -97,7 +97,11 @@ jobs:
+           BRANCH: ${{ github.head_ref }}
+           TIP: ${{ github.event.pull_request.head.sha }}
+         run: |
+-          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
++          first="${BRANCH%%/*}"
++          case "$first" in
++            [cC][cC]-[0-9]*) key="$(echo "$first" | tr '[:lower:]' '[:upper:]')" ;;
++            *) echo "branch $BRANCH names no ticket: no closure check"; exit 0 ;;
++          esac
+           uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
+ 
+   scoreboard:
+
+$ uv run pytest api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names api/tests/test_process.py::test_ci_fails_when_the_closure_check_does api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+FAILED api/tests/test_process.py::test_ci_fails_when_the_closure_check_does
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+4 failed, 1 warning in 4.39s
+exit=1  restored=yes
+
+== MUTATION ci-step-ignores-a-branch-with-no-ticket ==
+reverts: the CI step exits 0 when the branch names no ticket
+file: .github/workflows/check.yml
+mutation diff:
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index a6c4c18..39ad725 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -97,7 +97,7 @@ jobs:
+           BRANCH: ${{ github.head_ref }}
+           TIP: ${{ github.event.pull_request.head.sha }}
+         run: |
+-          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
++          key="$(uv run python scripts/closure.py ticket "$BRANCH")" || exit 0
+           uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
+ 
+   scoreboard:
+
+$ uv run pytest api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+2 failed, 1 warning in 3.60s
+exit=1  restored=yes
+
+== MUTATION code-block-not-rendered ==
+reverts: a code block comment falls back to children and prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..58c21a0 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -295,9 +295,6 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                 else:
+                     render_node(child, indent=f"{indent}  ")
+             return
+-        if node_type == "codeBlock":
+-            chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+-            return
+         if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body0-make check]
+1 failed, 4 passed, 1 warning in 0.27s
+exit=1  restored=yes
+
+== MUTATION task-item-not-rendered ==
+reverts: a task item is not rendered
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..e35d4de 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -298,7 +298,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+         if node_type == "codeBlock":
+             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+             return
+-        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
++        if node_type in ("decisionItem",):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+             text = _render_inline(node.get("content") or [])
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body1-rerun AC4]
+1 failed, 4 passed, 1 warning in 0.20s
+exit=1  restored=yes
+
+== MUTATION decision-item-not-rendered ==
+reverts: a decision item is not rendered
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..13cfa32 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -298,7 +298,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+         if node_type == "codeBlock":
+             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+             return
+-        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
++        if node_type in ("taskItem",):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+             text = _render_inline(node.get("content") or [])
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body2-keep the waiver]
+1 failed, 4 passed, 1 warning in 0.29s
+exit=1  restored=yes
+
+== MUTATION mention-not-rendered ==
+reverts: a mention prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..816b81b 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("emoji", "inlineCard", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body3-@Owner]
+1 failed, 4 passed, 1 warning in 0.25s
+exit=1  restored=yes
+
+== MUTATION smart-link-not-rendered ==
+reverts: an inline smart link (inlineCard) prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..73f7d6e 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body4-https://example.com/pr/1]
+1 failed, 4 passed, 1 warning in 0.30s
+exit=1  restored=yes
+
+== MUTATION emoji-not-rendered ==
+reverts: an emoji prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..bbbec9c 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "inlineCard", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+5 passed, 1 warning in 0.06s
+exit=0  restored=yes
+
+== MUTATION date-not-rendered ==
+reverts: a date prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..4608b60 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "inlineCard", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+5 passed, 1 warning in 0.06s
+exit=0  restored=yes
+
+== MUTATION status-lozenge-not-rendered ==
+reverts: a status lozenge prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..8fc5c4b 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "inlineCard", "date"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+BAD  (test PASSED on the mutation)
+5 passed, 1 warning in 0.06s
+exit=0  restored=yes
+
+round 1 summary:
+GOOD closed-record-judged-on-origin-main
+GOOD closed-brief-drops-run-from-main-checkout
+GOOD closed-brief-checks-a-record-main-never-had
+GOOD landing-commit-is-main-tip
+GOOD renames-detected-again
+GOOD paths-split-on-whitespace
+GOOD compare-trusts-any-amendment-fingerprint
+GOOD amendment-needs-no-owner
+GOOD amendment-needs-no-reason
+GOOD amendment-needs-no-destination
+GOOD amendment-needs-no-date
+GOOD unreadable-manifest-raises
+GOOD after-merge-allowed-in-any-phase
+BAD compare-fingerprints-flattened-text
+BAD preflight-records-flattened-fingerprint
+GOOD glob-star-crosses-slash
+BAD segment-count-not-compared
+GOOD table-row-not-a-criterion
+GOOD table-row-reads-only-its-id-cell
+GOOD list-item-not-a-block
+GOOD criterion-ends-at-first-line
+GOOD id-heading-takes-no-body
+GOOD paragraph-criterion-swallows-next-paragraph
+GOOD heading-section-runs-past-next-heading
+GOOD document-blocks-keep-raw-whitespace
+GOOD branch-rule-back-to-cc-n-first-segment
+GOOD key-must-open-the-branch
+GOOD glued-key-not-read
+GOOD leading-zeros-kept
+GOOD key-case-sensitive
+GOOD underscore-not-a-separator
+GOOD evidence-not-a-branch-type
+GOOD untyped-branch-still-searched
+GOOD type-matched-as-prefix
+GOOD first-of-several-keys-taken
+GOOD bare-type-accepted-as-shape
+GOOD no-key-gives-no-reason
+GOOD approved-ids-need-no-row
+GOOD reapproval-excuses-its-row
+GOOD ticket-command-exits-0-without-a-key
+GOOD ci-step-back-to-cc-n-case
+GOOD ci-step-ignores-a-branch-with-no-ticket
+GOOD code-block-not-rendered
+GOOD task-item-not-rendered
+GOOD decision-item-not-rendered
+GOOD mention-not-rendered
+GOOD smart-link-not-rendered
+BAD emoji-not-rendered
+BAD date-not-rendered
+BAD status-lozenge-not-rendered
+GOOD 44 / BAD 6 of 50
+
+[exited with code 0]
+
+== Test tightening, committed before round 2 ==
+$ git show --stat --format="%H %s" 621f1eb
+621f1eb26e43450adbc258277ce2459d74d2505b test(CC-145): tighten the fix tests that passed on their mutations
+
+diff --git a/api/tests/test_brief.py b/api/tests/test_brief.py
+index f94569e..d18663b 100644
+--- a/api/tests/test_brief.py
++++ b/api/tests/test_brief.py
+@@ -313,9 +313,20 @@ def test_rewording_any_part_of_a_criterion_moves_the_fingerprint(shape: str) ->
+     before, after = SHAPES[shape]("20"), SHAPES[shape]("200")
+     assert closure.required_ids(closure.adf_text(before)) == ["AC1"]
+     assert closure.criteria_fingerprint(before) != closure.criteria_fingerprint(after)
++    assert brief.compare(approved(before), before, "gate1") == []  # compare reads the document
+     assert brief.compare(approved(before), after, "gate1") != []
+ 
+ 
++def test_preflight_records_the_fingerprint_of_the_document_it_read(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
++) -> None:
++    live = SHAPES["a table cell"]("20")
++    fields = {"status": OPEN, "description": live}
++    assert run_main(tmp_path, monkeypatch, fields, None, "preflight", "CC-9") == 0
++    out = capsys.readouterr().out
++    assert f'approved_sha256 = "{closure.criteria_fingerprint(live)}"' in out
++
++
+ def test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it() -> None:
+     before = {"type": "doc", "content": [para("AC1. It works."), para("Decisions: one.")]}
+     after = {"type": "doc", "content": [para("AC1. It works."), para("Decisions: two.")]}
+@@ -417,3 +428,6 @@ def test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_count
+     # a `*` stops at a `/`, as the glob that counts the lines does
+     for rel in ("docs/playbooks/archive/old.md", ".claude/skills/a/b/SKILL.md", "x/AGENTS.md"):
+         assert not check_budgets.is_prescriptive(rel), rel
++    # a path that is only a pattern's leading directories is not one of its files
++    for rel in ("docs/playbooks", ".claude/skills/run-slice"):
++        assert not check_budgets.is_prescriptive(rel), rel
+diff --git a/api/tests/test_jira_fetch.py b/api/tests/test_jira_fetch.py
+index 382bdb5..4806d99 100644
+--- a/api/tests/test_jira_fetch.py
++++ b/api/tests/test_jira_fetch.py
+@@ -189,6 +189,9 @@ def text(value: str) -> dict[str, Any]:
+             node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+             "https://example.com/pr/1",
+         ),
++        (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
++        (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "1764115200000"),
++        (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
+     ],
+ )
+ def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+
+== Round 2: tests at 621f1eb, every mutation again ==
+$ uv run python <scratchpad>/mutate.py round2.log
+
+== MUTATION closed-record-judged-on-origin-main ==
+reverts: a closed ticket's record is judged against origin/main again, not at the commit it landed
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..29f4711 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -36,7 +36,7 @@ def status_commands(key: str, *, landed: str | None = None) -> list[str]:
+     check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
+     return [
+         f"uv run python scripts/jira_fetch.py issue {key} --md",
+-        f"{check} --head {landed}" if landed else f"{check} --pre-merge",
++        f"{check} --head origin/main" if landed else f"{check} --pre-merge",
+     ]
+ 
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed
+1 failed, 1 warning in 0.46s
+exit=1  restored=yes
+
+== MUTATION closed-brief-drops-run-from-main-checkout ==
+reverts: the closed brief no longer says to run the record check from a checkout of main
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..436f84c 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -64,7 +64,7 @@ def closed_status(key: str, status: str, landed: str | None) -> str:
+     lines = [
+         f"{key} is {status} in Jira and stays closed: no phase may start on it. Its status comes",
+         "from these two commands, never from chat or memory. Run the second from a checkout of",
+-        "main (`git worktree add --detach <dir> origin/main`):",
++        "main:",
+         f"  {first}",
+         f"  {second}"
+         if landed
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed
+1 failed, 1 warning in 0.30s
+exit=1  restored=yes
+
+== MUTATION closed-brief-checks-a-record-main-never-had ==
+reverts: with no closure file on main the closed brief still prints a check command
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..2daead0 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -66,9 +66,7 @@ def closed_status(key: str, status: str, landed: str | None) -> str:
+         "from these two commands, never from chat or memory. Run the second from a checkout of",
+         "main (`git worktree add --detach <dir> origin/main`):",
+         f"  {first}",
+-        f"  {second}"
+-        if landed
+-        else "  (no closure file on main: Jira's close comment is the record)",
++        f"  {second}",
+         "From them state: the approved criteria and decisions, the commit tested, and what, if",
+         "anything, is left for the owner. A regression in what it shipped is caught by its tests",
+         "in `make check`; the change that caused it fixes it.",
+
+$ uv run pytest api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_closed_ticket_with_no_record_on_main_points_at_jira
+1 failed, 1 warning in 0.64s
+exit=1  restored=yes
+
+== MUTATION landing-commit-is-main-tip ==
+reverts: landed_at returns the tip of main, not the last commit that changed the record
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..839e6ad 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -49,7 +49,7 @@ def is_closed(fields: dict[str, Any]) -> bool:
+ def landed_at(key: str, base: str) -> str | None:
+     """The commit on `base` that last changed the ticket's closure file, or None."""
+     done = subprocess.run(
+-        ["git", "log", "-1", "--format=%H", base, "--", f"evidence/closure/{key}.toml"],
++        ["git", "log", "-1", "--format=%H", base],
+         cwd=ROOT,
+         capture_output=True,
+         text=True,
+
+$ uv run pytest api/tests/test_brief.py::test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record
+1 failed, 1 warning in 2.33s
+exit=1  restored=yes
+
+== MUTATION renames-detected-again ==
+reverts: changed_files lets git detect renames, so a rule file moved away shows only its new path
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..1c6ac15 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -111,7 +111,7 @@ def changed_files(base: str) -> list[str] | None:
+     """The paths this branch changes against `base`, or None when git cannot say. Renames are
+     split into a deletion and an addition, so a rule file moved out of the rule set is seen."""
+     done = subprocess.run(
+-        ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...HEAD"],
++        ["git", "diff", "--name-only", "-z", f"{base}...HEAD"],
+         cwd=ROOT,
+         capture_output=True,
+         text=True,
+
+$ uv run pytest api/tests/test_brief.py::test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change
+1 failed, 1 warning in 3.77s
+exit=1  restored=yes
+
+== MUTATION paths-split-on-whitespace ==
+reverts: changed_files splits git's output on whitespace again
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..90b3b6a 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -117,7 +117,7 @@ def changed_files(base: str) -> list[str] | None:
+         text=True,
+         check=False,
+     )
+-    return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
++    return done.stdout.split() if done.returncode == 0 else None
+ 
+ 
+ def evidence_dir(key: str) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_a_path_with_a_space_is_one_path -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_path_with_a_space_is_one_path - Assert...
+1 failed, 1 warning in 6.27s
+exit=1  restored=yes
+
+== MUTATION compare-trusts-any-amendment-fingerprint ==
+reverts: compare accepts an amendment on criteria_sha256 alone, complete or not
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..75bc175 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -91,7 +91,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+     if ids == approved and sha == approved_sha:
+         return []
+     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
+-    whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
++    whole = amendments  # dated, owned, reasoned
+     if any(a.get("criteria_sha256") == sha for a in whole):
+         return []
+     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason]
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination]
+4 failed, 1 warning in 0.37s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-owner ==
+reverts: an amendment is complete without an owner
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..d0139b5 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "reason", "destination") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[owner]
+1 failed, 1 warning in 0.40s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-reason ==
+reverts: an amendment is complete without a reason
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..5458aa4 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "owner", "destination") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[reason]
+1 failed, 1 warning in 0.35s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-destination ==
+reverts: an amendment is complete without a destination
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c928933 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,7 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
++    missing = [k for k in ("id", "date", "owner", "reason") if not amendment.get(k)]
+     try:
+         date.fromisoformat(str(amendment.get("date")))
+     except ValueError:
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[destination]
+1 failed, 1 warning in 0.33s
+exit=1  restored=yes
+
+== MUTATION amendment-needs-no-date ==
+reverts: an amendment is complete without a date (presence and ISO check both gone)
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..2c6e48d 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -205,11 +205,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+ 
+ def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+     """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+-    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
+-    try:
+-        date.fromisoformat(str(amendment.get("date")))
+-    except ValueError:
+-        missing.append("date (ISO)")
++    missing = [k for k in ("id", "owner", "reason", "destination") if not amendment.get(k)]
+     return missing
+ 
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_an_incomplete_amendment_does_not_let_new_criteria_through[date]
+1 failed, 1 warning in 0.36s
+exit=1  restored=yes
+
+== MUTATION unreadable-manifest-raises ==
+reverts: a manifest that is not TOML raises a traceback instead of a STOP with the reason
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..816b920 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -219,11 +219,7 @@ def main() -> int:
+         parser.error("--after-merge belongs to the final phase only")
+     key = args.key.upper()
+     path = ROOT / "evidence" / "closure" / f"{key}.toml"
+-    try:
+-        manifest = closure.load(path) if path.is_file() else None
+-    except (OSError, ValueError) as exc:  # tomllib.TOMLDecodeError is a ValueError
+-        print(f"  STOP  {path.name} cannot be read: {exc}", file=sys.stderr)
+-        return 1
++    manifest = closure.load(path) if path.is_file() else None
+     jira_fetch.load_env()
+     fields = jira_fetch._issue(key).get("fields") or {}
+     description = fields.get("description")
+
+$ uv run pytest api/tests/test_brief.py::test_a_manifest_that_is_not_toml_stops_with_a_reason -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_manifest_that_is_not_toml_stops_with_a_reason
+1 failed, 1 warning in 0.44s
+exit=1  restored=yes
+
+== MUTATION after-merge-allowed-in-any-phase ==
+reverts: --after-merge is accepted outside the final phase
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..d402a71 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -215,8 +215,6 @@ def main() -> int:
+     parser.add_argument("--base", default="origin/main")
+     parser.add_argument("--after-merge", action="store_true", help="final: the post-merge run")
+     args = parser.parse_args()
+-    if args.after_merge and args.phase != "final":
+-        parser.error("--after-merge belongs to the final phase only")
+     key = args.key.upper()
+     path = ROOT / "evidence" / "closure" / f"{key}.toml"
+     try:
+
+$ uv run pytest api/tests/test_brief.py::test_after_merge_belongs_to_the_final_phase_only -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_after_merge_belongs_to_the_final_phase_only
+1 failed, 1 warning in 0.41s
+exit=1  restored=yes
+
+== MUTATION compare-fingerprints-flattened-text ==
+reverts: compare fingerprints the flattened description text, not the Jira document
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..b491945 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -81,7 +81,7 @@ def compare(manifest: dict[str, Any] | None, description: object, phase: str) ->
+     owner amendment for the new text, or (after pre-flight) nothing was approved. `description`
+     is the Jira document (or plain text, line by line)."""
+     ids = closure.required_ids(closure.adf_text(description))
+-    sha = closure.criteria_fingerprint(description)
++    sha = closure.criteria_fingerprint(closure.adf_text(description))
+     approved = (manifest or {}).get("approved_ids")
+     approved_sha = (manifest or {}).get("approved_sha256")
+     if not isinstance(approved, list) or not approved_sha:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell]
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a sub-bullet]
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a hard break]
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[the paragraph under an id heading]
+4 failed, 1 warning in 0.34s
+exit=1  restored=yes
+
+== MUTATION preflight-records-flattened-fingerprint ==
+reverts: main records the approved fingerprint from the flattened text, not the document
+file: scripts/brief.py
+mutation diff:
+diff --git a/scripts/brief.py b/scripts/brief.py
+index fd1a4f4..3282cc5 100644
+--- a/scripts/brief.py
++++ b/scripts/brief.py
+@@ -232,7 +232,7 @@ def main() -> int:
+         print(closed_status(key, status, landed_at(key, args.base)), end="")
+         return 1
+     ids = closure.required_ids(closure.adf_text(description))
+-    sha = closure.criteria_fingerprint(description)
++    sha = closure.criteria_fingerprint(closure.adf_text(description))
+     if problems := compare(manifest, description, args.phase):
+         for line in problems:
+             print(f"  STOP  {line}", file=sys.stderr)
+
+$ uv run pytest api/tests/test_brief.py -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_preflight_records_the_fingerprint_of_the_document_it_read
+1 failed, 47 passed, 1 warning in 11.87s
+exit=1  restored=yes
+
+== MUTATION glob-star-crosses-slash ==
+reverts: is_prescriptive matches the whole path with fnmatch, so `*` crosses `/`
+file: scripts/check_budgets.py
+mutation diff:
+diff --git a/scripts/check_budgets.py b/scripts/check_budgets.py
+index 5154773..a66a101 100644
+--- a/scripts/check_budgets.py
++++ b/scripts/check_budgets.py
+@@ -166,12 +166,7 @@ DOC_PATTERNS = (
+ def is_prescriptive(rel: str) -> bool:
+     """Whether a repository path (posix, relative) is one of the files `doc_lines` counts: the
+     same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+-    parts = rel.split("/")
+-    return any(
+-        len(parts) == len(pattern.split("/"))
+-        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
+-        for pattern in DOC_PATTERNS
+-    )
++    return any(fnmatch.fnmatchcase(rel, pattern) for pattern in DOC_PATTERNS)
+ 
+ 
+ def _doc_lines() -> int:
+
+$ uv run pytest api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+1 failed, 1 warning in 0.35s
+exit=1  restored=yes
+
+== MUTATION segment-count-not-compared ==
+reverts: is_prescriptive zips segments without first comparing how many there are
+file: scripts/check_budgets.py
+mutation diff:
+diff --git a/scripts/check_budgets.py b/scripts/check_budgets.py
+index 5154773..6d629e4 100644
+--- a/scripts/check_budgets.py
++++ b/scripts/check_budgets.py
+@@ -168,8 +168,7 @@ def is_prescriptive(rel: str) -> bool:
+     same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+     parts = rel.split("/")
+     return any(
+-        len(parts) == len(pattern.split("/"))
+-        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
++        all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=False))
+         for pattern in DOC_PATTERNS
+     )
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+1 failed, 1 warning in 0.30s
+exit=1  restored=yes
+
+== MUTATION table-row-not-a-criterion ==
+reverts: a table row is not read as one criterion; only its id cell is
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..4f511ae 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -163,7 +163,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 continue
+             cells = node.get("content") or [] if kind == "tableRow" else []
+             starts = adf_text(cells[0]) if cells else text
+-            if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
++            if kind in ITEM_NODES and required_ids(_first_line(starts)):
+                 section = None
+                 out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
+             elif section is not None:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell]
+1 failed, 1 warning in 0.35s
+exit=1  restored=yes
+
+== MUTATION table-row-reads-only-its-id-cell ==
+reverts: a criterion table row keeps only its first cell's text
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..00b69c2 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -165,7 +165,7 @@ def criteria_blocks(description: object) -> list[str]:
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                out.append([adf_text(cells[0]) if cells else text])
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a table cell]
+1 failed, 1 warning in 0.42s
+exit=1  restored=yes
+
+== MUTATION list-item-not-a-block ==
+reverts: a list item is not a criterion block, so its sub-items fall outside it
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..155136e 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -134,7 +134,7 @@ def required_ids(text: str) -> list[str]:
+     return found
+ 
+ 
+-ITEM_NODES = {"paragraph", "listItem", "taskItem", "decisionItem", "codeBlock", "blockquote"}
++ITEM_NODES = {"paragraph", "taskItem", "decisionItem", "codeBlock", "blockquote"}
+ 
+ 
+ def _first_line(text: str) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a sub-bullet] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a sub-bullet]
+1 failed, 1 warning in 0.49s
+exit=1  restored=yes
+
+== MUTATION criterion-ends-at-first-line ==
+reverts: a paragraph criterion stops at its first hard break (the old id-line fingerprint)
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e9e32a0 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -165,7 +165,7 @@ def criteria_blocks(description: object) -> list[str]:
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                out.append([" | ".join(adf_text(c) for c in cells) if cells else _first_line(text)])
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a hard break] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[a hard break]
+1 failed, 1 warning in 0.41s
+exit=1  restored=yes
+
+== MUTATION id-heading-takes-no-body ==
+reverts: the paragraphs under an id heading are not part of its criterion
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..7a35573 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -166,8 +166,6 @@ def criteria_blocks(description: object) -> list[str]:
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                 section = None
+                 out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
+-            elif section is not None:
+-                section.append(text)
+             else:  # a container, or an item with a criterion further in
+                 walk(node.get("content") or [])
+ 
+
+$ uv run pytest api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[the paragraph under an id heading] -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_rewording_any_part_of_a_criterion_moves_the_fingerprint[the paragraph under an id heading]
+1 failed, 1 warning in 0.59s
+exit=1  restored=yes
+
+== MUTATION paragraph-criterion-swallows-next-paragraph ==
+reverts: a paragraph criterion opens a section, so the decision paragraph after it is included
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e6ec291 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -164,8 +164,8 @@ def criteria_blocks(description: object) -> list[str]:
+             cells = node.get("content") or [] if kind == "tableRow" else []
+             starts = adf_text(cells[0]) if cells else text
+             if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+-                section = None
+-                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
++                section = [" | ".join(adf_text(c) for c in cells) if cells else text]
++                out.append(section)
+             elif section is not None:
+                 section.append(text)
+             else:  # a container, or an item with a criterion further in
+
+$ uv run pytest api/tests/test_brief.py::test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it
+1 failed, 1 warning in 0.63s
+exit=1  restored=yes
+
+== MUTATION heading-section-runs-past-next-heading ==
+reverts: a heading that is not a criterion does not end the id heading's section
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c28ba9a 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -158,7 +158,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 continue
+             kind, text = node.get("type"), adf_text(node)
+             if kind == "heading":
+-                section = [text] if required_ids(_first_line(text)) else None
++                section = [text] if required_ids(_first_line(text)) else section
+                 out.extend([section] if section else [])
+                 continue
+             cells = node.get("content") or [] if kind == "tableRow" else []
+
+$ uv run pytest api/tests/test_brief.py::test_a_heading_section_ends_at_the_next_heading -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_heading_section_ends_at_the_next_heading
+1 failed, 1 warning in 0.65s
+exit=1  restored=yes
+
+== MUTATION document-blocks-keep-raw-whitespace ==
+reverts: document criteria are not whitespace-collapsed, so they no longer match the line fingerprint
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..537f009 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -172,7 +172,7 @@ def criteria_blocks(description: object) -> list[str]:
+                 walk(node.get("content") or [])
+ 
+     walk(description.get("content") or [] if isinstance(description, dict) else [])
+-    return [" ".join(" ".join(parts).split()) for parts in out]
++    return [" ".join(parts) for parts in out]
+ 
+ 
+ def criteria_fingerprint(description: object) -> str:
+
+$ uv run pytest api/tests/test_brief.py::test_a_plain_paragraph_description_keeps_its_line_fingerprint -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_brief.py::test_a_plain_paragraph_description_keeps_its_line_fingerprint
+1 failed, 1 warning in 0.59s
+exit=1  restored=yes
+
+== MUTATION branch-rule-back-to-cc-n-first-segment ==
+reverts: the whole branch rule: only a cc-N/ first segment names a ticket
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..6799443 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -186,6 +186,13 @@ BRANCH_TYPES += ("revert", "evidence")  # conventional commits, plus this repo's
+ 
+ 
+ def branch_ticket(branch: str) -> tuple[str | None, str]:
++    first = branch.partition("/")[0]
++    if first.lower().startswith("cc-") and first[3:].isdigit():
++        return first.upper(), ""
++    return None, f"branch {branch!r} names no ticket"
++
++
++def _unused_branch_ticket(branch: str) -> tuple[str | None, str]:
+     """The Jira key a branch names, or None and why not. A branch is `<type>/...`, its type a
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[feat/cc-145-one-source-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[chore/cc-07-x-CC-7]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[cc-145/one-source]
+6 failed, 5 passed, 1 warning in 2.30s
+exit=1  restored=yes
+
+== MUTATION key-must-open-the-branch ==
+reverts: only the first word after the type is read for a key
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e7bd840 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -194,9 +194,9 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+-    pairs = zip(words, [*words[1:], ""], strict=True)
++    pairs = zip(words[:1], words[1:2], strict=False)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+-    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
++    keys |= {f"CC-{int(w[2:])}" for w in words[:1] if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+2 failed, 3 passed, 1 warning in 0.47s
+exit=1  restored=yes
+
+== MUTATION glued-key-not-read ==
+reverts: a key written without a separator (cc145) is not read
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..615c293 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -196,7 +196,6 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+-    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+1 failed, 4 passed, 1 warning in 2.12s
+exit=1  restored=yes
+
+== MUTATION leading-zeros-kept ==
+reverts: the number is not normalised, so cc-07 names CC-07
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..0506e9d 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -195,7 +195,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+-    keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
++    keys = {f"CC-{n}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[chore/cc-07-x-CC-7]
+1 failed, 4 passed, 1 warning in 0.52s
+exit=1  restored=yes
+
+== MUTATION key-case-sensitive ==
+reverts: an upper-case CC key is not read
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..1b34cbb 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -193,7 +193,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+-    words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
++    words = "".join(ch if ch.isalnum() else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[fix/one-source-CC-145-CC-145]
+1 failed, 4 passed, 1 warning in 0.39s
+exit=1  restored=yes
+
+== MUTATION underscore-not-a-separator ==
+reverts: an underscore does not separate words, so slice-6_cc_32 names nothing
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..87666f7 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -193,7 +193,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+-    words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
++    words = "".join(ch.lower() if ch.isalnum() or ch == "_" else " " for ch in rest).split()
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[docs/slice-6_cc_32_notes-CC-32]
+1 failed, 4 passed, 1 warning in 0.40s
+exit=1  restored=yes
+
+== MUTATION evidence-not-a-branch-type ==
+reverts: this repo's evidence/ branches are not a recognised type
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..9a8f2aa 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -182,7 +182,7 @@ def criteria_fingerprint(description: object) -> str:
+ 
+ 
+ BRANCH_TYPES = ("feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci", "build", "style")
+-BRANCH_TYPES += ("revert", "evidence")  # conventional commits, plus this repo's evidence PRs
++BRANCH_TYPES += ("revert",)  # conventional commits, plus this repo's evidence PRs
+ 
+ 
+ def branch_ticket(branch: str) -> tuple[str | None, str]:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[evidence/cc145-post-merge-CC-145]
+1 failed, 4 passed, 1 warning in 0.40s
+exit=1  restored=yes
+
+== MUTATION untyped-branch-still-searched ==
+reverts: a branch with no conventional type is still searched for a key
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..d3e34fd 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,6 +190,8 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
++    if kind.lower() not in BRANCH_TYPES:
++        kind, rest = "feat", branch
+     if kind.lower() not in BRANCH_TYPES or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[cc-145/one-source]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feature/cc-145-x]
+2 failed, 4 passed, 1 warning in 0.40s
+exit=1  restored=yes
+
+== MUTATION type-matched-as-prefix ==
+reverts: a type is matched by prefix, so feature/ passes as feat/
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..e6e5933 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,7 +190,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
+-    if kind.lower() not in BRANCH_TYPES or not rest:
++    if not kind.lower().startswith(BRANCH_TYPES) or not rest:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feature/cc-145-x]
+1 failed, 5 passed, 1 warning in 0.46s
+exit=1  restored=yes
+
+== MUTATION first-of-several-keys-taken ==
+reverts: a branch naming two tickets is accepted
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..c025133 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -197,7 +197,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     pairs = zip(words, [*words[1:], ""], strict=True)
+     keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+-    if len(keys) != 1:
++    if not keys:
+         found = ", ".join(sorted(keys)) or "none"
+         return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+     return keys.pop(), ""
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat/cc-145-and-cc-146]
+1 failed, 5 passed, 1 warning in 0.53s
+exit=1  restored=yes
+
+== MUTATION bare-type-accepted-as-shape ==
+reverts: a bare type with nothing after it passes the shape check
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b753a28 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -190,7 +190,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+     fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+     kind, _, rest = branch.partition("/")
+-    if kind.lower() not in BRANCH_TYPES or not rest:
++    if kind.lower() not in BRANCH_TYPES:
+         types = ", ".join(BRANCH_TYPES)
+         return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+     words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat]
+1 failed, 5 passed, 1 warning in 0.44s
+exit=1  restored=yes
+
+== MUTATION no-key-gives-no-reason ==
+reverts: a branch with no key returns no reason
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b1b51ad 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -199,7 +199,7 @@ def branch_ticket(branch: str) -> tuple[str | None, str]:
+     keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+     if len(keys) != 1:
+         found = ", ".join(sorted(keys)) or "none"
+-        return None, f"branch {branch!r} must name exactly one ticket (found {found})"
++        return None, "" if not keys else f"branch {branch!r} must name exactly one ticket (found {found})"
+     return keys.pop(), ""
+ 
+ 
+
+$ uv run pytest api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[feat/one-source]
+FAILED api/tests/test_closure_gate.py::test_any_other_branch_names_no_ticket_and_says_why[chore/launch-inspect-ask]
+2 failed, 4 passed, 1 warning in 0.38s
+exit=1  restored=yes
+
+== MUTATION approved-ids-need-no-row ==
+reverts: the readiness check ignores approved_ids
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..3e74667 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -389,7 +389,7 @@ def problems(
+         declared = []
+     approved = manifest.get("approved_ids")  # approved at pre-flight (scripts/brief.py)
+     approved = [str(i) for i in approved] if isinstance(approved, list) else []
+-    wanted = list(dict.fromkeys([*declared, *approved, *(required or [])]))
++    wanted = list(dict.fromkeys([*declared, *(required or [])]))
+     out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
+     block = manifest.get("post_merge") or {}
+     if done:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_the_readiness_check_requires_every_id_approved_at_pre_flight -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_the_readiness_check_requires_every_id_approved_at_pre_flight
+1 failed, 1 warning in 0.30s
+exit=1  restored=yes
+
+== MUTATION reapproval-excuses-its-row ==
+reverts: an amendment that re-approves criteria text licenses an AMENDED row
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..038aa45 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -376,7 +376,7 @@ def problems(
+         )
+     # An amendment that re-approves the criteria text (criteria_sha256) adds or rewords scope; it
+     # does not remove its id, so it cannot stand in for that row's evidence.
+-    amended = {str(a.get("id")) for a in amendments if not a.get("criteria_sha256")}
++    amended = {str(a.get("id")) for a in amendments}
+     for row in rows:
+         out += _row_problems(row, root, head, amended, readiness, git)
+     if not readiness:
+
+$ uv run pytest api/tests/test_closure_gate.py::test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_closure_gate.py::test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row
+1 failed, 1 warning in 0.53s
+exit=1  restored=yes
+
+== MUTATION ticket-command-exits-0-without-a-key ==
+reverts: `closure.py ticket` exits 0 when the branch names no ticket
+file: scripts/closure.py
+mutation diff:
+diff --git a/scripts/closure.py b/scripts/closure.py
+index 47593d8..b96d1d1 100644
+--- a/scripts/closure.py
++++ b/scripts/closure.py
+@@ -460,7 +460,7 @@ def main() -> int:
+     if args.command == "ticket":
+         key, why = branch_ticket(args.branch)
+         print(key or why, file=sys.stdout if key else sys.stderr)
+-        return 0 if key else 1
++        return 0
+     found = check_file(
+         args.manifest,
+         required=[i for i in args.require.split(",") if i],
+
+$ uv run pytest api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+2 failed, 1 warning in 6.31s
+exit=1  restored=yes
+
+== MUTATION ci-step-back-to-cc-n-case ==
+reverts: the CI step reads the ticket from a cc-N/ first segment and skips other branches
+file: .github/workflows/check.yml
+mutation diff:
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index a6c4c18..f4f5bab 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -97,7 +97,11 @@ jobs:
+           BRANCH: ${{ github.head_ref }}
+           TIP: ${{ github.event.pull_request.head.sha }}
+         run: |
+-          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
++          first="${BRANCH%%/*}"
++          case "$first" in
++            [cC][cC]-[0-9]*) key="$(echo "$first" | tr '[:lower:]' '[:upper:]')" ;;
++            *) echo "branch $BRANCH names no ticket: no closure check"; exit 0 ;;
++          esac
+           uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
+ 
+   scoreboard:
+
+$ uv run pytest api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names api/tests/test_process.py::test_ci_fails_when_the_closure_check_does api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+FAILED api/tests/test_process.py::test_ci_fails_when_the_closure_check_does
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+4 failed, 1 warning in 3.98s
+exit=1  restored=yes
+
+== MUTATION ci-step-ignores-a-branch-with-no-ticket ==
+reverts: the CI step exits 0 when the branch names no ticket
+file: .github/workflows/check.yml
+mutation diff:
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index a6c4c18..39ad725 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -97,7 +97,7 @@ jobs:
+           BRANCH: ${{ github.head_ref }}
+           TIP: ${{ github.event.pull_request.head.sha }}
+         run: |
+-          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
++          key="$(uv run python scripts/closure.py ticket "$BRANCH")" || exit 0
+           uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
+ 
+   scoreboard:
+
+$ uv run pytest api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[cc-145/one-source]
+FAILED api/tests/test_process.py::test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check[chore/launch-inspect-ask]
+2 failed, 1 warning in 3.49s
+exit=1  restored=yes
+
+== MUTATION code-block-not-rendered ==
+reverts: a code block comment falls back to children and prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..58c21a0 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -295,9 +295,6 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                 else:
+                     render_node(child, indent=f"{indent}  ")
+             return
+-        if node_type == "codeBlock":
+-            chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+-            return
+         if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body0-make check]
+1 failed, 7 passed, 1 warning in 0.37s
+exit=1  restored=yes
+
+== MUTATION task-item-not-rendered ==
+reverts: a task item is not rendered
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..e35d4de 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -298,7 +298,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+         if node_type == "codeBlock":
+             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+             return
+-        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
++        if node_type in ("decisionItem",):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+             text = _render_inline(node.get("content") or [])
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body1-rerun AC4]
+1 failed, 7 passed, 1 warning in 0.28s
+exit=1  restored=yes
+
+== MUTATION decision-item-not-rendered ==
+reverts: a decision item is not rendered
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..13cfa32 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -298,7 +298,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+         if node_type == "codeBlock":
+             chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+             return
+-        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
++        if node_type in ("taskItem",):  # their text sits inline, not in a paragraph
+             mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+             mark = mark if node_type == "taskItem" else "- "
+             text = _render_inline(node.get("content") or [])
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body2-keep the waiver]
+1 failed, 7 passed, 1 warning in 0.29s
+exit=1  restored=yes
+
+== MUTATION mention-not-rendered ==
+reverts: a mention prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..816b81b 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("emoji", "inlineCard", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body3-@Owner]
+1 failed, 7 passed, 1 warning in 0.34s
+exit=1  restored=yes
+
+== MUTATION smart-link-not-rendered ==
+reverts: an inline smart link (inlineCard) prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..73f7d6e 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body4-https://example.com/pr/1]
+1 failed, 7 passed, 1 warning in 0.54s
+exit=1  restored=yes
+
+== MUTATION emoji-not-rendered ==
+reverts: an emoji prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..bbbec9c 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "inlineCard", "date", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body5-:x:]
+1 failed, 7 passed, 1 warning in 0.38s
+exit=1  restored=yes
+
+== MUTATION date-not-rendered ==
+reverts: a date prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..4608b60 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "inlineCard", "status"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body6-1764115200000]
+1 failed, 7 passed, 1 warning in 0.41s
+exit=1  restored=yes
+
+== MUTATION status-lozenge-not-rendered ==
+reverts: a status lozenge prints nothing
+file: scripts/jira_fetch.py
+mutation diff:
+diff --git a/scripts/jira_fetch.py b/scripts/jira_fetch.py
+index 66f79f3..8fc5c4b 100644
+--- a/scripts/jira_fetch.py
++++ b/scripts/jira_fetch.py
+@@ -325,7 +325,7 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
+                     parts.append(text)
+             elif child.get("type") == "hardBreak":
+                 parts.append("\n")
+-            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
++            elif child.get("type") in ("mention", "emoji", "inlineCard", "date"):
+                 attrs = child.get("attrs") or {}  # a node with no text of its own
+                 parts.append(
+                     str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+
+$ uv run pytest api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph -q -p no:cacheprovider --no-header
+GOOD  (test failed on the mutation)
+FAILED api/tests/test_jira_fetch.py::test_a_comment_keeps_text_that_is_not_a_plain_paragraph[body7-BLOCKED]
+1 failed, 7 passed, 1 warning in 0.42s
+exit=1  restored=yes
+
+round 2 summary:
+GOOD closed-record-judged-on-origin-main
+GOOD closed-brief-drops-run-from-main-checkout
+GOOD closed-brief-checks-a-record-main-never-had
+GOOD landing-commit-is-main-tip
+GOOD renames-detected-again
+GOOD paths-split-on-whitespace
+GOOD compare-trusts-any-amendment-fingerprint
+GOOD amendment-needs-no-owner
+GOOD amendment-needs-no-reason
+GOOD amendment-needs-no-destination
+GOOD amendment-needs-no-date
+GOOD unreadable-manifest-raises
+GOOD after-merge-allowed-in-any-phase
+GOOD compare-fingerprints-flattened-text
+GOOD preflight-records-flattened-fingerprint
+GOOD glob-star-crosses-slash
+GOOD segment-count-not-compared
+GOOD table-row-not-a-criterion
+GOOD table-row-reads-only-its-id-cell
+GOOD list-item-not-a-block
+GOOD criterion-ends-at-first-line
+GOOD id-heading-takes-no-body
+GOOD paragraph-criterion-swallows-next-paragraph
+GOOD heading-section-runs-past-next-heading
+GOOD document-blocks-keep-raw-whitespace
+GOOD branch-rule-back-to-cc-n-first-segment
+GOOD key-must-open-the-branch
+GOOD glued-key-not-read
+GOOD leading-zeros-kept
+GOOD key-case-sensitive
+GOOD underscore-not-a-separator
+GOOD evidence-not-a-branch-type
+GOOD untyped-branch-still-searched
+GOOD type-matched-as-prefix
+GOOD first-of-several-keys-taken
+GOOD bare-type-accepted-as-shape
+GOOD no-key-gives-no-reason
+GOOD approved-ids-need-no-row
+GOOD reapproval-excuses-its-row
+GOOD ticket-command-exits-0-without-a-key
+GOOD ci-step-back-to-cc-n-case
+GOOD ci-step-ignores-a-branch-with-no-ticket
+GOOD code-block-not-rendered
+GOOD task-item-not-rendered
+GOOD decision-item-not-rendered
+GOOD mention-not-rendered
+GOOD smart-link-not-rendered
+GOOD emoji-not-rendered
+GOOD date-not-rendered
+GOOD status-lozenge-not-rendered
+GOOD 50 / BAD 0 of 50
+
+== End state (HEAD 621f1eb before this evidence commit) ==
+$ git diff HEAD -- scripts .claude .github docs CLAUDE.md AGENTS.md | wc -c
+0
+$ git status --short
+(empty)
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+## CC-145 — One source of truth: Jira is the contract, status comes from two commands
+
+- Type: Story
+- Status: In Progress
+- Epic: CC-142
+
+### Description
+
+Why. Status lives in Jira, `STATE.md`, plan files, `.claude/PLAN.md`, the PR body, the README and Claude Code's memory, and they disagree. `STATE.md` is cut to its first 2 KB when it is delivered to a new session.
+
+`.claude/PLAN.md` has drifted from a plan into a ledger. Since 2026-09-12 (`88a0341`), `CLAUDE.md`, the playbook and `docs/slices.md` have told agents to write a "close pointer (floors met, evidence path, epic URL)" into it at every close. It now carries closure paragraphs with metrics for CC-103, CC-114, CC-125 and CC-126, baseline numbers, and lists of tickets that are Done. PLAN.md exists to manage context: it gives an agent the context it needs to start, keeps what is done to one line, and points at the Jira ticket, where the details are explained and expanded.
+
+Scope. `scripts/jira_fetch.py`, `scripts/jira_transition.py`, `scripts/closure.py`, `scripts/check_invariants.py`, one new brief script replacing `scripts/gate.sh` and `scripts/gate.ps1`, `Makefile`, `.claude/hooks/ctx.py`, `.claude/settings.json`, `.github/workflows/check.yml`, the host pointer files, the playbook and the rule files that restate status. No `api/src` change. Every criterion names the command that proves it; "(new)" marks a command this ticket creates.
+
+Acceptance criteria
+
+- AC1. `jira_fetch.py issue CC-N --md` prints the last comments, and exits non-zero with no partial ticket when Jira is unreachable. Both Jira scripts work in a fresh worktree by falling back to the main checkout's `.env`. Command: `uv run pytest api/tests/test_jira_fetch.py -q` (new).
+
+- AC2. The closure file records the criterion IDs approved at pre-flight. At the start of a phase the comparison with the Jira description fails when the IDs differ and there is no owner amendment row. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC3. One Python script prints the brief for pre-flight, implement, Gate 1, Gate 2 and the final run, keyed by ticket, and each brief opens with the two status commands. `gate.sh` and `gate.ps1` are deleted and `Makefile`, the playbook and the three host pointer files are updated. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC4. The three host pointer files say only: read `AGENTS.md`, print the brief, follow it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC5. Auto-compaction is off in the project settings. The hook no longer prints `STATE.md`, and its warning no longer tells the agent to write one. Command: `uv run pytest api/tests/test_context_hook.py -q`.
+
+- AC6. Handoff proof, before anything is deleted: in a fresh worktree, a fresh agent given only a ticket key states the approved criteria and decisions, the commit tested, which evidence is stale or missing, and the next permitted step, once for an in-progress ticket and once for a closed one. Command: the two status commands; the agent's two replies are saved as evidence.
+
+- AC7. After AC6: the two `STATE.md` files and the plan files under `evidence/` are deleted on `main` (`evidence/slice-6/cc-138/plan.md` is renamed and its two closure paths updated). Status and plan wording is removed from the playbook, `AGENTS.md`, `.claude/PLAN.md`, `docs/slices.md`, `docs/ARCHITECTURE.md`, `README.md`, `.cursor/rules/00-guardrails.mdc`, `docs/playbooks/review-pr.md`, `CLAUDE.md` and the two `.github` files. "When unsure: stop and ask" stays. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC8. Two offline checks: a `STATE.md` or plan file under `evidence/` fails; status words or metric numbers in `.claude/PLAN.md` or `docs/slices.md` fail. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC9. CI runs the offline closure check for the ticket named in the branch. Command: the `check` workflow on the PR.
+
+- AC10. Each auto-memory rule is moved into a repo rule file or deleted, and auto-memory is off in the project settings. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC11. Prescriptive docs end at or under 1820 lines; no budget is raised. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC12. The owner receives a list of worktrees that still serve the old host files; none is removed without the owner naming it. Command: `git worktree list`.
+
+- AC13. The closure file also records a fingerprint (sha256) of the approved criteria text. The phase-start comparison fails when the criteria text in Jira no longer matches it and there is no owner amendment row, even if the IDs are unchanged. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC14. When the change under review touches a prescriptive rule file (the files counted by the documentation budget), the Gate 2 brief adds an instruction to read all of those files and list any contradictions between them. The script decides this from the change itself. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC15. One rule file, and no other, states the relationship: `.claude/PLAN.md` holds the plan (slice order, scope, what is not in each slice, and why) and the context an agent needs to start; it mentions finished work only as one line that links the Jira ticket, with no numbers, dates of closure or evidence paths; Jira alone says whether a ticket is open or done and holds its details. `CLAUDE.md`, `AGENTS.md`, `docs/slices.md` and the playbook point to that rule instead of restating it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC16. No rule file asks for a close pointer, floors or numbers in `.claude/PLAN.md`. At close, numbers and evidence links go to the Jira ticket only, and `.claude/PLAN.md` changes at most to the one-line link of AC15. On `main`, the existing closure paragraphs, baseline numbers and Done lists in `.claude/PLAN.md` are reduced to one-line Jira links. An `evidence/` path in `.claude/PLAN.md` fails the offline check. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+
+Test cases
+
+- TC1. A new `evidence/slice-9/cc-999/STATE.md` fails the invariant check.
+
+- TC2. A metric number added to `.claude/PLAN.md` fails the invariant check.
+
+- TC3. With Jira unreachable, `jira_fetch.py` exits non-zero and prints no ticket text.
+
+- TC4. A criterion ID added in Jira without an amendment row fails the phase-start comparison.
+
+- TC5. `make check` passes after the deletions, including the CC-138 closure file.
+
+- TC6. A criterion reworded in Jira with its ID unchanged fails the phase-start comparison.
+
+- TC7. The Gate 2 brief contains the contradiction instruction for a change that touches `CLAUDE.md` and omits it for a change that touches only `api/src`.
+
+- TC8. A closure line for a ticket that carries an `evidence/` path, added to `.claude/PLAN.md`, fails the invariant check; the same line reduced to the ticket key and its Jira link passes.
+
+
+Final run. Not required: no `api/src`, `evals/` or run-harness change (acceptance-gate ticket CC-143, AC11).
+
+Decisions (owner, 2026-11-24)
+
+- Old `STATE.md` and plan files are deleted after the handoff proof; git keeps them.
+
+- Auto-memory is switched off once its rules are in the repo.
+
+- Only the owner edits a ticket description; agents comment.
+
+- AC13, AC14, TC6 and TC7 were added on the owner's instruction before pre-flight: the comparison covers criteria text as well as IDs, and a rule-file change triggers a contradiction read.
+
+
+Decisions (owner, 2026-11-26)
+
+- `.claude/PLAN.md` is the plan; Jira is the only source of status. PLAN.md links to Jira for status and holds no status of its own. Earlier closes polluted it; the intent is to manage context by giving an agent the context it needs, keeping what is done to one line, and pointing at the ticket where the details are explained and expanded.
+
+- AC15, AC16 and TC8 were added on the owner's instruction before pre-flight. The edit was made by an agent at the owner's request in the session.
+
+### Last 1 comment(s), oldest first
+
+#### 2026-11-26T14:24:26.277-0600 — John Hill Escobar
+
+Pre-flight done (2026-11-26), branch cc-145/one-source at b6559fd, not pushed. Record: evidence/slice-6/cc-145/preflight.txt; approved criteria: evidence/closure/CC-145.toml (24 IDs AC1-AC16, TC1-TC8; criteria fingerprint c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f).
+
+Owner decisions (chat, 2026-11-26):
+- AC8 rule: a file under evidence/ named STATE.md, plan.md or *-plan.md fails (cc-138/plan.md renamed to cc-138/scope-record.md). In .claude/PLAN.md and docs/slices.md a Jira status name (Done, To Do, In Progress) or "closed" as a whole word fails, and so does a decimal number; integer targets stay as plan scope. The slices.md board loses its status column.
+- The budgets.toml exception/waiver route stays unchanged, so a ticket can close with an owner-excepted red metric (e.g. p95).
+- AC9: CI runs closure.py check --pre-merge for the ticket in the branch name.
+- AC10 is open for discussion with the owner; no memory file is moved or deleted yet.
+
+Defaults (revertible): the two status commands are jira_fetch.py issue CC-N --md and closure.py check evidence/closure/CC-N.toml --pre-merge; AC6 uses CC-145 (in progress) and CC-144 (closed).
+
+Correction to the description: SessionStart hook output is capped at 10,000 characters (code.claude.com docs/en/hooks.md), not 2 KB; past the cap, the hook output is replaced by a file path and a 2,000-character preview.
+exit=0
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+  BLOCKED  AC1: NOT RUN blocks closure
+  BLOCKED  AC2: NOT RUN blocks closure
+  BLOCKED  AC3: NOT RUN blocks closure
+  BLOCKED  AC4: NOT RUN blocks closure
+  BLOCKED  AC5: NOT RUN blocks closure
+  BLOCKED  AC6: NOT RUN blocks closure
+  BLOCKED  AC7: NOT RUN blocks closure
+  BLOCKED  AC8: NOT RUN blocks closure
+  BLOCKED  AC9: NOT RUN blocks closure
+  BLOCKED  AC10: NOT RUN blocks closure
+  BLOCKED  AC11: NOT RUN blocks closure
+  BLOCKED  AC12: NOT RUN blocks closure
+  BLOCKED  AC13: NOT RUN blocks closure
+  BLOCKED  AC14: NOT RUN blocks closure
+  BLOCKED  AC15: NOT RUN blocks closure
+  BLOCKED  AC16: NOT RUN blocks closure
+  BLOCKED  TC1: NOT RUN blocks closure
+  BLOCKED  TC2: NOT RUN blocks closure
+  BLOCKED  TC3: NOT RUN blocks closure
+  BLOCKED  TC4: NOT RUN blocks closure
+  BLOCKED  TC5: NOT RUN blocks closure
+  BLOCKED  TC6: NOT RUN blocks closure
+  BLOCKED  TC7: NOT RUN blocks closure
+  BLOCKED  TC8: NOT RUN blocks closure
+CLOSURE BLOCKED: 24 problem(s)
+exit=1
+
+$ uv run pytest api/tests/test_brief.py api/tests/test_jira_fetch.py api/tests/test_closure_gate.py api/tests/test_process.py api/tests/test_invariants.py api/tests/test_context_hook.py -q -rs
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+...............................................................          [100%]
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_the_approved_criteria_pass
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+423 passed, 1 warning in 129.11s (0:02:09)
+exit=0

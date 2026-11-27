@@ -1,0 +1,28 @@
+CC-145 U1 (gate2-cold.txt), live and read-only, 2026-11-27T01:07:09Z, HEAD 1045f94
+$ uv run python <scratchpad>/u1_live.py  (source below)
+CC-144: 5 comments; oldest 2026-11-26T11:09:21.780-0600; newest 2026-11-26T12:56:36.287-0600
+  _comments(3) created: ['2026-11-26T11:25:17.662-0600', '2026-11-26T12:41:00.709-0600', '2026-11-26T12:56:36.287-0600']
+  newest 3, oldest first: ['2026-11-26T11:25:17.662-0600', '2026-11-26T12:41:00.709-0600', '2026-11-26T12:56:36.287-0600']
+  MATCH
+CC-145: 1 comments; oldest 2026-11-26T14:24:26.277-0600; newest 2026-11-26T14:24:26.277-0600
+  _comments(2) created: ['2026-11-26T14:24:26.277-0600']
+  newest 2, oldest first: ['2026-11-26T14:24:26.277-0600']
+  MATCH
+
+--- u1_live.py
+"""U1, live and read-only: do the last N comments jira_fetch prints equal the newest N, oldest first?"""
+
+import sys
+
+sys.path.insert(0, "scripts")
+import jira_fetch as jf  # noqa: E402
+
+jf.load_env()
+for key, n in (("CC-144", 3), ("CC-145", 2)):
+    every = jf._api("GET", f"/issue/{key}/comment?maxResults=100").get("comments", [])
+    created = sorted(c["created"] for c in every)
+    last = [c["created"] for c in jf._comments(key, n)]
+    print(f"{key}: {len(every)} comments; oldest {created[0]}; newest {created[-1]}")
+    print(f"  _comments({n}) created: {last}")
+    print(f"  newest {n}, oldest first: {created[-n:]}")
+    print("  MATCH" if last == created[-n:] else "  MISMATCH")

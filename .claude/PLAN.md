@@ -1,52 +1,38 @@
 # PLAN — census-concierge
 
-Execution order. What and why: `.claude/DESIGN.md`. What runs:
-`docs/ARCHITECTURE.md`. Board and closed-slice STATUS: `docs/slices.md`.
-Jira is the status source of truth.
+This file is the plan: slice order, each slice's scope, what is not in it and why, and the context
+an agent needs to start. Finished work appears only as one line that links its Jira ticket, with
+no numbers, closing dates or evidence paths. Jira alone says whether a ticket is open or finished,
+and holds its details, numbers and evidence links. `check_invariants.py` enforces this file's rule.
+What and why: `.claude/DESIGN.md`. What runs: `docs/ARCHITECTURE.md`. Board: `docs/slices.md`.
 
 ## Rules
 
 1. **Slices ship in order.** Nothing in slice N+1 starts until N is demoed.
-   CC-91 (residual reliability) is the exception: it does not block CC-11.
 2. Each open slice has a **Not in this slice** list. That list is the point.
-3. **Done means a user got an answer.** Quote `make demo`. Tests are not done.
-4. A budget raise is a human commit with a reason in `budgets.toml`.
-5. **A spike is not a slice.** Timeboxed, throwaway branch, written decision.
+3. A budget raise is a human commit with a reason in `budgets.toml`.
+4. **A spike is not a slice.** Timeboxed, throwaway branch, written decision.
 
-Closed: slices 0–5 (CC-8, CC-1, CC-5, CC-2, CC-11, CC-6), the CC-9 spike
-(direct psycopg, DESIGN §9), the harness epic (CC-4) and CC-91. Do not re-open
-them. What each shipped and its evidence: `docs/slices.md`. Per-ticket numbers
-live in Jira and `evidence/`, never here.
+Finished, do not re-open: slices 0–5 ([CC-8](https://johnhillescobar.atlassian.net/browse/CC-8), [CC-1](https://johnhillescobar.atlassian.net/browse/CC-1), [CC-5](https://johnhillescobar.atlassian.net/browse/CC-5), [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2), [CC-11](https://johnhillescobar.atlassian.net/browse/CC-11), [CC-6](https://johnhillescobar.atlassian.net/browse/CC-6)), spike [CC-9](https://johnhillescobar.atlassian.net/browse/CC-9), harness [CC-4](https://johnhillescobar.atlassian.net/browse/CC-4), [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91).
 
 ---
 
 ## Now
 
-Slice 6 ([CC-3](https://johnhillescobar.atlassian.net/browse/CC-3)) is current.
-Baseline: CC-38 post-merge on main, geography-level scorer, long_tail
-answered_rate 0.742, p95 21.701s (`evidence/slice-5/cc-38-e2e-post.txt`).
-CC-77 is a phase 1 intermediary epic (see its section below); its breadth
-stories run alongside slice 6, while CC-120 now belongs to CC-3 and measures
-their URL breadth. Its crosswalk children are unscheduled.
+Slice 6 ([CC-3](https://johnhillescobar.atlassian.net/browse/CC-3)) is current. CC-77 is a phase 1 intermediary epic (its section below);
+its breadth stories run alongside slice 6, while CC-120 belongs to CC-3 and measures their URL
+breadth. Its crosswalk children are unscheduled.
 
-CC-103 closed: tract grid 47/48 post-merge, long_tail answered 0.733/0.750, demo p95 21.701s then 18.928s (ceiling missed in run 1, closed by owner; p95 work continues). `evidence/slice-6/cc-103-e2e-post-*`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
+Finished in slice 6: [CC-102](https://johnhillescobar.atlassian.net/browse/CC-102), [CC-103](https://johnhillescobar.atlassian.net/browse/CC-103), [CC-113](https://johnhillescobar.atlassian.net/browse/CC-113), [CC-114](https://johnhillescobar.atlassian.net/browse/CC-114), [CC-116](https://johnhillescobar.atlassian.net/browse/CC-116), [CC-117](https://johnhillescobar.atlassian.net/browse/CC-117), [CC-120](https://johnhillescobar.atlassian.net/browse/CC-120), [CC-121](https://johnhillescobar.atlassian.net/browse/CC-121), [CC-123](https://johnhillescobar.atlassian.net/browse/CC-123), [CC-125](https://johnhillescobar.atlassian.net/browse/CC-125), [CC-126](https://johnhillescobar.atlassian.net/browse/CC-126), [CC-133](https://johnhillescobar.atlassian.net/browse/CC-133), [CC-141](https://johnhillescobar.atlassian.net/browse/CC-141).
 
-CC-114 closed by owner 2026-11-09 with the floors unmet: post-merge E2E on main 69d7364 long_tail answered 0.683 (floor 0.700), demo p95 25.472s (ceiling 20). Remaining misses are owned by CC-131/128/134/104/106/129/133/132 and p95 by CC-127. `evidence/slice-6/cc-114/e2e-post/`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
-
-CC-125 closed: 3s client rerank cap on main 989f2b4. Post-merge long_tail answered 0.733, selector @1 0.725, demo p95 20.714s (ceiling 20). `evidence/slice-6/cc-125/`, epic [CC-124](https://johnhillescobar.atlassian.net/browse/CC-124).
-CC-126 closed 2026-11-23: hedged Census GET on main 9a36dff. Post-merge long_tail answered 0.717, selector @1 0.750, grid 0.986, demo p95 20.560s judged on CC-127. `evidence/slice-6/cc-126/`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
 ---
 
 ## Slice 6 — Grounded understanding, structured intent and follow-ups (CC-3)
 
 Owner direction (2026-11-08): model-owned structured intent, no downstream prose heuristics or legacy fallbacks. DESIGN §5/§8 defines the target; Jira owns live scope/status. No new budgets.
-**CC-114 correction:** Owner direction (2026-11-08) is to remove/revert the entire previously delivered CC-114 implementation because it worked around the issues and could fail silently. Do not preserve its added fields, substitution guard, goldens/scorer changes, tests or fallback behavior as the foundation for the fix. Rebuild against the original AC/TC and evidence; missing/invalid intent must be surfaced for explicit bounded repair or as unsupported, never hidden by silent substitution or refusal. This does not add a retroactive 95/98% target or restart unrelated classification. Metro reach remains CC-106; deferred candidates remain CC-131.
-**Instrument first:** CC-133 owns early oracle/cohort freezes, B/P/A/L baselines and automated AC/TC enforcement, split from CC-132. Record the pre-rollback main baseline, then establish a post-rollback, pre-fix anchor before corrected CC-114 implementation or migration shipping; neither baseline treats workaround behavior as an earned correctness floor. CC-132 owns final certification only. CC-102/103/113/116/117/120/121/123 are Done.
 
 | Story | Required owned outcome (in addition to inherited gates) | Prerequisites |
 |---|---|---|
-| CC-114 | Remove/revert the prior workaround implementation; rebuild against original AC/TC with no silent substitution, fallback or masked failure | CC-133 pre-fix anchor |
-| CC-133 | 100% measurement/manifest/isolation-harness AC/TC; freeze pre-rollback baseline and post-rollback, pre-fix anchor; no claimed product gain | — |
 | CC-104 | 100% isolation; >=95% currently-supported geography intent | CC-114, CC-133 |
 | CC-106 | >=95% new published level + entity selection | CC-104 |
 | CC-119 | >=95% exact parent chains across vintages | CC-106 |
@@ -67,10 +53,9 @@ Owner direction (2026-11-08): model-owned structured intent, no downstream prose
 
 **Progression:** freeze each owned cohort before implementation (>=30 independent families for stochastic cohorts); meet targets in both repeat-3 case and trial rates. All deterministic AC/TC fixtures pass 100%. If baseline is below target, meet it with positive paired improvement (95% lower bound >0); if already above, preserve it. These are requirements, not predicted gains. Previously earned floors never reset.
 **No regression:** compare candidate P against same-window main B, the post-rollback/pre-fix anchor A and latest accepted post-merge L on identical supported cohorts/hashes/settings. Protected: long_tail answers, retrieval@10, selector@1, response compliance, supported coverage and earned categories. The rule is `[rule]` in `evals/metric_protocol.toml`, ratified by the owner (CC-143) and run by `scripts/metric_compare.py`: pooled P runs are judged against pooled same-window B and the fixed anchor L; a noisy rate fails only past its tolerance there, and a named hard failure blocks whatever the rates did. A and A0 are reported, never blocking. Do not count prior workaround behavior as an earned correctness floor. Unknown or inconclusive means not cleared. Retain all runs, never rerun until green; a red post-merge row follows the three steps in run-slice.md. Scorer changes get an unchanged-code old/new bridge; CC-42 re-anchoring cannot erase A or earned floors. Post-merge main must pass the same gates before becoming L. No cherry-picked high watermark or shrinking denominators.
-**Latency:** actual full-run demo.p95 <=20s, no observed worsening against comparable B/A/L, plus specific caps; report uncertainty/work/failures without censoring outages or rewarding faster failures. Existing over-ceiling baselines remain blockers absent explicit run-specific owner waivers. CC-125 and CC-126 are closed. The 20s ceiling is judged on CC-127 and is not a current-slice prerequisite. Diagnose a failing baseline before feature work; any scheduling/budget decision remains explicit.
+**Latency:** actual full-run demo.p95 <=20s, no observed worsening against comparable B/A/L, plus specific caps; report uncertainty/work/failures without censoring outages or rewarding faster failures. Existing over-ceiling baselines remain blockers absent explicit run-specific owner waivers. The 20s ceiling is judged on CC-127 and is not a current-slice prerequisite. Diagnose a failing baseline before feature work; any scheduling/budget decision remains explicit.
 **Final gate:** DESIGN §8/CC-132 also require >=95% overall confidence lower bound, >=200 independent families per regression AND sealed suite, >=30/category, and supported determinate coverage >=95%/accuracy >=98%. Interpretation and semantic end-to-end answers are scored separately. No blanket refusal or unavailable-data invention. Targets are not present performance guarantees.
-**Every close:** all AC/TC verified PASS with head/input evidence and mutations where required; Gate 2 verifies, post-merge E2E precedes Done. Only explicit dated owner amendments remove scope. Apply the canonical run-slice matrix; `scripts/closure.py` enforces it at Done.
-Retain leakage protection, frozen dev/regression/sealed rules, one permitted sealed close look and gap <=10 points; never read sealed/E2E transcripts. Existing absolute quality floors and three-turn trial rate >=single-turn long_tail minus 10 points remain. Historical >=0.712 single-turn floor applies until CC-42 re-anchor, without weakening the new cumulative checks.
+Retain leakage protection, frozen dev/regression/sealed rules, one permitted sealed close look and gap <=10 points; never read sealed/E2E transcripts. Existing absolute quality floors and three-turn trial rate >=single-turn long_tail minus 10 points remain. The historical single-turn long_tail floor applies until CC-42 re-anchor, without weakening the new cumulative checks.
 **Not in slice:** auth/PDF, new product families, general clipped crosswalk/allocation, saved derived datasets, regression/correlation. CC-122 is limited to bounded operations.
 
 ---
@@ -86,7 +71,7 @@ CC-11 foundations shipped. CC-118/82 run alongside slice 6 using the table above
 Write to object storage; signed URL. The container filesystem is ephemeral.
 Every API URL in the document.
 
-**Done when:** you download a document you would attach to a grant report.
+**Ships when:** you download a document you would attach to a grant report.
 
 ---
 
@@ -97,7 +82,7 @@ index asset. Spend cap and Langfuse in the complete/dispatch path (CC-48).
 Stateless workers; the read-only index is the sanctioned module-state
 exception.
 
-**Done when:** someone who is not you logs in and answers a real question.
+**Ships when:** someone who is not you logs in and answers a real question.
 
 ---
 
@@ -105,7 +90,9 @@ exception.
 
 Do not plan this yet. Later, with usage data: clarification only where the
 demo suite requires it, more datasets, GeoJSON export. (CC-77 is not here: it
-is a phase 1 intermediary epic, above.)
+is a phase 1 intermediary epic, above.) Phase 2, after slice 8, is a conversation over agent
+state: cross-region calculations, regression and correlation. Its foundations are decided in
+`.claude/DESIGN.md` §9 ("Phase 2 foundations"); build none of it before slice 8.
 
 ## Every PR
 
@@ -115,6 +102,6 @@ is a phase 1 intermediary epic, above.)
 - URL, MOE, GEOID, universe still on every response path.
 - No new blocking clarification prompt.
 - Every in-scope AC/TC is cleared in the PR/Jira evidence matrix before shipping;
-  post-merge E2E is recorded before Done. No unverified requirement is a pass.
+  post-merge E2E is recorded before the ticket closes. No unverified requirement is a pass.
 - `docs/ARCHITECTURE.md` updated if the shape changed.
 - Under ~15 files, or an explanation why not.

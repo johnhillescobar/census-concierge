@@ -1,0 +1,388 @@
+GATE 2, PASS 2 (project invariants, docs/playbooks/review-pr.md) - RE-RUN ON THE FIX COMMITS
+==========================================================================================
+
+Reviewer        : general-purpose agent "Gate 2 invariants pass", no caller history (the one
+                  permitted re-run, run-slice.md section 5)
+Written         : 2026-11-26
+Repository      : C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145
+Branch          : feat/cc-145-one-source (not pushed: `git ls-remote --heads origin feat/cc-145-one-source
+                  cc-145/one-source` is empty)
+Review base     : 556947b (the code the first Gate 2 read; origin/main = merge base = ab4c27d)
+Review head     : c5b91c1282dd9c326b8a513326f0ce98849b5e34 (HEAD at start and at end of this pass)
+git status --short at start : (empty)
+Pass 1 of this re-run (generic bugs, cold): evidence/slice-6/cc-145/gate2-cold-r2.txt (committed in
+                  c5b91c1, read at 7949261). Not repeated here; its findings F1-F11 are cited by id.
+First round     : gate2-cold.txt (M1-M4, L1-L6, N1-N3, U1, at 1f38280) and gate2.txt (G1, C1-C8, at
+                  702f2a6). Fix map and owner decisions: gate2-fixes.txt. Mutation check of the fix
+                  tests: gate2-fixes-mutations.txt (50 of 50 caught after 621f1eb tightened 6 tests).
+Not read        : E2E transcripts, sealed eval sets (none exist for this ticket; none were opened).
+Nothing was written to Jira. No product, rule, script or test file was changed. Only this file is added.
+
+
+STATUS (the brief's two commands, and the brief)
+------------------------------------------------
+$ uv run python scripts/brief.py gate2 CC-145
+  exit 0. Prints the two status commands, the two-pass order, "Capture raw output to
+  evidence/slice-6/cc-145/gate2.txt", and the contradiction instruction naming the 12 rule files the
+  branch touches against origin/main. With --base 556947b it names the 6 the fix range touches
+  (00-guardrails.mdc, 10-api-python.mdc, 40-census-domain.mdc, CLAUDE.md, run-slice.md, requirements.md).
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+  Story, In Progress, epic CC-142. AC1-AC16, TC1-TC8; owner decisions 2026-11-24 and 2026-11-26 in the
+  description. Last 1 comment: the 2026-11-26 pre-flight comment (branch named there: cc-145/one-source
+  at b6559fd; 24 ids, fingerprint c38c9650...; "AC10 is open for discussion with the owner").
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+  BLOCKED AC1..AC16, TC1..TC8: NOT RUN blocks closure.  CLOSURE BLOCKED: 24 problem(s)   exit 1
+$ uv run python scripts/brief.py preflight CC-145      -> exit 0, no STOP (live criteria match the
+                                                            approved ids and c38c9650... at this head)
+$ uv run python scripts/closure.py ticket feat/cc-145-one-source  -> CC-145, exit 0
+
+Approved criteria: AC1-AC16, TC1-TC8, sha256 c38c9650..., no [[amendment]] rows. Fix-range commits:
+f029b69 (scripts, CI, tests), 621f1eb (tests), 0fbd08f (evidence), 7949261 (rule prose), c5b91c1
+(evidence). Owner decisions recorded in gate2-fixes.txt:6-27 (requirements state the product wanted;
+the ambiguous/unclear-level rule; branch rule; closed tickets stay closed; no Jira writes until the
+epic closes; candidates wording). They are the owner's; only their consequences are reported below.
+Next permitted step per run-slice.md section 5: this was the one re-run; "Stop after one re-run;
+still fix what it finds." Every finding below gets a fix with tests and a mutation check, and no
+third Gate 2.
+
+
+MACHINES (review-pr.md, in order, at c5b91c1, from PowerShell)
+---------------------------------------------------------------
+$ uv run python scripts/check_budgets.py
+  all structural rows ok; doc lines 1799 <= 1820; excpt p95 26.335 (CC-140), selector_at_1 0.425
+  (CC-149), answered_rate 0.675 (CC-148), all owner-approved. "All budgets met (3 excepted by the
+  owner)."  exit 0
+$ uv run python scripts/check_invariants.py --base origin/main
+  21 rows ok, incl. "closure manifests", "status or plan files", "status in PLAN.md and slices.md",
+  "blocking clarification", "budget increases", "protocol weakened"; info api/src regex call sites 55
+  (base 55, delta +0). "All invariants held."  exit 0
+$ uv run ruff check .              -> All checks passed!                           exit 0
+$ uv run ruff format --check .     -> 318 files already formatted                  exit 0
+$ uv run mypy api/src              -> Success: no issues found in 30 source files  exit 0
+$ uv run pytest -q -m "not integration" -p no:cacheprovider
+  2275 passed, 34 skipped, 8 xfailed, 1 warning in 460.92s (0:07:40)            exit 0
+  (`(Get-Command bash).Source` = C:\windows\system32\bash.exe, the WSL launcher G1 named.)
+  $ uv run pytest -q api/tests/test_process.py -k "ci or closure_step or branch" -rs
+    7 passed, 30 deselected (no skip: the CI-step tests ran, on Git Bash found by working_bash)
+Also run, so TC5 (make check) has head evidence; the rest of the recipe is the machines above:
+$ npm --prefix web ci              -> exit 0
+$ npm --prefix web test            -> Test Files 9 passed (9), Tests 112 passed (112)   exit 0
+$ npm --prefix web run typecheck   -> tsc --noEmit                                       exit 0
+$ uv run python scripts/generate_client.py --check -> packages/client is up to date.     exit 0
+`git diff --stat origin/main...HEAD -- api/src evals budgets.toml web` is empty.
+
+
+THE CLAIM
+---------
+Unchanged from gate2.txt: harness work, not a feature; no product user can do anything new. No
+make eval / make demo is owed (no api/src, evals/ or run-harness file; CC-143 AC11) and none is
+claimed. The fix range adds one product-facing change in prose only (7949261: the ambiguous-place
+and candidates rules), which is the owner's decision and changes no code.
+
+
+SCOPE
+-----
+Fix range 556947b..c5b91c1: 19 files, 3 of them evidence; 16 code, test and rule files, a little over
+~15, explained file by file in gate2-fixes.txt. Branch total against origin/main: 60 files (the first
+pass accepted 54 with the reason in preflight.txt). Nothing outside the first round's findings and
+the owner's decisions was added, except 7949261's rule prose, which carries the owner's candidates
+decision (gate2-fixes.txt:18-27) into four rule files and is in scope as the C1 fix.
+
+
+SILENT-WRONG-ANSWER REVIEW
+--------------------------
+No response path, URL builder, CensusURL use, guard or model call is in the diff (api/src untouched).
+No code-level finding. Documentation level: the contract now says an ambiguous or unclear-level
+question gets no URL, no search and no candidates, while the live code searches, guesses a state,
+builds the URL and fetches (gate2-cold-r2.txt F5, run at 7949261 with fakes: Cook County -> state 17).
+The owner decided requirements state the product wanted, so the gap is intended; what is missing is
+any marker that the rule is a target and which ticket ships it (see C1 below). A reviewer applying
+the catalog to the next /ask change cannot tell a target from a description.
+
+
+SHAPE
+-----
+No new tool, route, Pydantic model or graph node. New public functions in scripts/closure.py
+(criteria_blocks, branch_ticket, amendment_problems, a `ticket` subcommand) and scripts/brief.py
+(landed_at); each has two callers or is called by CI. docs/ARCHITECTURE.md was updated for the new
+`ticket` subcommand in the same range.
+
+
+TESTS
+-----
+Four test files changed; gate2-fixes-mutations.txt: round 1 GOOD 44 / BAD 6 of 50, the 6 tightened
+in 621f1eb, then 50 of 50 caught. No ticket-named test (invariant row ok). Two gaps the mutation
+check could not see, because they are about the inputs the tests use, not the assertions:
+- test_brief.py doc() builds one paragraph per line, a shape no real Jira description in the repo
+  has; the four real ADF fixtures (api/tests/fixtures/gate_wording/CC-104.*, CC-105.*) are never fed
+  to criteria_blocks. That is why F1 passed every test (CLAUDE.md trap: a fake input shape that
+  the real system does not produce tests nothing).
+- test_brief.py asserts on the brief's wording ("stays closed", "close comment is the record"). The
+  brief is agent instruction text, not the product prompt; the "prompt assertions" invariant is
+  green. Accepted as the first pass accepted the rule-file wording asserts, with the same cost.
+
+
+FIRST-ROUND FINDINGS: DOES THE FIX HOLD? (held / partial / regressed)
+=====================================================================
+gate2-cold.txt
+M1  REGRESSED. The fingerprint now covers whole blocks for the shapes the tests build (list item with
+    sub-items, table row with the id in the first cell, id heading and its section, hard break with
+    the id first), and CC-145's own description (list items) still yields c38c9650... (preflight exit
+    0 above). But for a description stored as one paragraph whose first line is a lead-in
+    ("Acceptance criteria\nAC1. ...") no block qualifies and the fingerprint is sha256(""), whatever
+    the criteria say; at 556947b the same document was fingerprinted line by line. All four real Jira
+    fixtures in the repo have that shape (gate2-cold-r2.txt F1, high). Also F6 (a criterion's own
+    following list, code block or table, a sub-heading, an id in a later table cell: not hashed) and
+    F9 (date, link card and status nodes not hashed). AC13 and TC6 rest on this.
+M2  HELD, to the owner's rule (gate2-fixes.txt:12-13). check.yml now calls `closure.py ticket`; the
+    type list plus one CC key anywhere after it; this branch maps to CC-145; the CI step is tested
+    under bash -e with uv stubbed. Consequences of the rule, for the owner (gate2-cold-r2.txt F4):
+    56 of the last 60 merged PR branches would be red, including 11 housekeeping branches, while
+    CLAUDE.md:107 says housekeeping commits need no ticket and no rule file says what branch a
+    housekeeping PR uses; budget/ (the owner's own budget PRs) is not a listed type; a ticket with
+    no manifest is red with a FileNotFoundError row; all 8 branches on origin today are red,
+    including cc-104/structured-geography and cc-118/variable-limit. F11: a superscript digit makes
+    `ticket` raise a traceback (still red). The multi-PR half (M2c) is the open owner question (C5).
+M3  HELD. closure.problems wants every approved id (test_the_readiness_check_requires_every_id_
+    approved_at_pre_flight). Neighbouring gap, not a regression: an id the owner adds by amendment
+    after pre-flight is never required, so CI is green with no row for it (gate2-cold-r2.txt F3).
+M4  PARTIAL, and this branch breaks it for one ticket. Re-run here: each closed manifest judged at
+    the commit that last changed it on HEAD (what main will be after the merge):
+      CC-125 6738e4f, CC-126 450bc25, CC-133 3e0dbc4, CC-141 f49c910, CC-143 f4a325a, CC-144 72d63ea:
+      CLOSURE OK
+      CC-138: on origin/main it lands at cab85d6 (CLOSURE OK per gate2-cold-r2.txt); on this branch
+      the last change is 9bdd13f (this ticket's rename of cc-138/plan.md), and
+      `closure.py check evidence/closure/CC-138.toml --head 9bdd13f` ->
+      BLOCKED AC2.1, AC3, TC2, TC3: stale ... since 89396f4. CLOSURE BLOCKED: 4 problem(s)  exit 1
+    So once this branch merges, the closed-ticket brief reports four stale rows on closed CC-138.
+    By the owner's rule (gate2-fixes.txt:14-16) that is a degradation this branch causes and must
+    fix. F2(b) also stands: the brief says to run the check from a checkout of main, so `affects`
+    paths and evidence hashes are read at main's tip, not at the landing commit.
+L1  HELD for renames and spaces (--no-renames -z, two tests). New edge (gate2-cold-r2.txt F7, low):
+    on Windows, a changed path with non-cp1252 UTF-8 bytes makes brief.py gate2 crash (fails closed).
+L2  PARTIAL. codeBlock, taskItem, decisionItem, mention, inlineCard, emoji, date and status are now
+    rendered. Still "(empty)" or unreadable: blockCard, embedCard (a pasted PR link), an emoji or
+    mention with no text attr, a date as epoch ms (F10). The disagreement L2 named between the view
+    and the fingerprint remains for attrs-only nodes (F9).
+L3  NOT CHANGED, owner's rule. Consequence unchanged: "fails closed", "AC6.2", "Python 3.12", the
+    `--done` flag fail the PLAN.md/slices.md check; "finished", "In Review", "Won't Do", "74%" pass.
+    PLAN.md itself uses "Finished" (lines 16, 26) under AC15's one-line allowance.
+L4  NOT CHANGED, owner's rule. state.md, status.md, handoff.md, STATE.txt under evidence/ pass;
+    origin/cc-104 and origin/cc-118 carry plan/STATE files that go red when they merge main.
+L5  HELD. brief.compare accepts only a complete amendment; an amendment with criteria_sha256 removes
+    no row. See F3 for the id that such an amendment adds.
+L6  HELD. Segment-by-segment match; nothing found by the cold re-run.
+N1  NOT CHANGED, by decision (harmless).
+N2  HELD (STOP with the TOML reason, tested).
+N3  HELD (argparse error outside final, tested).
+U1  SETTLED, evidence thin. gate2-fixes.txt:80-81 records a live read of CC-144 (5 comments; the
+    newest three, oldest first). That line is a summary written by the fixer; no raw command output is
+    on disk, and test_jira_fetch.py's fake still returns the same list for any query, so nothing in
+    the repo would catch a regression in the ordering. Enough for the fact today; not a re-runnable
+    proof for AC1.
+
+gate2.txt
+G1  HELD. working_bash() probes that the environment passes through and falls back to Git Bash.
+    Full pytest from PowerShell (where `bash` is C:\windows\system32\bash.exe): 2275 passed, 0
+    failed, exit 0; the CI-step tests ran rather than skipped (7 passed, no skip, above).
+C1  PARTIAL. The owner's rule is now stated consistently in CLAUDE.md (Geography; Alternatives; Do
+    not), docs/requirements.md (Geography completeness; Alternatives; ambiguous_place),
+    40-census-domain.mdc, 10-api-python.mdc:219-220 and 00-guardrails.mdc:61-63. Not reconciled (see
+    the contradiction read, K1-K4): .claude/DESIGN.md section 3.2 and section 4, which DESIGN itself says
+    must be reversed "in the same commit", docs/ask-path.md (live behaviour), the warning code the
+    shared-name case carries, and "unclear level". Nothing marks the rule as a target or names the
+    ticket that ships it.
+C2  HELD. The "Known limit (owner, 2026-10-25)" sentence is removed, so requirements.md no longer
+    contradicts itself on a county named without its state. Consequence: the code still behaves as
+    that sentence said (F5), and the only record of the gap was that sentence.
+C3  HELD. .claude/PLAN.md:3-6 is the one statement; run-slice.md:127-128 and 00-guardrails.mdc:71-72
+    now point at it ("where status lives ... `.claude/PLAN.md`, top"); CLAUDE.md, AGENTS.md and
+    slices.md point at "the rule at its top". Nit: .claude/skills/run-slice/SKILL.md's frontmatter
+    description says "state comes from Jira and the closure file"; it is a skill trigger, not a rule.
+C4  NOT CHANGED, by decision (ask-path.md:3 "(CC-2 Done)" is outside the two checked files).
+C5  NOT CHANGED, open owner question (one or more PRs per slice vs every row PASS per PR).
+C6  NOT CHANGED, pre-existing (30-evals-and-tests.mdc:92 "baseline after it is 0.742").
+C7  NOT CHANGED, pre-existing; see new finding I1, where it now bites the brief.
+C8  NOT CHANGED, pre-existing (10-api-python.mdc:162 route ownership in PLAN.md).
+
+
+NEW IN THIS PASS (not in gate2-cold-r2.txt)
+-------------------------------------------
+I1  LOW. The Gate 2 brief has no re-run form. At this re-run `brief.py gate2 CC-145` still says
+    "Capture raw output to evidence/slice-6/cc-145/gate2.txt" and names gate2-cold.txt for the bug
+    pass; both files hold the first round. Followed literally, the brief overwrites first-round
+    evidence, against run-slice.md:168-169 ("Preserve earlier evidence before reruns and link both
+    runs"). The caller had to override the names (-r2). Where: scripts/brief.py:142, :173-181.
+I2  INFO. The AC12 list (ac12-worktrees.txt, at 1794e8d) is stale against `git worktree list` now:
+    .worktrees/cc145-independent-review (detached at f029b69) is not in it, and cc-145-proof is at
+    556947b, not 6d415de. Neither serves the old host files, so the list's substance holds.
+
+
+CONTRADICTIONS BETWEEN THE PRESCRIPTIVE FILES (the brief's instruction)
+=======================================================================
+Files read whole at c5b91c1, all 21 matched by check_budgets.DOC_PATTERNS (1799 lines): AGENTS.md,
+CLAUDE.md, .claude/DESIGN.md, .claude/PLAN.md, .cursor/rules/00-guardrails.mdc, 10-api-python.mdc,
+20-web-typescript.mdc, 30-evals-and-tests.mdc, 40-census-domain.mdc, .cursor/commands/review-pr.md,
+.cursor/commands/run-slice.md, .claude/skills/review-pr/SKILL.md, .claude/skills/run-slice/SKILL.md,
+.agents/skills/review-pr/SKILL.md, .agents/skills/run-slice/SKILL.md, docs/playbooks/review-pr.md,
+docs/playbooks/run-slice.md, docs/requirements.md, docs/ask-path.md, docs/retrieval.md,
+docs/slices.md.
+
+K1  INTRODUCED by 7949261 (the C1 fix), most important. DESIGN was not reversed with the rule.
+    .claude/DESIGN.md:3 "Reverse a decision here in the same commit and say why."
+    .claude/DESIGN.md:34 "No blocking clarification. Candidates are results plus an editable plan strip."
+    .claude/DESIGN.md:41-42 "a question too incomplete to search returns none. Guards warn and still
+      ship; none block."
+    against
+    CLAUDE.md:67-73 a shared place name with no state the user wrote, or an unclear level, "carries
+      less too ... name what is missing and ask for it, and return no URL, no candidates and no fetch"
+    docs/requirements.md:40 ambiguous_place "is an incomplete question ...: no table search, no URL,
+      no fetch" (a guard code that now blocks, beside DESIGN's "none block")
+    40-census-domain.mdc:51-53, 10-api-python.mdc:219-220 (an ambiguous-geography question "is not
+      searched").
+    DESIGN 4's "too incomplete to search" can be read to include the new cases only through CLAUDE.md's
+    new definition; 3.2's unconditional "Candidates are results" and "none block" cannot. Also
+    DESIGN.md:97 (clarification subsystem "until the demo suite names the questions that need it")
+    and PLAN.md:91 ("clarification only where the demo suite requires it") against CLAUDE.md's new
+    "ask for it" and the owner's "stops and asks for clarification": an answer that asks the user for
+    a state is a clarification turn, which these two say is not yet built. The owner's rule; the
+    files need one wording, or DESIGN needs the reversal note it asks for.
+
+K2  INTRODUCED by 7949261. Live behaviour versus contract, unlabelled.
+    docs/ask-path.md:93-94 "NAME listing ranks by place class, population, then GEO_ID; specs[0] is
+      selected."; :100-101 "`ambiguous_place` carries ranked `GeoSpec` candidates"; :21 "None of them
+      block."; :49 the Springfield refinement example
+    against docs/requirements.md:25-27 and :40 and CLAUDE.md:67-73 (no guess, no search, no URL).
+    ask-path.md is the "live behavior" record and is right about the code (gate2-cold-r2.txt F5);
+    requirements.md is the contract and now states a target, by the owner's decision. Neither says
+    which ticket closes the gap, and DESIGN.md:70 shows the repo's own form for this ("target, not yet
+    shipped"), which requirements.md does not use.
+
+K3  INTRODUCED by 7949261. Which code the shared-name case carries, and what "unclear level" is.
+    docs/requirements.md:24-27 the incomplete case is "`geography_unsupported` ... The same holds for
+      a place name several states share" against :40, where that case is `ambiguous_place`.
+    docs/requirements.md:27 and CLAUDE.md:68 "a question whose geography level is unclear" gets no URL,
+      against requirements.md:61 `geography_level_unverified` ("No level was stated ... Check the URL's
+      `for=`"), which ships a URL when no level was stated, and ask-path.md:129, :140 ("null when the
+      question names none"; "A bare name with a stated null resolves ... unflagged"). No file defines
+      "unclear" apart from "not stated", and code may not read it from the question's words.
+
+K4  INTRODUCED by the branch rule (owner, M2). Housekeeping pull requests.
+    CLAUDE.md:106-107 "Name `CC-N` in commits/PRs (housekeeping commits need none)"
+    against run-slice.md:19-20 "on a branch `<type>/cc-N-<slug>` (... which CI reads)" and the CI step
+    (.github/workflows/check.yml:91-94, "A branch of any other shape is red"; not a DOC_PATTERNS file).
+    The rule files do not say which branch a housekeeping PR uses; under the CI rule it has none that
+    can be green.
+
+K5  PRE-EXISTING, still open (C5). run-slice.md:8 "ships as one or more PRs" against run-slice.md:26-27
+    "a draft until every row is PASS" with rows per ticket and CI red until all are PASS.
+
+K6  PRE-EXISTING (C7), now also against the brief. run-slice.md:69, :88, :103, :107, :170 put
+    transcripts at evidence/slice-<N>/<phase>.txt; brief.py writes evidence/slice-<N>/cc-<n>/ and, on
+    a re-run, the first run's names (I1) against run-slice.md:168-169 "Preserve earlier evidence".
+
+K7  PRE-EXISTING (C6, C8). 30-evals-and-tests.mdc:92 "the baseline after it is 0.742" against
+    CLAUDE.md:24-25 "a ticket's numbers are on the ticket" (and budgets.toml's 0.683);
+    10-api-python.mdc:162 "See .claude/PLAN.md for which slice owns which route", which PLAN.md does
+    not hold.
+
+Checked and not contradictory: the three run-slice pointers and AGENTS.md ("Read AGENTS.md. Print the
+brief ... and follow it."); the review-pr pointers and review-pr.md; PLAN.md:3-6 and every pointer to
+it (C3 held); CLAUDE.md "Do not ask a blocking clarification question" and its new carve-out for the
+incomplete case, which point at each other; 00-guardrails.mdc:54-55 "One exception: a question too
+incomplete" with CLAUDE.md's new definition; 20-web-typescript.mdc ("URL visible on every answer that
+has one"); 40-census-domain.mdc:77 and requirements.md:14 on alternatives (complete answers only);
+"When unsure: stop and ask" kept (00-guardrails.mdc:79-83); retrieval.md, slices.md board.
+
+
+AC/TC MATRIX - substance against the Jira criteria and the evidence on disk, at c5b91c1
+=======================================================================================
+(Rows are NOT RUN on purpose. "Supports PASS" means evidence on disk would justify the row today;
+the row still needs expected, observed, tested_head, reviewer, affects and pinned evidence.)
+
+AC1  Supports PASS, one caveat. test_jira_fetch.py passes at c5b91c1 (full run above); fresh-worktree
+     .env fallback proven live by the AC6 agents (ac6-handoff-*.txt, 1794e8d/9bdd13f). "The last
+     comments" rests on U1's live read, recorded as one summary line (gate2-fixes.txt:80-81), not raw
+     output. L2 improved; F10 remains (cosmetic).
+AC2  Supports PASS. brief.py preflight CC-145 exit 0 at c5b91c1; TC4 test. Neighbour gap F3.
+AC3  Supports PASS. All five phases (tests); gate2 printed live here; gate.sh/gate.ps1 deleted;
+     Makefile, run-slice.md and the three pointers updated. I1 (no re-run form) is low.
+AC4  Supports PASS (the three pointers read here; test_process.py passes at head).
+AC5  Supports PASS (.claude/settings.json autoCompactEnabled false; test_context_hook.py at head).
+AC6  Partial. ac6-handoff-cc-145.txt and ac6-handoff-cc-144.txt (1794e8d) and -r2 (9bdd13f), all
+     before the deletions, as the criterion requires. But f029b69 changed what the closed-ticket brief
+     prints (`--head <landing commit>`, run from a checkout of main, the no-record branch), so the
+     closed-ticket proof exercised a command that no longer ships, and the in-progress proof predates
+     two brief changes. A new proof now runs after the deletions, which AC6's "before anything is
+     deleted" forbids on this branch; whether the earlier proof stands is the owner's call. After the
+     merge the closed-ticket path also reads CC-138 as broken (M4 above).
+AC7  Supports PASS pre-merge (invariants green at head; deletions and rename at 9bdd13f). "On main"
+     needs a post-merge check_invariants run on main.
+AC8  Supports PASS on the letter (invariant rows; TC1, TC2). L3/L4 limits are the owner's rule.
+AC9  NO EVIDENCE. Unchanged since gate2.txt: the branch is not pushed, no PR and no workflow run exist;
+     the command is "the check workflow on the PR". The step is tested locally (bash -e, uv stubbed,
+     4 cases). Running it on a PR shows CLOSURE BLOCKED until every row is PASS, by design.
+AC10 Partial, cannot pass before the merge. autoMemoryEnabled false (settings.json:3). The memory
+     folder still holds 24 files (owner: deleted after merge). The only Jira comment still says "AC10
+     is open for discussion"; the owner deferred Jira writes until the epic closes
+     (gate2-fixes.txt:17, :101), so Jira, the source of status, lags the decision until then. The
+     named command (check_budgets --structural-only) does not test the move.
+AC11 Supports PASS. doc lines 1799 <= 1820 at c5b91c1; budgets.toml not in the diff; "budget
+     increases" ok.
+AC12 Partial. The list exists (ac12-worktrees.txt, 1794e8d), none removed; delivery to the owner
+     (Jira comment) is deferred by the owner to the epic's close. List is stale (I2), substance holds.
+AC13 Does not support PASS in substance. CC-145's own description passes; for the one-paragraph
+     shape of the repo's real Jira fixtures the fingerprint is the empty hash and a reworded criterion
+     is not caught (M1 regressed, F1). F6 and F9 add more shapes.
+AC14 Supports PASS. Live gate2 brief lists the touched rule files (both bases); TC7 test; L1 held.
+     F7 (Windows, non-ASCII path) crashes the brief, failing closed.
+AC15 Supports PASS. C3 held: one statement in PLAN.md, pointers elsewhere (test_process.py at head).
+AC16 Supports PASS pre-merge (TC8; PLAN.md lines read here hold no numbers or evidence paths). "On
+     main" after the merge.
+TC1  Supports PASS (test_invariants.py at head).
+TC2  Supports PASS (same); decimals only (L3).
+TC3  Supports PASS (test_jira_fetch.py at head).
+TC4  Supports PASS (test_brief.py at head).
+TC5  Supports PASS at c5b91c1 from this pass: every `make check` recipe step was run above (lint,
+     format, mypy, pytest, invariants, web ci/test/typecheck, client drift, budgets), all exit 0,
+     from PowerShell, after the deletions and with the CC-138 closure file present. The make-check.txt
+     record (4719c58, at 9bdd13f) is stale; record this run or re-run `make check` for the row.
+TC6  Does not support PASS in substance. The test passes, but its document shape is one paragraph per
+     line; on the real one-paragraph shape a criterion reworded with its id unchanged passes the
+     comparison (F1).
+TC7  Supports PASS (test_brief.py; live brief).
+TC8  Supports PASS (test_invariants.py).
+
+Summary: AC9 has no evidence; AC13 and TC6 fail in substance (M1 regressed); AC6, AC10 and AC12 are
+partial (AC10 and AC12 wait on owner-deferred steps, AC6 on an owner call); AC7, AC10 and AC16 need
+post-merge steps; the other 15 rows would support PASS today.
+
+
+VERDICT: NOT YET
+================
+Most important reason first: the criteria comparison, the guard AC13/TC6 exist for, now says "fine"
+on reworded criteria for the description shape this repository's real Jira tickets have. The fix for
+M1 made the fingerprint the hash of the empty string for a one-paragraph description with a lead-in
+line (CC-104 and CC-105, the open migration tickets), where the code under the first review at least
+hashed every id line (gate2-cold-r2.txt F1, high). The tests pass because they never feed the real
+fixtures to it.
+
+Then, in order:
+2. AC9 still has no evidence: no PR, no workflow run.
+3. M4 / F2: merging this branch makes closed CC-138 read CLOSURE BLOCKED (4 stale rows) through the
+   closed-ticket brief, because 9bdd13f moved its landing commit; by the owner's rule this branch
+   fixes it. F2(b): the check reads affects and evidence at main's tip.
+4. F3: an id added by owner amendment after pre-flight is never required; CI is green without its row.
+5. C1 residue for the owner (K1-K3): DESIGN.md 3.2/4 not reversed with the rule; requirements.md does
+   not mark the ambiguous/unclear-level rule as a target or name its ticket; it names two codes for
+   the shared-name case; "unclear level" against geography_level_unverified.
+6. Consequences of the owner's branch rule (F4, K4): housekeeping, budget/ and manifest-less PRs can
+   never be green; CLAUDE.md still says housekeeping needs no ticket.
+7. AC6 proof predates the closed-ticket brief change; AC10/AC12 wait on owner-deferred Jira writes and
+   the post-merge memory deletion; TC5 needs this head's run recorded in its row.
+Lows: F7, F8, F9, F10, F11, I1, L2 remainder; F6 (medium, not a regression). Per run-slice.md section 5
+this was the one re-run: fix what it found, with tests (including the four real ADF fixtures) and a
+mutation check, and do not run Gate 2 a third time.
+
+git status --short at end : ?? evidence/slice-6/cc-145/gate2-r2.txt   (this file; nothing else)
+HEAD at end               : c5b91c1282dd9c326b8a513326f0ce98849b5e34

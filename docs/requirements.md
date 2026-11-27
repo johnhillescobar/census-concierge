@@ -1,17 +1,19 @@
 # Response contract and guards
 
-The short copy lives in `.claude/DESIGN.md` §4. This file is the catalog.
+The short copy lives in `.claude/DESIGN.md` §4. This file is the catalog of the product we want (owner,
+2026-11-26); `docs/ask-path.md` describes `/ask` as it runs, and a gap between them is a ticket's work
+(the ambiguous-place and unclear-level stop: CC-104).
 None of these block except an incomplete geography (below): warn (or decline a computation) and ship the answer.
 
 ## Every response
 
 | field | rule |
 |---|---|
-| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). `&key=` redacted. |
+| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). Every planned leg is listed, including one a guard refused to fetch. `&key=` redacted. |
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
 | **GEOID** | AFFGEOID `GEO_ID` on fetched `rows[]`. Calculated totals have no Census GEOID and travel in `combined_rows[]`. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
-| **Alternatives** | Related tables with title, universe, and why they differ. |
+| **Alternatives** | Related tables with title, universe, and why they differ, on every complete answer: retrieval can miss the right table (`CLAUDE.md`, Alternatives). An incomplete question gets none. |
 | **Plan** | `ResultPlan` from executed artifacts (table, estimate IDs, years, `GeoSpec`s). Never parsed from answer prose. Optional `AskRequest.plan` pins the next `POST /ask`. |
 
 A silently short series is the same failure as a wrong one: dropped years, geographies, or variables are named, with a reason.
@@ -21,9 +23,14 @@ A silently short series is the same failure as a wrong one: dropped years, geogr
 A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or block
 group needs the state; one county or place by number, the state; one tract, state and county; one block
 group, state, county and tract. One that carries less, or points at a place without naming it ("my county"),
-is not answered: `geography_unsupported`, an answer saying what is missing, and empty `urls[]`, `rows` and
-`alternatives`. No search, fetch or blocking question. A question asking which table holds something is
-answered. The model reports level, places, county, pointing phrases and ask; code compares, no word scan.
+is not answered: `geography_unsupported` (`ambiguous_place` for a shared name), an answer saying what is
+missing and asking for it, and empty
+`urls[]`, `rows` and `alternatives`. No guess, table search or fetch. The same holds for a place name several
+states share with no state the user wrote ("population of Springfield", Cook County; a state the model adds
+is not the user's) and for a question whose geography level is unclear. A unique place (Chicago, Washington
+DC) needs nothing more. A question asking which table holds something is answered. The model reports
+level, places, county, pointing phrases and ask; code compares, no word scan. A follow-up is a question
+typed after an answer in the same chat; a question on its own is never one.
 
 ## Slice 1 warning codes
 
@@ -33,7 +40,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
 | `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
-| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
+| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the user wrote no state. It is an incomplete question (Geography completeness, above): never guessed (no largest match, no population dominance), no table search, no URL, no fetch. Scope ("which counties?") is not ambiguity. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 | `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 
@@ -54,7 +61,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `zcta_not_zip` | ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
-| `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
+| `geography_level_unverified` | The model stated no level for a question whose level is clear, or code inferred one. Check the URL's `for=`. A question whose level is unclear is not answered (Geography completeness). |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |
 | `shared_sample` | Place-vs-parent (and other nested pairs) share ACS sample. |

@@ -1115,3 +1115,198 @@ def test_check_file_names_the_manifest_whose_merges_are_diffed(landed: dict[str,
         found = closure.check_file(repo / ticket(number), root=repo, base="main")
         assert bool(found) is owed, number
         assert all("api/src/ask.py" in line for line in found)
+
+
+@pytest.mark.parametrize(
+    ("branch", "key"),
+    [
+        ("feat/cc-145-one-source", "CC-145"),
+        ("fix/one-source-CC-145", "CC-145"),
+        ("evidence/cc145-post-merge", "CC-145"),
+        ("docs/slice-6_cc_32_notes", "CC-32"),
+        ("chore/cc-07-x", "CC-7"),
+    ],
+)
+def test_a_conventional_branch_names_its_ticket_wherever_the_key_sits(
+    branch: str, key: str
+) -> None:
+    assert closure.branch_ticket(branch) == (key, "")
+
+
+@pytest.mark.parametrize(
+    "branch",
+    [
+        "cc-145/one-source",  # no conventional type
+        "feature/cc-145-x",  # not a conventional type
+        "feat/one-source",  # no ticket
+        "feat/cc-145-and-cc-146",  # two tickets
+        "feat",  # nothing after the type
+        "chore/launch-inspect-ask",
+    ],
+)
+def test_any_other_branch_names_no_ticket_and_says_why(branch: str) -> None:
+    key, why = closure.branch_ticket(branch)
+    assert key is None and branch in why
+
+
+def test_the_readiness_check_requires_every_id_approved_at_pre_flight(tmp_path: Path) -> None:
+    manifest = {
+        "required": ["AC1"],
+        "approved_ids": ["AC1", "AC2", "TC1"],
+        "row": [],
+    }
+    found = closure.problems(manifest, tmp_path, readiness=True, done=False)
+    assert "AC2: absent from the manifest" in found and "TC1: absent from the manifest" in found
+
+
+def test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row() -> None:
+    amendment = {
+        "id": "AC3",
+        "date": "2026-11-26",
+        "owner": "owner",
+        "reason": "added",
+        "destination": "this ticket",
+        "criteria_sha256": "0" * 64,
+    }
+    manifest = {"amendment": [amendment], "row": [{"id": "AC3", "status": "AMENDED"}]}
+    found = closure.problems(manifest, ROOT, readiness=False)
+    assert "AC3: AMENDED without an [[amendment]] for it" in found
+
+
+FIXTURES = ROOT / "api" / "tests" / "fixtures" / "gate_wording"
+REAL = sorted(FIXTURES.glob("*.json"))
+
+
+def reword_first_criterion(node: Any) -> bool:
+    """Change one word in the first text that starts a criterion line, in place."""
+    if isinstance(node, dict):
+        if node.get("type") == "text" and closure.required_ids(str(node.get("text"))):
+            node["text"] = str(node["text"]) + " (reworded)"
+            return True
+        return any(reword_first_criterion(child) for child in node.get("content") or [])
+    return False
+
+
+@pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+def test_every_criterion_of_a_real_jira_description_is_fingerprinted(path: Path) -> None:
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    ids = closure.required_ids(closure.adf_text(doc))
+    assert ids and len(closure.criteria_blocks(doc)) == len(ids)
+    assert closure.criteria_fingerprint(doc) != hashlib.sha256(b"").hexdigest()
+
+
+@pytest.mark.parametrize("path", REAL, ids=lambda p: p.stem)
+def test_rewording_a_criterion_of_a_real_jira_description_moves_its_fingerprint(path: Path) -> None:
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    before = closure.criteria_fingerprint(doc)
+    assert reword_first_criterion(doc)
+    assert closure.criteria_fingerprint(doc) != before
+
+
+def lines_doc(*paragraphs: str) -> dict[str, Any]:
+    """Paragraphs as Jira stores them: lines in one paragraph joined by hard breaks."""
+    content = []
+    for paragraph in paragraphs:
+        parts: list[dict[str, Any]] = []
+        for i, line in enumerate(paragraph.split("|")):
+            parts += [{"type": "hardBreak"}] if i else []
+            parts.append({"type": "text", "text": line})
+        content.append({"type": "paragraph", "content": parts})
+    return {"type": "doc", "content": content}
+
+
+def test_a_lead_in_line_belongs_to_no_criterion_and_each_id_starts_its_own() -> None:
+    doc = lines_doc("Acceptance criteria|AC1. One.|more of one|AC2. Two.", "Decisions|We chose.")
+    assert closure.criteria_blocks(doc) == ["AC1. One. more of one", "AC2. Two."]
+
+
+def test_a_text_kept_in_an_attribute_is_part_of_a_criterion() -> None:
+    def with_date(stamp: str) -> dict[str, Any]:
+        date_node = {"type": "date", "attrs": {"timestamp": stamp}}
+        text = {"type": "text", "text": "AC1. Ships by "}
+        return {"type": "doc", "content": [{"type": "paragraph", "content": [text, date_node]}]}
+
+    one, two = with_date("1764115200000"), with_date("1764201600000")
+    assert closure.criteria_blocks(one) == ["AC1. Ships by 2025-11-26"]
+    assert closure.criteria_fingerprint(one) != closure.criteria_fingerprint(two)
+
+
+def pass_row(repo: Path, tested: str, affects: list[str]) -> dict[str, Any]:
+    """A PASS row pinned to gate1.txt as it is on disk (bytes, not text: Windows writes CRLF)."""
+    pinned = hashlib.sha256((repo / "gate1.txt").read_bytes()).hexdigest()
+    return {
+        "id": "AC1",
+        "status": "PASS",
+        "command": "pytest",
+        "expected": "x",
+        "observed": "x",
+        "reviewer": "x",
+        "tested_head": tested,
+        "affects": affects,
+        "evidence": [{"path": "gate1.txt", "sha256": pinned}],
+    }
+
+
+def test_a_closed_record_is_not_stale_against_later_code_and_an_open_one_is(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    tested = git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "code.py").write_text("two\n")
+    git(repo, "commit", "-q", "-am", "later work")
+    manifest = {"required": ["AC1"], "row": [pass_row(repo, tested, ["src/code.py"])]}
+    later = closure.problems(manifest, repo, done=False)
+    assert any("stale" in p for p in later)
+    assert closure.problems(manifest, repo, done=False, closed=True) == []
+
+
+def test_a_closed_record_still_needs_its_evidence_intact(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    tested = git(repo, "rev-parse", "HEAD")
+    manifest = {"required": ["AC1"], "row": [pass_row(repo, tested, ["src/code.py"])]}
+    assert closure.problems(manifest, repo, done=False, closed=True) == []
+    (repo / "gate1.txt").write_text("rewritten\n")
+    assert any(
+        "changed since" in p for p in closure.problems(manifest, repo, done=False, closed=True)
+    )
+
+
+def test_an_id_added_by_owner_reapproval_needs_its_row_to_close(tmp_path: Path) -> None:
+    reapproval = {
+        "id": "AC2",
+        "date": "2026-11-26",
+        "owner": "owner",
+        "reason": "added",
+        "destination": "this ticket",
+        "criteria_sha256": "0" * 64,
+        "approved_ids": ["AC1", "AC2"],
+    }
+    manifest = {"required": ["AC1"], "approved_ids": ["AC1"], "amendment": [reapproval], "row": []}
+    assert "AC2: absent from the manifest" in closure.problems(manifest, tmp_path, done=False)
+
+
+def test_a_reapproval_without_its_ids_is_incomplete() -> None:
+    reapproval = {
+        "id": "AC2",
+        "date": "2026-11-26",
+        "owner": "o",
+        "reason": "r",
+        "destination": "d",
+    }
+    assert "approved_ids" in closure.amendment_problems({**reapproval, "criteria_sha256": "0" * 64})
+    assert closure.amendment_problems(reapproval) == []  # a scope removal needs no id list
+
+
+@pytest.mark.parametrize(("flags", "closed"), [([], False), (["--closed"], True)])
+def test_the_closed_flag_on_the_command_line_reaches_the_check(
+    monkeypatch: pytest.MonkeyPatch, flags: list[str], closed: bool
+) -> None:
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(closure, "check_file", lambda path, **kwargs: seen.update(kwargs) or [])
+    monkeypatch.setattr(sys, "argv", ["closure.py", "check", "CC-9.toml", *flags])
+    assert closure.main() == 0
+    assert seen.get("closed") is closed
+
+
+@pytest.mark.parametrize("branch", ["feat/cc-²", "feat/cc¹²-x"])
+def test_a_superscript_digit_is_no_ticket_number(branch: str) -> None:
+    key, why = closure.branch_ticket(branch)
+    assert key is None and "exactly one ticket" in why

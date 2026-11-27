@@ -1,0 +1,94 @@
+CC-145 pre-flight, 2026-11-26
+Repo C:/Users/johnh/Dropbox/Python/census-concierge, worktree .worktrees/cc-145, branch cc-145/one-source,
+cut from origin/main ab4c27d. Ticket read with `uv run python scripts/jira_fetch.py issue CC-145 --md`
+(status To Do, epic CC-142; the raw issue carried 0 comments).
+
+== Approved criteria (recorded in evidence/closure/CC-145.toml) ==
+ids (24): AC1-AC16, TC1-TC8, read by closure.required_ids from the live description
+fingerprint: sha256 of the 24 criterion lines of closure.adf_text(description), each with its
+whitespace collapsed to single spaces, joined by "\n":
+  c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f
+
+== Claims checked ==
+file paths named in Scope / ACs: all exist (`test -e`, line counts) -
+  scripts/jira_fetch.py 384, scripts/jira_transition.py 224, scripts/closure.py 391,
+  scripts/check_invariants.py 980, scripts/gate.sh 77, scripts/gate.ps1 84, Makefile 96,
+  .claude/hooks/ctx.py 215, .claude/settings.json 49, .github/workflows/check.yml 106,
+  .claude/skills/run-slice/SKILL.md, .cursor/commands/run-slice.md, .agents/skills/run-slice/SKILL.md,
+  api/tests/test_process.py, api/tests/test_context_hook.py, AGENTS.md, .claude/PLAN.md, docs/slices.md,
+  docs/ARCHITECTURE.md, README.md, .cursor/rules/00-guardrails.mdc, docs/playbooks/review-pr.md,
+  evidence/slice-6/cc-138/plan.md.
+  New, as the ticket says: scripts/brief.py, api/tests/test_jira_fetch.py (both absent).
+"the two .github files": .github/copilot-instructions.md and .github/pull_request_template.md (`ls .github`).
+"the two STATE.md files": evidence/slice-6/cc-133/STATE.md, evidence/slice-6/cc-141/STATE.md (`git ls-files`).
+"plan files under evidence/" (owner rule, below): 11 -
+  evidence/slice-6/cc-102-plan.md, cc-114-plan.md, cc-121-plan.md, cc-123-plan.md, cc-133-plan.md,
+  evidence/slice-6/cc-138/ac2-followup-plan.md, geoid-contract-plan.md, plan.md, responses-failure-plan.md,
+  evidence/slice-6/cc-141/plan.md, evidence/slice-6/cc-144/plan.md, evidence/workflow-host-neutral-plan.md
+  (12 names; cc-138/plan.md is renamed, not deleted).
+"its two closure paths": evidence/closure/CC-138.toml lines 53 and 86 cite evidence/slice-6/cc-138/plan.md
+  (`git grep -n cc-138/plan`); no other manifest cites a plan file.
+doc lines (AC11): `uv run python scripts/check_budgets.py --structural-only` -> doc lines 1820 <= 1820.
+  Counted: AGENTS.md, CLAUDE.md, .claude/DESIGN.md, .claude/PLAN.md, .cursor/rules/*.mdc,
+  .cursor/commands/*.md, .claude/skills/*/SKILL.md, .agents/skills/*/SKILL.md, docs/playbooks/*.md,
+  docs/requirements.md, docs/ask-path.md, docs/retrieval.md, docs/slices.md (check_budgets._doc_lines).
+  Zero headroom: every added rule line needs a deleted one.
+gate.sh / gate.ps1 callers (`Grep gate\.(sh|ps1)` outside evidence/ and .worktrees/): the three run-slice
+  pointers, Makefile:74, run-slice.md:151, api/tests/test_context_hook.py:377-395.
+STATE.md wording: .claude/hooks/ctx.py (session_start prints the newest evidence/slice-*/*/STATE.md;
+  context_watch tells the agent to update STATE.md), api/tests/test_context_hook.py:73,119-136.
+Claude Code settings (library behaviour; claude-code-guide agent read code.claude.com docs 2026-11-26):
+  `autoCompactEnabled` (any settings file, default true; false turns off auto and idle compaction, manual
+  /compact still works) - docs/en/settings-reference.md.
+  `autoMemoryEnabled` (any settings file; false: no read or write of the auto-memory dir) -
+  docs/en/memory.md#enable-or-disable-auto-memory.
+  SessionStart plain stdout is added to context, capped at 10,000 characters (docs/en/hooks.md).
+  Correction to the ticket's "STATE.md is cut to its first 2 KB": the documented cap is 10,000 characters;
+  over the cap the hook output is replaced by a file path and a 2,000-character preview.
+jira_fetch.py: `issue --md` prints type, status, epic and description, no comments; _api() exits 1 on
+  HTTPError/URLError before any print, but cmd_issue prints nothing until the fetch returns (to be
+  pinned by TC3). Both Jira scripts load ROOT/.env only (jira_fetch.py:38, jira_transition.py:41).
+worktrees serving the old host files (AC12): `git worktree list` -> .worktrees/cc-104 (178c158),
+  .worktrees/cc-127 (e96f3a8), plus this one.
+
+== Decisions (owner = said by the owner in chat 2026-11-26; default = revertible) ==
+owner  AC8 rule: a file under evidence/ named STATE.md, plan.md or *-plan.md fails;
+       evidence/checkpoint-2026-10-04/F3_reference_and_plan_docs.md stays; cc-138/plan.md is renamed to
+       cc-138/scope-record.md. In .claude/PLAN.md and docs/slices.md a Jira status name (Done, To Do,
+       In Progress) or "closed" as a whole word fails, and so does a decimal number (0.742, 21.701s);
+       integer targets (>=95%) stay as plan scope. The slices.md board loses its status column. PLAN rule 3
+       is deleted (CLAUDE.md states the definition of done).
+owner  The budgets.toml [[exception]] / [waiver] route stays as it is, so a ticket can close with an
+       owner-excepted red metric such as p95. This ticket does not touch budgets.toml or metric_compare.
+owner  AC9: CI runs `closure.py check evidence/closure/<KEY>.toml --pre-merge` for the ticket in the
+       branch name; red until every row is PASS.
+owner  Writes approved: this worktree and branch, Jira CC-145 to In Progress plus a pre-flight comment,
+       local commits only until the PR is ready.
+owner  AC10 is open for discussion; no memory file is moved or deleted until then. The owner said the
+       regex rule matters: the agent kept solving things with regex instead of making the agent reason.
+owner  AC10 (decided later in chat, 2026-11-26): the regex memory becomes three lines under the CLAUDE.md
+       "Never interpret question wording" bullet (scope incl. model output and quote-matching; "exhausted"
+       = up to 100 solve-and-measure rounds and 3 subagents, cheapest first, latency is not a reason;
+       a new re.* call in api/src needs the PR to show why plain code plus the model cannot do it).
+       Corrected split, approved after a recheck found 23 memory files (not 21) and two misclassified:
+       MOVE one line each (15): epic scope, cleanup commits, follow the playbook, E2E in a worktree,
+       waiver is a human commit, no PR before ready, all URLs shown, never guess ambiguous geography,
+       Census API facts, heredoc backslashes, .claude/agents not counted, PR title shape, epic-children
+       search at pre-flight, the read-not-emit distinction of the phase 1 yardstick, the geography known
+       limit (county without its state, owner 2026-10-25) and the follow-up definition; plus a PLAN.md
+       "After" pointer to DESIGN's phase 2 foundations. DELETE (7, stated in the repo or obsolete):
+       phase 2 foundations and long-term vision (.claude/DESIGN.md:144-165), anti-overfit (CLAUDE.md
+       Traps, DESIGN:114-121, Jira), the two CC-121 notes, ticket-is-contract, gates/STATE.
+       Memory files are deleted only after merge.
+owner  A copy of .env in this worktree is fine; the worktree is deleted when the work is finished.
+default The two status commands: `uv run python scripts/jira_fetch.py issue CC-N --md` and
+       `uv run python scripts/closure.py check evidence/closure/CC-N.toml --pre-merge`.
+default AC6 proof tickets: CC-145 (in progress) and CC-144 (closed).
+default Criteria fingerprint definition as above (criterion lines only, whitespace collapsed).
+default Plan record: with plan files banned under evidence/, the plan lives in the Jira ticket and its
+       comments; pre-flight facts here; the approved criteria in the closure file.
+
+== File count ==
+About 30 files change (scripts, hook, settings, CI, pointers, rule files, tests, 14 deletions and a
+rename), over PLAN's ~15. Reason: the ticket's scope list names them; most are deletions or
+one-line pointer edits.

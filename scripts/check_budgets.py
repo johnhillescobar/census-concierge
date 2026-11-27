@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import json
 import re
 import sys
@@ -141,33 +142,42 @@ def _count_tools(files: list[Path]) -> int:
     )
 
 
-def _doc_lines() -> int:
-    """Lines of PRESCRIPTIVE documentation.
+# PRESCRIPTIVE documentation: rules an agent must hold in context. More of them means less of them
+# gets followed, and this is the one surface that grew unbudgeted while everything else was capped.
+# Excluded deliberately: `docs/ARCHITECTURE.md`, which describes what exists and must grow with the
+# system, the frozen ideation transcript, and `.claude/agents/` (owner, 2026-11-26).
+DOC_PATTERNS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".claude/DESIGN.md",
+    ".claude/PLAN.md",
+    ".cursor/rules/*.mdc",
+    ".cursor/commands/*.md",
+    ".claude/skills/*/SKILL.md",
+    ".agents/skills/*/SKILL.md",
+    "docs/playbooks/*.md",
+    "docs/requirements.md",
+    "docs/ask-path.md",
+    "docs/retrieval.md",
+    "docs/slices.md",
+)
 
-    Rules an agent must hold in context. More of them means less of them gets
-    followed, and this is the one surface that grew unbudgeted while everything
-    else was capped.
 
-    Excluded deliberately: `docs/ARCHITECTURE.md`, which describes what exists
-    and must grow with the system, and the frozen ideation transcript.
-    """
-    patterns = (
-        "AGENTS.md",
-        "CLAUDE.md",
-        ".claude/DESIGN.md",
-        ".claude/PLAN.md",
-        ".cursor/rules/*.mdc",
-        ".cursor/commands/*.md",
-        ".claude/skills/*/SKILL.md",
-        ".agents/skills/*/SKILL.md",
-        "docs/playbooks/*.md",
-        "docs/requirements.md",
-        "docs/ask-path.md",
-        "docs/retrieval.md",
-        "docs/slices.md",
+def is_prescriptive(rel: str) -> bool:
+    """Whether a repository path (posix, relative) is one of the files `doc_lines` counts: the
+    same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+    parts = rel.split("/")
+    return any(
+        len(parts) == len(pattern.split("/"))
+        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
+        for pattern in DOC_PATTERNS
     )
+
+
+def _doc_lines() -> int:
+    """Lines of the prescriptive documentation in DOC_PATTERNS."""
     seen: set[Path] = set()
-    for pattern in patterns:
+    for pattern in DOC_PATTERNS:
         seen.update(p for p in ROOT.glob(pattern) if p.is_file())
 
     total = 0

@@ -1,17 +1,7 @@
 # ARCHITECTURE — the system as it IS
 
-**Status (2026-09-25).** Slices 0–3 are built and their epics are Done
-(`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
-is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
-the canvas translates that spec into Vega-Lite SVG over the normalized table
-(CC-87 Done); the result pane renders one normalized GEOID/MOE table (CC-35 Done);
-`AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
-optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
-the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done);
-the canvas plan strip edits that `ResultPlan` and reruns `POST /ask` (CC-37).
-
-This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
-`.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
+This file is not a design document. Intent: `.claude/DESIGN.md`. Plan:
+`.claude/PLAN.md`. Status: Jira. **When they disagree, this file is right.** A shape-changing
 PR updates it in the same commit.
 
 Live ask-path behavior: `docs/ask-path.md`. Retrieval measurements:
@@ -23,6 +13,10 @@ Live ask-path behavior: `docs/ask-path.md`. Retrieval measurements:
 budgets.toml                 enforced complexity limits
 scripts/check_budgets.py     exits 1 on violation
 scripts/check_invariants.py  named anti-patterns; --base catches a weakened budget
+scripts/closure.py           AC/TC closure manifest check (evidence/closure/CC-N.toml); `ticket`
+                             reads the key from a <type>/...cc-N... branch for CI
+scripts/brief.py             one phase's brief for a ticket; opens with the two status commands,
+                             stops when the Jira criteria differ from the ones approved at pre-flight
 scripts/fetch_metadata.py    ACS metadata → data/raw/ (no key)
 scripts/verify_golden.py     golden fixtures vs that metadata
 scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
@@ -31,7 +25,7 @@ scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
 scripts/e2e_capture.py       eval + demo transcript → evidence/slice-<N>/
 scripts/plot_e2e_latency.py  pre vs post demo latency histogram + ECDF
 scripts/score_synthetic.py   generated-question quality
-scripts/jira_fetch.py        read-only Jira (needs .env tokens)
+scripts/jira_fetch.py        read-only Jira; --md adds the last comments (.env, or the main checkout's)
 scripts/jira_transition.py   Jira status + comments
 scripts/generate_client.py   OpenAPI → packages/client; --check is the drift gate
 scripts/diagnose.py          BM25 vs semantic vs fused (not the live path)

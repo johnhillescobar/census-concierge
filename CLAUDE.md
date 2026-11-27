@@ -21,8 +21,8 @@ Done means a user got an answer. Quote the scoreboard in the PR; never Read the
 transcript. A passing pytest run, new test file, or closed ticket is not done.
 
 **This pipeline is nondeterministic.** One run tells you nothing — compare rates
-at the same `--repeat`. Current numbers live in `evidence/latest.json` and at
-the top of the README.
+at the same `--repeat`. The latest run is `evidence/latest.json`; a ticket's
+numbers are on the ticket.
 
 ## Budgets are enforced
 
@@ -51,7 +51,12 @@ Also non-negotiable in every answer that returns data:
 - **Universe.** "Households" vs "families" vs "population" vs "housing units"
   is the most common silent wrong answer in Census work.
 - **Alternatives.** Show related tables, not just the pick. That is the whole
-  concierge value, and it teaches the ecosystem one answer at a time.
+  concierge value, and it teaches the ecosystem one answer at a time. Candidates exist
+  because retrieval can be wrong: on the long tail the right table is often in the top 10
+  but not ranked first. A complete question gets the best pick plus the candidate
+  alternatives, so the user can switch tables from the plan strip; that is also why the URL
+  matters, since a wrong table gets fixed in seconds. An incomplete question gets none (next
+  section).
 
 ## Geography is level-complete
 
@@ -59,18 +64,21 @@ A question must carry what Census requires for the geography **level** it asks a
 minimum for that kind of question: every tract or block group in a state needs the state; one
 county by number needs the state; one tract by number needs state and county; one block group
 by number needs state, county and tract. A code such as a tract number identifies nothing
-without its parents. A question that carries less cannot be answered: say immediately that it
-is incomplete and cannot be searched, name what is missing, and return **no URL**, no
-candidates and no fetch; a refusal returns no rows, so the four fields above do not apply to
-it. A question asking which table holds something is not a search by geography: answer it. The
+without its parents. A place name several states share with no state the user wrote (Springfield,
+Cook County; a state the model adds is not the user's), or a question whose level is unclear, carries
+less too; a unique place (Chicago, Washington DC) does not. A question that carries less
+cannot be answered: say immediately that it is incomplete and cannot be searched, name what
+is missing and ask for it, and return **no URL**, no candidates and no fetch; a refusal returns
+no rows, so the four fields above do not apply to it. A question asking which table holds something is not a search by geography: answer it. The
 model reports the level, what the question names and what it asks for; code compares that
 with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
 
 ## Do not
 
 - Ask a blocking clarification question. Users who do not know the ecosystem
-  **cannot answer one.** Show candidates as results with an editable plan strip.
-  Clarification machinery ate a third of the predecessor's codebase.
+  **cannot answer one.** A complete question gets its pick plus candidates as results with
+  an editable plan strip (Alternatives, above); an incomplete one is the geography section's
+  case. Clarification machinery ate a third of the predecessor's codebase.
 - Add a graph node for branching. Nodes are durable checkpoints only.
 - Create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
   `*_strategy`, or `*_service`.
@@ -84,6 +92,9 @@ with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
 - Never interpret question wording with regex, keyword, substring or equivalent semantic heuristics, including legacy fallbacks. Once the model supplies structured intent, deterministic downstream code validates and executes that intent without reinterpreting the question wording. Missing or invalid intent returns bounded model repair; it never activates a prose parser. Exact identifier parsing, authoritative metadata lookup, grounded NAME matching after the model identifies an entity, URL encoding and arithmetic remain valid. They must not infer scope, parents or time from question wording. Keep requested meaning distinct from execution. Migration and metric gates: PLAN, CC-104/129–133.
+  - Regex is a last resort everywhere, not only on the question: also on the model's own output (no word lists over answer prose) and in "validation" that text-matches the model's quotes against the question.
+  - "Exhausted" means up to 100 solve-and-measure rounds and up to 3 subagents, cheapest first; only then propose a regex, with those attempts in the PR. Latency is not a reason: measure p95.
+  - A new `re.*` call in `api/src` needs the PR to show why plain code (parsing, set lookups, `geography.json`) plus the model cannot do it; `check_invariants.py` prints the delta.
 
 ## Jira — status source of truth
 
@@ -92,9 +103,10 @@ chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment
 (needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
 MCP — same path in Claude Code and Cursor.
 
-Jira owns *open vs done* and the post-merge numbers. `.claude/PLAN.md` is a
-close pointer, not an eval ledger. Board: `docs/slices.md`. Name `CC-N` in
-commits/PRs; Jira comments link to the PR or `evidence/`.
+What `.claude/PLAN.md` may hold: the rule at its top. Board: `docs/slices.md`. Every branch is
+`<conventional type>/...` naming one `CC-N`, whose closure file CI checks; name it in PRs (a
+housekeeping commit on that branch needs none). Jira comments link to the PR or `evidence/`.
+Recommend an epic and ask before filing a ticket into one.
 
 ## Slice workflow
 
@@ -103,8 +115,8 @@ implement -> **Gate 1** (matrix tests, every new test mutation-checked) -> **Gat
 2** (cold review: `/code-review` then `docs/playbooks/review-pr.md`) -> fix ->
 **E2E** (`make eval` / `make demo`, scoreboard in the PR) -> merge -> **E2E again**
 against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N>/`
-and **Jira** before the next; a fresh context rebuilds from those, never from chat
-history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
+and **Jira** before the next; a fresh context rebuilds from the two status commands
+that each phase brief (`scripts/brief.py`) opens with, never from chat history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
 matrix and worked examples: `docs/process-evidence.md`.
 
 **Before shipping, every in-scope AC/TC must be verified PASS with linked commit-specific evidence.** Missing/failed/unrun items block readiness/Done; only explicit dated owner amendments remove scope. Gate 2 checks the matrix; post-merge E2E precedes closure. Canonical detail: `docs/playbooks/run-slice.md`.
@@ -146,7 +158,8 @@ shape, update it in the same commit. Read the catalog that matches the work:
 **uv** manages the environment; **ruff** lints and formats. Python is pinned to
 **3.12** and CI runs the same version — on this machine, Windows Smart App
 Control blocks unsigned native extensions in the uv-managed 3.13 build, which
-breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
+breaks `_sqlite3` and `uuid_utils`. That cost real time once already. In Git
+Bash heredocs here, `\\n` becomes a newline: write patch scripts with a file tool.
 
 ```
 make check     # lint + types + tests + invariants + web tests + client drift + budgets, under 60s

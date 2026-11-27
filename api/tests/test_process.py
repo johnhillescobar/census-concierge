@@ -18,9 +18,13 @@ say what to fix.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -266,9 +270,39 @@ def test_the_trio_pointers_resolve(name: str) -> None:
     assert playbook.is_file(), f"missing canonical playbook {playbook}"
     for pointer in (skill, command, codex_skill):
         assert pointer.is_file(), f"missing trio pointer {pointer}"
+        if name == "run-slice":  # these point at AGENTS.md and the brief; see the next test
+            continue
         assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
             f"{pointer} does not point at docs/playbooks/{name}.md"
         )
+
+
+RUN_SLICE_POINTER = (
+    "Read `AGENTS.md`. Print the brief, `uv run python scripts/brief.py <phase> CC-N`, "
+    "and follow it."
+)
+
+
+def pointer_body(path: Path) -> str:
+    """A host pointer without its frontmatter and title: the instruction itself."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---"):
+        text = text.split("---", 2)[2]
+    lines = [line for line in text.splitlines() if line.strip() and not line.startswith("# ")]
+    return " ".join(" ".join(lines).split())
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        ".claude/skills/run-slice/SKILL.md",
+        ".cursor/commands/run-slice.md",
+        ".agents/skills/run-slice/SKILL.md",
+    ],
+)
+def test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it(rel: str) -> None:
+    assert pointer_body(ROOT / rel) == RUN_SLICE_POINTER
+    assert (ROOT / "AGENTS.md").is_file() and (ROOT / "scripts" / "brief.py").is_file()
 
 
 def test_run_slice_playbook_states_the_handoff_rule() -> None:
@@ -364,3 +398,106 @@ def test_section_stops_at_the_next_heading() -> None:
     assert "persist" in section(text, "## First")
     assert "persist" not in section(text, "## Second")
     assert "something else" not in section(text, "## First")
+
+
+PLAN_RULE = "Jira alone says whether a ticket is open or finished"
+POINTS_AT_PLAN_RULE = ("CLAUDE.md", "AGENTS.md", "docs/slices.md", "docs/playbooks/run-slice.md")
+
+
+def prescriptive_docs() -> dict[str, str]:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import check_budgets
+
+    found = {p for pattern in check_budgets.DOC_PATTERNS for p in ROOT.glob(pattern) if p.is_file()}
+    return {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in found}
+
+
+def flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_one_rule_file_and_no_other_states_what_plan_md_holds() -> None:
+    holders = [rel for rel, text in prescriptive_docs().items() if PLAN_RULE in flat(text)]
+    assert holders == [".claude/PLAN.md"]
+
+
+@pytest.mark.parametrize("rel", POINTS_AT_PLAN_RULE)
+def test_the_other_rule_files_point_at_that_rule(rel: str) -> None:
+    text = flat((ROOT / rel).read_text(encoding="utf-8"))
+    assert "the rule at its top" in text and ".claude/PLAN.md" in text
+
+
+def test_no_rule_file_asks_for_a_close_pointer_or_numbers_in_plan_md() -> None:
+    for rel, text in prescriptive_docs().items():
+        assert "close pointer" not in flat(text).lower(), rel
+
+
+def closure_step() -> dict[str, Any]:
+    workflow = yaml.safe_load(CHECK_YML.read_text(encoding="utf-8"))
+    steps = [s for s in workflow["jobs"]["check"]["steps"] if "closure.py" in str(s.get("run"))]
+    assert len(steps) == 1, "the check job must run the closure check once"
+    return steps[0]
+
+
+def working_bash() -> str:
+    """A bash that sees the environment it is given. From PowerShell the first `bash` on PATH
+    can be the WSL launcher, which does not pass variables through: that is no bash here."""
+    for candidate in (shutil.which("bash"), "C:/Program Files/Git/bin/bash.exe"):
+        if not candidate or not Path(candidate).exists():
+            continue
+        env = {**os.environ, "PROBE": "seen"}
+        probe = subprocess.run(
+            [candidate, "-c", 'printf %s "$PROBE"'], env=env, capture_output=True, text=True
+        )
+        if probe.returncode == 0 and probe.stdout == "seen":
+            return candidate
+    pytest.skip("no bash on this machine that passes the environment through")
+
+
+def run_closure_step(tmp_path: Path, branch: str, verdict: int) -> tuple[int, str]:
+    """Run the workflow step under bash -e with `uv` stubbed: the ticket call runs the real
+    closure.py, the check call is recorded and answers `verdict`."""
+    bash = working_bash()
+    python = Path(sys.executable).as_posix()
+    script = (ROOT / "scripts" / "closure.py").as_posix()
+    called = tmp_path / "called"
+    stub = tmp_path / "uv"
+    lines = [
+        "#!/bin/sh",
+        f'if [ "$4" = ticket ]; then exec "{python}" "{script}" ticket "$5"; fi',
+        f'echo "$@" >> "{called.as_posix()}"',
+        f"exit {verdict}",
+    ]
+    stub.write_text("\n".join(lines) + "\n", newline="\n")
+    stub.chmod(0o755)
+    env = {
+        **os.environ,
+        "BRANCH": branch,
+        "TIP": "abc1234",
+        "PATH": f"{tmp_path.as_posix()}{os.pathsep}{os.environ['PATH']}",
+    }
+    done = subprocess.run(
+        [bash, "-e", "-c", closure_step()["run"]], env=env, capture_output=True, text=True
+    )
+    return done.returncode, called.read_text().strip() if called.exists() else ""
+
+
+MANIFEST_CHECK = "run python scripts/closure.py check evidence/closure/CC-145.toml"
+
+
+def test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names(tmp_path: Path) -> None:
+    assert closure_step()["if"] == "github.event_name == 'pull_request'"
+    code, called = run_closure_step(tmp_path, "feat/cc-145-one-source", verdict=0)
+    assert (code, called) == (0, f"{MANIFEST_CHECK} --pre-merge --head abc1234")
+
+
+def test_ci_fails_when_the_closure_check_does(tmp_path: Path) -> None:
+    assert run_closure_step(tmp_path, "feat/cc-145-one-source", verdict=1)[0] != 0
+
+
+@pytest.mark.parametrize("branch", ["cc-145/one-source", "chore/launch-inspect-ask"])
+def test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check(
+    tmp_path: Path, branch: str
+) -> None:
+    code, called = run_closure_step(tmp_path, branch, verdict=0)
+    assert code != 0 and called == ""

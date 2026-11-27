@@ -1,0 +1,65 @@
+"""Regenerate evidence/closure/CC-145.toml: header, the PASS rows from build_rows.py, the rest NOT RUN."""
+
+import json
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(r"C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145")
+MANIFEST = ROOT / "evidence" / "closure" / "CC-145.toml"
+SCRATCH = Path(__file__).resolve().parent
+
+old = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
+built = json.loads(
+    subprocess.run(
+        [sys.executable, str(SCRATCH / "build_rows.py")], capture_output=True, text=True, check=True
+    ).stdout
+)
+passed = {r["id"]: r for r in built}
+AFTER_MERGE = {
+    "AC7": "the deletions and wording removal are on this branch (rows/AC7.txt); the criterion says on main, so it is run there after the merge",
+    "AC9": "needs the check workflow run on the pull request",
+    "AC10": "the 16 rules are in the repo and auto-memory is off in project settings (gate2-fixes.txt, rows/AC5.txt); the memory files are deleted only after the merge (owner, 2026-11-26)",
+    "AC16": "PLAN.md is reduced on this branch (rows/AC16.txt); the criterion says on main, so it is run there after the merge",
+}
+
+
+def value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "[" + ", ".join(value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{k} = {value(x)}" for k, x in v.items()) + " }"
+    raise TypeError(v)
+
+
+lines = [
+    f"ticket = {value(old['ticket'])}",
+    f"required = {value(old['required'])}",
+    "# Approved at pre-flight 2026-11-26 (evidence/slice-6/cc-145/preflight.txt). Each phase's brief compares",
+    "# the live Jira description with these two; a difference with no complete owner re-approval stops the phase.",
+    f"approved_ids = {value(old['approved_ids'])}",
+    f"approved_sha256 = {value(old['approved_sha256'])}",
+    "# No post-merge E2E is owed: no api/src, evals/ or run-harness file changes (CC-143 AC11). AC7, AC10 and",
+    "# AC16 are checked on main after the merge; AC9 on the pull request.",
+]
+for old_row in old["row"]:
+    key = old_row["id"]
+    lines.append("")
+    lines.append("[[row]]")
+    if key in passed:
+        for field, v in passed[key].items():
+            lines.append(f"{field} = {value(v)}")
+    else:
+        lines.append(f"id = {value(key)}")
+        lines.append('status = "NOT RUN"')
+        lines.append(f"command = {value(old_row['command'])}")
+        if key in AFTER_MERGE:
+            lines.append(f"observed = {value(AFTER_MERGE[key])}")
+MANIFEST.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
+print("written", len(passed), "PASS rows")

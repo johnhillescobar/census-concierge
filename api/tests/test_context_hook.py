@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -70,7 +68,8 @@ def test_the_warning_names_the_percent_the_steps_and_that_only_the_user_can_clea
     note = watch(capsys, path, event="UserPromptSubmit")
     assert note is not None and note["hookEventName"] == "UserPromptSubmit"
     text = note["additionalContext"]
-    assert "81%" in text and "STATE.md" in text and "/clear" in text and "commit" in text
+    assert "81%" in text and "Jira" in text and "/clear" in text and "commit" in text
+    assert "STATE.md" not in text and "auto-compact" not in text  # compaction is off in settings
 
 
 def test_below_the_threshold_it_says_nothing(
@@ -116,29 +115,22 @@ def test_two_sessions_do_not_share_a_marker(
     assert watch(capsys, path, session="b") is not None
 
 
-def test_session_start_prints_the_newest_state_and_the_reminder(
+def test_session_start_prints_the_reminder_and_no_state_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    old = tmp_path / "evidence" / "slice-5" / "cc-1"
-    new = tmp_path / "evidence" / "slice-6" / "cc-2"
-    for folder, text in ((old, "OLD STATE"), (new, "NEW STATE")):
-        folder.mkdir(parents=True)
-        (folder / "STATE.md").write_text(text, encoding="utf-8")
-    os.utime(old / "STATE.md", (1_000, 1_000))
-    os.utime(new / "STATE.md", (2_000, 2_000))  # the newest modification
+    folder = tmp_path / "evidence" / "slice-6" / "cc-2"
+    folder.mkdir(parents=True)
+    (folder / "STATE.md").write_text("OLD STATE", encoding="utf-8")
     monkeypatch.setattr(ctx, "ROOT", tmp_path)
     ctx.session_start()
     out = capsys.readouterr().out
-    assert "NEW STATE" in out and "OLD STATE" not in out
-    assert "CLAUDE.md" in out and "run-slice.md" in out
+    assert "OLD STATE" not in out and "STATE.md" not in out
+    assert "AGENTS.md" in out and "scripts/brief.py" in out
 
 
-def test_session_start_with_no_state_file_still_prints_the_reminder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(ctx, "ROOT", tmp_path)
-    ctx.session_start()
-    assert "run-slice.md" in capsys.readouterr().out
+def test_the_committed_settings_turn_auto_compaction_and_auto_memory_off() -> None:
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text("utf-8"))
+    assert settings["autoCompactEnabled"] is False and settings["autoMemoryEnabled"] is False
 
 
 def test_the_committed_settings_wire_all_three_events_to_this_script() -> None:
@@ -369,15 +361,7 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
     assert head["effort"]  # without one, the agent need not run at the session's level
 
 
-@pytest.mark.parametrize(
-    "rel",
-    [
-        "docs/playbooks/run-slice.md",
-        ".claude/skills/run-slice/SKILL.md",
-        "scripts/gate.sh",
-        "scripts/gate.ps1",
-    ],
-)
+@pytest.mark.parametrize("rel", ["docs/playbooks/run-slice.md", "scripts/brief.py"])
 def test_everything_that_sends_gates_to_a_subagent_names_the_agent_the_gate_allows(
     rel: str,
 ) -> None:
@@ -385,36 +369,18 @@ def test_everything_that_sends_gates_to_a_subagent_names_the_agent_the_gate_allo
     assert ctx.GATE2_AGENT in (ROOT / rel).read_text("utf-8")
 
 
-@pytest.mark.parametrize(
-    ("shells", "probe", "run"),
-    [
-        (["bash"], ["-c", "exit 0"], ["scripts/gate.sh"]),
-        (
-            ["pwsh", "powershell"],
-            ["-NoProfile", "-Command", "exit 0"],
-            ["-NoProfile", "-File", "scripts/gate.ps1"],
-        ),
-    ],
-)
-def test_the_gate_2_handoff_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does(
-    shells: list[str], probe: list[str], run: list[str]
-) -> None:
-    shell = next((found for name in shells if (found := shutil.which(name))), None)
-    # `bash` on Windows can be a launcher with nothing behind it: that is no shell, not a failure
-    if shell is None or subprocess.run([shell, *probe], check=False).returncode != 0:
-        pytest.skip(f"no working {shells[0]} on this machine")
+def test_the_gate_2_brief_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does() -> None:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import brief
+
+    assert brief.COLD == ctx.GATE2_AGENT
 
     def handoff(phase: str) -> str:
-        done = subprocess.run(
-            [shell, *run, phase, "9"], cwd=ROOT, capture_output=True, text=True, check=True
-        )
-        return " ".join(done.stdout.split())
+        return " ".join(brief.brief(phase, "CC-9", [], "evidence/slice-9/cc-9").split())
 
     gate2 = handoff("gate2")
-    assert (
-        f"first the {ctx.GATE2_AGENT} agent" in gate2 and "general-purpose, not fork" not in gate2
-    )
+    assert f"First the {ctx.GATE2_AGENT} agent" in gate2 and "not fork" not in gate2
     # the cold transcript has a named file, and the second agent is told not to redo that pass
     assert gate2.count("gate2-cold.txt") == 2
     gate1 = handoff("gate1")
-    assert ctx.GATE2_AGENT not in gate1 and "general-purpose, not fork" in gate1
+    assert ctx.GATE2_AGENT not in gate1 and "general-purpose subagent, not fork" in gate1

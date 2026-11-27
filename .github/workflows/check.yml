@@ -87,6 +87,19 @@ jobs:
             uv run python scripts/check_invariants.py --base "$base"
           fi
 
+      - name: closure (the ticket the branch names)
+        # A branch is <conventional type>/... and names one ticket anywhere in it
+        # (feat/cc-145-x). The pull request is red until every AC/TC row of
+        # evidence/closure/CC-N.toml, and every id approved at pre-flight, is PASS
+        # on the branch tip (CC-145). A branch of any other shape is red.
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH: ${{ github.head_ref }}
+          TIP: ${{ github.event.pull_request.head.sha }}
+        run: |
+          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
+          uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
+
   scoreboard:
     # The quality floors: retriever @10, selector @1, answered rate, p95 latency.
     #

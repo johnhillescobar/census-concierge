@@ -1,0 +1,29 @@
+CC-145 AC14, HEAD 4463aede153fadbdaa4e195c081233d704a7e3b4, 2026-11-27T01:45:18+00:00
+
+$ uv run python scripts/brief.py gate2 CC-145
+CC-145 gate2 brief. Status comes from these two commands, never from chat or memory:
+  uv run python scripts/jira_fetch.py issue CC-145 --md
+  uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+From them state: the approved criteria and decisions, the commit tested, which evidence
+is stale or missing, and the next permitted step. Then read AGENTS.md and
+docs/playbooks/run-slice.md, and the catalogs matching the touched paths.
+
+First the gate2-cold agent for the bug pass: give it only the repo path, the review
+base and head, and evidence/slice-6/cc-145/gate2-cold-r3.txt. Then a general-purpose agent described as
+'Gate 2 invariants pass' runs docs/playbooks/review-pr.md; it names
+evidence/slice-6/cc-145/gate2-cold-r3.txt and does not repeat that pass. Other hosts: a fresh session, code only first.
+Capture raw output to evidence/slice-6/cc-145/gate2-r3.txt. Report the path, a verdict and the findings.
+This change touches a prescriptive rule file (.agents/skills/run-slice/SKILL.md, .claude/DESIGN.md, .claude/PLAN.md, .claude/skills/run-slice/SKILL.md, .cursor/commands/run-slice.md, .cursor/rules/00-guardrails.mdc, .cursor/rules/10-api-python.mdc, .cursor/rules/40-census-domain.mdc, AGENTS.md, CLAUDE.md, docs/playbooks/run-slice.md, docs/requirements.md, docs/slices.md). Read every file in
+check_budgets.DOC_PATTERNS and list each contradiction between them, or 'none'.
+exit 0
+
+$ uv run pytest -q -p no:cacheprovider api/tests/test_brief.py -k 'contradiction or rule_file or prescriptive or rerun or third_round or non_ascii or space'
+..............                                                           [100%]
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_the_gate_2_brief_asks_for_a_contradiction_read_when_a_rule_file_changes
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+14 passed, 42 deselected, 1 warning in 10.53s
+exit 0
