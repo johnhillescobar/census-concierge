@@ -1,0 +1,25 @@
+HEAD start 117d08b545c085b4738072772a1a988b2f3ccdc1 branch  status: 1 changed
+s START 2026-11-27T03:12:12Z :: uv sync
+s END 2026-11-27T03:12:13Z rc=0
+v START 2026-11-27T03:12:13Z :: uv run python scripts/verify_golden_places.py
+v END 2026-11-27T03:12:21Z rc=0
+n1 START 2026-11-27T03:12:21Z :: npm --prefix web ci
+n1 END 2026-11-27T03:12:52Z rc=0
+n2 START 2026-11-27T03:12:52Z :: npm --prefix web run build
+n2 END 2026-11-27T03:13:13Z rc=0
+a START 2026-11-27T03:13:13Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-27T03:13:36Z rc=0
+b START 2026-11-27T03:13:36Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-27T03:14:26Z rc=0
+c START 2026-11-27T03:14:27Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-27T03:14:34Z rc=0
+d START 2026-11-27T03:14:34Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-27T03:56:50Z rc=1
+e START 2026-11-27T03:56:51Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-27T04:09:22Z rc=0
+f START 2026-11-27T04:09:22Z :: uv run python scripts/check_budgets.py
+f END 2026-11-27T04:09:24Z rc=0
+g START 2026-11-27T04:09:24Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-27T04:09:44Z rc=0
+HEAD end 117d08b545c085b4738072772a1a988b2f3ccdc1 status: 0 measured paths changed
+DONE

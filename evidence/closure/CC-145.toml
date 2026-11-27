@@ -4,8 +4,9 @@ required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10
 # the live Jira description with these two; a difference with no complete owner re-approval stops the phase.
 approved_ids = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
 approved_sha256 = "c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f"
-# No post-merge E2E is owed: no api/src, evals/ or run-harness file changes (CC-143 AC11). AC7, AC10 and
-# AC16 were checked on main 117d08b after PR #153 merged; AC9 on the pull request.
+# Correction: a post-merge E2E was owed. The merge touched the Makefile (the gate -> brief recipe), a
+# run-harness file in closure.py E2E_PATHS, though no eval or demo recipe line changed; it ran on main
+# 117d08b ([post_merge], below). AC7, AC10 and AC16 were checked on main 117d08b; AC9 on the pull request.
 
 [[row]]
 id = "AC1"
@@ -311,3 +312,7 @@ affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "b9af0da42c5e2444a328cd636e461958d3f224031e1d65efc38c93ab4f2415f8" }
 reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
+
+[post_merge]
+e2e = { path = "evidence/slice-6/cc-145/e2e-post/log.txt", sha256 = "f8f63c025f75e0a755ccf594573bc6c6153f895937b43e1b4fb016d5f2cbe25c" }
+main_head = "117d08b545c085b4738072772a1a988b2f3ccdc1"
