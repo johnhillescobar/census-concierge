@@ -1,127 +1,288 @@
 ticket = "CC-145"
 required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
 # Approved at pre-flight 2026-11-26 (evidence/slice-6/cc-145/preflight.txt). Each phase's brief compares
-# the live Jira description with these two; a difference with no [[amendment]] row stops the phase.
+# the live Jira description with these two; a difference with no complete owner re-approval stops the phase.
 approved_ids = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
 approved_sha256 = "c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f"
-# No post-merge run is expected: no api/src, evals/ or run-harness file changes (CC-143 AC11).
+# No post-merge E2E is owed: no api/src, evals/ or run-harness file changes (CC-143 AC11). AC7, AC10 and
+# AC16 are checked on main after the merge; AC9 on the pull request.
 
 [[row]]
 id = "AC1"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run pytest api/tests/test_jira_fetch.py -q"
+expected = "--md prints the last comments; an unreachable Jira exits non-zero with no partial ticket; both Jira scripts fall back to the main checkout's .env in a fresh worktree"
+observed = "19 passed. Live: the last N comments are the newest N, oldest first (u1-live.txt, CC-144 and CC-145); three fresh-worktree handoff proofs with no .env read Jira through the main checkout's"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC1.txt", sha256 = "7886eb780d41d8d8624044103313782fecc03243390749bb20c23f81fb4e64ce" }, { path = "evidence/slice-6/cc-145/u1-live.txt", sha256 = "1f8d8b7f67f73f8d4323053a0d2250efc37ec55b6f4ca08bc56ee024a6aef843" }, { path = "evidence/slice-6/cc-145/ac6-handoff-cc-145.txt", sha256 = "daf99be6d0491b90fe6b906093ba80c945ee50e59d38f660cff57533931085f8" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/jira_fetch.py", "scripts/jira_transition.py", "api/tests/test_jira_fetch.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC2"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/brief.py preflight CC-145"
+expected = "the closure file records the ids approved at pre-flight; at a phase start the comparison with Jira fails when the ids differ and no owner amendment row covers it"
+observed = "preflight exit 0 on the live ticket (24 ids match); 12 passed for added, removed, reordered ids, incomplete and partial re-approvals"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC2.txt", sha256 = "e75f67b715d01d771f4fae29b3b1d546eb0ecfd86e427d5b536b59e86f3fd355" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "scripts/closure.py", "api/tests/test_brief.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC3"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/brief.py gate2 CC-145"
+expected = "one Python script prints the brief for preflight, implement, gate1, gate2 and final, keyed by ticket, each opening with the two status commands; gate.sh and gate.ps1 deleted; Makefile, playbook and the three pointers updated"
+observed = "the live gate2 brief opens with the two status commands; git ls-files finds neither gate script; no reference to them remains in Makefile, playbooks or pointers; 12 passed (every phase opens with the commands)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC3.txt", sha256 = "29ddbb3fe6ce480ac9b9fdaa8fff677d92b4ba4452828109c33ee132a9434382" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "Makefile", "docs/playbooks/run-slice.md", ".claude/skills/run-slice/SKILL.md", ".cursor/commands/run-slice.md", ".agents/skills/run-slice/SKILL.md", "api/tests/test_brief.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC4"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run pytest api/tests/test_process.py -q"
+expected = "the three host pointer files say only: read AGENTS.md, print the brief, follow it"
+observed = "37 passed, including the pointer test for each of the three files"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC4.txt", sha256 = "3354476547d13b9dc5daf98012f62cea41ce2142a76585446c629b05974a27fa" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = [".claude/skills/run-slice/SKILL.md", ".cursor/commands/run-slice.md", ".agents/skills/run-slice/SKILL.md", "api/tests/test_process.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC5"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run pytest api/tests/test_context_hook.py -q"
+expected = "auto-compaction off in project settings; the hook no longer prints STATE.md and its warning no longer asks for one"
+observed = "63 passed; .claude/settings.json sets autoCompactEnabled and autoMemoryEnabled false (documented keys, preflight.txt)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC5.txt", sha256 = "e40f69c8d7719f84a5962b41c56c6440ceb090e7629715156f622d3184f2261d" }, { path = "evidence/slice-6/cc-145/preflight.txt", sha256 = "70e461fd7bdc1e4822ead07f6df0e3c4ac05d2b3947adefb96ea38089109499c" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = [".claude/hooks/ctx.py", ".claude/settings.json", "api/tests/test_context_hook.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC6"
-status = "NOT RUN"
-command = "uv run python scripts/jira_fetch.py issue CC-N --md; uv run python scripts/closure.py check evidence/closure/CC-N.toml --pre-merge (fresh agent, fresh worktree, CC-145 and CC-144)"
+status = "PASS"
+command = "uv run python scripts/jira_fetch.py issue CC-N --md; uv run python scripts/closure.py check evidence/closure/CC-N.toml (fresh agent, fresh worktree, CC-145 and CC-144)"
+expected = "before anything is deleted, a fresh agent given only a ticket key states the approved criteria and decisions, the commit tested, stale or missing evidence and the next step, once for an in-progress and once for a closed ticket"
+observed = "CC-145 (6d415de) and CC-144 (6d415de, then 1794e8d after fixing the two defects run 1 found) before the deletion commit 9bdd13f; a supplemental CC-144 run on the final code (01a3b1e) read it as closed, CLOSURE OK. Replies saved verbatim"
+evidence = [{ path = "evidence/slice-6/cc-145/ac6-handoff-cc-145.txt", sha256 = "daf99be6d0491b90fe6b906093ba80c945ee50e59d38f660cff57533931085f8" }, { path = "evidence/slice-6/cc-145/ac6-handoff-cc-144.txt", sha256 = "7c805e37e01c2feca74fac65c7ce17be13acad8677e752ed706550c7e112d182" }, { path = "evidence/slice-6/cc-145/ac6-handoff-cc-144-r2.txt", sha256 = "978c3494af65512088a5745c3bebe950f8624c37743ad683bfa18f24bde4690b" }, { path = "evidence/slice-6/cc-145/ac6-handoff-cc-144-r3.txt", sha256 = "eeba8cd23e03024f7d7fe61df663eaf89b16796178c1146dcf9cb9d310c12876" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "scripts/jira_fetch.py", "AGENTS.md"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC7"
 status = "NOT RUN"
 command = "uv run python scripts/check_invariants.py --base origin/main"
+observed = "the deletions and wording removal are on this branch (rows/AC7.txt); the criterion says on main, so it is run there after the merge"
 
 [[row]]
 id = "AC8"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
+expected = "offline: a STATE.md or plan file under evidence/ fails; status words or metric numbers in .claude/PLAN.md or docs/slices.md fail"
+observed = "All invariants held on the branch; 25 passed (status files, status words, decimals, whole-word matching, both files)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC8.txt", sha256 = "d1786086bd3d2f65b4adae9cc7bc1547e23db3ff63c7f2f7510ba56aee063750" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py", ".claude/PLAN.md", "docs/slices.md"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC9"
 status = "NOT RUN"
 command = "the check workflow on the PR"
+observed = "needs the check workflow run on the pull request"
 
 [[row]]
 id = "AC10"
 status = "NOT RUN"
 command = "uv run python scripts/check_budgets.py --structural-only"
+observed = "the 16 rules are in the repo and auto-memory is off in project settings (gate2-fixes.txt, rows/AC5.txt); the memory files are deleted only after the merge (owner, 2026-11-26)"
 
 [[row]]
 id = "AC11"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/check_budgets.py --structural-only"
+expected = "prescriptive docs at or under 1820 lines; no budget raised"
+observed = "doc lines 1805 <= 1820; budgets.toml unchanged against origin/main"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC11.txt", sha256 = "fee93e12eb4eddd029f0aae534646ccf1c53d826e15aacff8f86a1d7c3d8169c" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["budgets.toml", "CLAUDE.md", ".claude/PLAN.md", "docs/slices.md", "docs/playbooks/run-slice.md"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC12"
-status = "NOT RUN"
+status = "PASS"
 command = "git worktree list"
+expected = "the owner receives a list of worktrees that still serve the old host files; none is removed without the owner naming it"
+observed = ".worktrees/cc-104 and .worktrees/cc-127 serve gate.sh, gate.ps1 and the old pointers (and the main checkout until merge); listed to the owner in chat 2026-11-26 and in ac12-worktrees.txt; none removed"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC12.txt", sha256 = "eafebabb64dcf26a10e4d869e1f14a66d85969ee29e08bba6841256bb1c91329" }, { path = "evidence/slice-6/cc-145/ac12-worktrees.txt", sha256 = "247d31a6930bbb36049ff43664ce27b3701995bc8b010e7b5bacace25b814a72" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC13"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/brief.py preflight CC-145"
+expected = "the closure file records a sha256 of the approved criteria text; the phase-start comparison fails when the text changed with the ids unchanged and no owner amendment row"
+observed = "live fingerprint equals approved_sha256 (c38c9650...); 24 passed, including the four real Jira fixtures (one block per id, rewording moves the hash) and sub-items, hard breaks, table rows, id headings, attribute text"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC13.txt", sha256 = "9a25fbeb677017fff4e441b8eefd92aaa816d69b146e2a9368f030fce94c910b" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/closure.py", "scripts/brief.py", "api/tests/test_brief.py", "api/tests/test_closure_gate.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC14"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/brief.py gate2 CC-145"
+expected = "when the change touches a prescriptive rule file, the gate2 brief adds an instruction to read all of them and list contradictions; decided from the change itself"
+observed = "the live gate2 brief lists the 11 rule files this branch touches and adds the instruction; 14 passed (rule file, api/src only, renames, spaces, non-ASCII paths, unknown base)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC14.txt", sha256 = "76ad5196d76438d68660dc6ef0b8d49376601a444fbc4745626ed86db2bccce0" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "scripts/check_budgets.py", "api/tests/test_brief.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC15"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run pytest api/tests/test_process.py -q"
+expected = "one rule file, and no other, states what .claude/PLAN.md holds; CLAUDE.md, AGENTS.md, docs/slices.md and the playbook point to it"
+observed = "6 passed; 'Jira alone says' appears in .claude/PLAN.md only"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC15.txt", sha256 = "aa123fc86b69bddf60ae6febc22b0bd4f766672cd4e3eed7e6d9ac6a3e6e069e" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = [".claude/PLAN.md", "CLAUDE.md", "AGENTS.md", "docs/slices.md", "docs/playbooks/run-slice.md", "api/tests/test_process.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "AC16"
 status = "NOT RUN"
 command = "uv run python scripts/check_invariants.py --base origin/main"
+observed = "PLAN.md is reduced on this branch (rows/AC16.txt); the criterion says on main, so it is run there after the merge"
 
 [[row]]
 id = "TC1"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_invariants.py -q (a new evidence/slice-9/cc-999/STATE.md fails)"
+status = "PASS"
+command = "uv run pytest api/tests/test_invariants.py -q -k 'status_or_plan_file or other_evidence_files'"
+expected = "a new evidence/slice-9/cc-999/STATE.md fails the invariant check"
+observed = "6 passed (STATE.md, plan.md, *-plan.md fail; other evidence names pass)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC1.txt", sha256 = "06c04c8e6c00c9e3bc14c0218aa6c7265766ab643bfabbba776e495330960c8d" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC2"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_invariants.py -q (a metric number added to .claude/PLAN.md fails)"
+status = "PASS"
+command = "uv run pytest api/tests/test_invariants.py -q -k 'measured_number or integer_targets'"
+expected = "a metric number added to .claude/PLAN.md fails the invariant check"
+observed = "14 passed (decimals and status words fail in both files; integer targets pass)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC2.txt", sha256 = "e1efe676e8bfd2b17f84afa1a14aa2f6bb8c0255b4a95d23a558939d4ba37258" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC3"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_jira_fetch.py -q (Jira unreachable: non-zero exit, no ticket text)"
+status = "PASS"
+command = "uv run pytest api/tests/test_jira_fetch.py -q -k unreachable"
+expected = "with Jira unreachable, jira_fetch.py exits non-zero and prints no ticket text"
+observed = "4 passed (no route and a timeout, on the issue call and on the comments call after it)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC3.txt", sha256 = "2d251e889da113bed80d36d2e02e6f83a456c4f9f5c79ba6b24caa3045fd68e6" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/jira_fetch.py", "api/tests/test_jira_fetch.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC4"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_brief.py -q (an ID added in Jira without an amendment row fails)"
+status = "PASS"
+command = "uv run pytest api/tests/test_brief.py -q -k 'added_in_jira or reapproval or incomplete_amendment or main_command'"
+expected = "a criterion id added in Jira without an amendment row fails the phase-start comparison"
+observed = "7 passed (added id stops; only a complete re-approval naming the live ids lets it through; main prints no brief)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC4.txt", sha256 = "7e4797218c4f41ceb80e875f4af348e52452c540ec9abbc2c7e9a7085d60726a" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "scripts/closure.py", "api/tests/test_brief.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC5"
-status = "NOT RUN"
+status = "PASS"
 command = "make check"
+expected = "make check passes after the deletions, including the CC-138 closure file"
+observed = "every recipe step exit 0 at ef21320 (2303 passed, 112 web tests, invariants, client, budgets); CC-138 reads CLOSURE OK under --closed with its renamed path"
+evidence = [{ path = "evidence/slice-6/cc-145/make-check-r3.txt", sha256 = "1960aa59d58cf07697d14796a829e6173e261da08b4dc639ab746ca2d7a2a39d" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts", "api/tests", "evidence/closure/CC-138.toml", "Makefile"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC6"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_brief.py -q (a criterion reworded with its ID unchanged fails)"
+status = "PASS"
+command = "uv run pytest api/tests/test_brief.py api/tests/test_closure_gate.py -q -k 'reworded or rewording'"
+expected = "a criterion reworded in Jira with its id unchanged fails the phase-start comparison"
+observed = "9 passed, including the four real Jira fixtures"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC6.txt", sha256 = "03f112da6403fff4f2855d60222478d2578aa26f7ecdcfb416781a6efa9ca4ad" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/closure.py", "scripts/brief.py", "api/tests/test_brief.py", "api/tests/test_closure_gate.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC7"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_brief.py -q (contradiction instruction for CLAUDE.md, not for api/src only)"
+status = "PASS"
+command = "uv run pytest api/tests/test_brief.py -q -k contradiction"
+expected = "the gate2 brief carries the contradiction instruction for a change touching CLAUDE.md and omits it for api/src only"
+observed = "6 passed"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC7.txt", sha256 = "559fa57e242cc4539024bb93bb6254d7a0bc38be1c025760456ae14eaf5beec8" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/brief.py", "scripts/check_budgets.py", "api/tests/test_brief.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt", sha256 = "802ee1109bb45b11131c7bf0540a51d64d097d2cd65eaa17b49fc759689c8cd6" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
 
 [[row]]
 id = "TC8"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_invariants.py -q (a PLAN.md closure line with an evidence/ path fails; the key and Jira link passes)"
+status = "PASS"
+command = "uv run pytest api/tests/test_invariants.py -q -k evidence_path"
+expected = "a closure line carrying an evidence/ path added to .claude/PLAN.md fails; reduced to the key and its Jira link it passes"
+observed = "2 passed"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/TC8.txt", sha256 = "edb5be876499258e233d1358099198ded04e981c71e955fe35c908b54d25d71a" }]
+tested_head = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "977cbee5b7c665f689e50db930d6e3bcb2418f89cb4422a060810024bfdb9758" }
+reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"

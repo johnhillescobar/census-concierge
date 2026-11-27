@@ -8,6 +8,7 @@ rows in evidence/closure/CC-145.toml pin these files by sha256.
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -73,8 +74,9 @@ ROWS: dict[str, list[str]] = {
 
 
 def run(command: str) -> tuple[int, str]:
+    # split here, no shell: cmd.exe would pass the single quotes through to pytest's -k
     done = subprocess.run(
-        command, shell=True, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        shlex.split(command), cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     lines = [ln for ln in (done.stdout + done.stderr).splitlines() if "VIRTUAL_ENV" not in ln]
     return done.returncode, "\n".join(lines)

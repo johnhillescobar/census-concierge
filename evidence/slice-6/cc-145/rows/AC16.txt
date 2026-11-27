@@ -1,0 +1,48 @@
+CC-145 AC16, HEAD 4463aede153fadbdaa4e195c081233d704a7e3b4, 2026-11-27T01:45:36+00:00
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    status or plan files           
+  ok    status in PLAN.md and slices.md
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+
+$ uv run pytest -q -p no:cacheprovider api/tests/test_invariants.py -k 'evidence_path or plan_doc or plan_scope'
+..................                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_invariants.py::test_other_evidence_files_pass_the_status_file_check[F3_reference_and_plan_docs.md]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+18 passed, 72 deselected, 1 warning in 0.96s
+exit 0
+
+$ git grep -n -e 'evidence/' -e 'close pointer' -- .claude/PLAN.md
+
+exit 1

@@ -1,0 +1,234 @@
+"""Write the CC-145 closure rows, pinning every evidence file by sha256 (scratch, not in the repo)."""
+
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(r"C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145")
+EV = "evidence/slice-6/cc-145"
+HEAD = "4463aede153fadbdaa4e195c081233d704a7e3b4"
+REVIEW = (
+    f"{EV}/gate2-cold.txt (cold, 1f38280) and {EV}/gate2.txt (invariants, 702f2a6), fixes in "
+    f"{EV}/gate2-fixes.txt; the one re-run {EV}/gate2-cold-r2.txt (7949261) and {EV}/gate2-r2.txt "
+    "(c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). "
+    "No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked "
+    f"({EV}/gate2-fixes-r2-mutations.txt, {EV}/attrs-fix-mutations.txt) and the full suite passes at "
+    f"ef21320 ({EV}/make-check-r3.txt)"
+)
+M_GATE1 = f"{EV}/gate1.txt"
+M_R1 = f"{EV}/gate2-fixes-mutations.txt"
+M_R2 = f"{EV}/gate2-fixes-r2-mutations.txt"
+M_ATTRS = f"{EV}/attrs-fix-mutations.txt"
+
+
+def pin(rel: str) -> dict:
+    return {"path": rel, "sha256": hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()}
+
+
+def rows_file(key: str) -> str:
+    return f"{EV}/rows/{key}.txt"
+
+
+R = []
+
+
+def row(key, command, expected, observed, evidence, affects, mutation=None, reviewer=REVIEW):
+    R.append(
+        {
+            "id": key,
+            "status": "PASS",
+            "command": command,
+            "expected": expected,
+            "observed": observed,
+            "evidence": [pin(p) for p in evidence],
+            "tested_head": HEAD,
+            "affects": affects,
+            "new_tests": mutation is not None,
+            **({"mutation": pin(mutation)} if mutation else {}),
+            "reviewer": reviewer,
+        }
+    )
+
+
+row(
+    "AC1",
+    "uv run pytest api/tests/test_jira_fetch.py -q",
+    "--md prints the last comments; an unreachable Jira exits non-zero with no partial ticket; both Jira scripts fall back to the main checkout's .env in a fresh worktree",
+    "19 passed. Live: the last N comments are the newest N, oldest first (u1-live.txt, CC-144 and CC-145); three fresh-worktree handoff proofs with no .env read Jira through the main checkout's",
+    [rows_file("AC1"), f"{EV}/u1-live.txt", f"{EV}/ac6-handoff-cc-145.txt"],
+    ["scripts/jira_fetch.py", "scripts/jira_transition.py", "api/tests/test_jira_fetch.py"],
+    M_R2,
+)
+row(
+    "AC2",
+    "uv run python scripts/brief.py preflight CC-145",
+    "the closure file records the ids approved at pre-flight; at a phase start the comparison with Jira fails when the ids differ and no owner amendment row covers it",
+    "preflight exit 0 on the live ticket (24 ids match); 12 passed for added, removed, reordered ids, incomplete and partial re-approvals",
+    [rows_file("AC2")],
+    ["scripts/brief.py", "scripts/closure.py", "api/tests/test_brief.py"],
+    M_R2,
+)
+row(
+    "AC3",
+    "uv run python scripts/brief.py gate2 CC-145",
+    "one Python script prints the brief for preflight, implement, gate1, gate2 and final, keyed by ticket, each opening with the two status commands; gate.sh and gate.ps1 deleted; Makefile, playbook and the three pointers updated",
+    "the live gate2 brief opens with the two status commands; git ls-files finds neither gate script; no reference to them remains in Makefile, playbooks or pointers; 12 passed (every phase opens with the commands)",
+    [rows_file("AC3")],
+    ["scripts/brief.py", "Makefile", "docs/playbooks/run-slice.md", ".claude/skills/run-slice/SKILL.md", ".cursor/commands/run-slice.md", ".agents/skills/run-slice/SKILL.md", "api/tests/test_brief.py"],
+    M_GATE1,
+)
+row(
+    "AC4",
+    "uv run pytest api/tests/test_process.py -q",
+    "the three host pointer files say only: read AGENTS.md, print the brief, follow it",
+    "37 passed, including the pointer test for each of the three files",
+    [rows_file("AC4")],
+    [".claude/skills/run-slice/SKILL.md", ".cursor/commands/run-slice.md", ".agents/skills/run-slice/SKILL.md", "api/tests/test_process.py"],
+    M_GATE1,
+)
+row(
+    "AC5",
+    "uv run pytest api/tests/test_context_hook.py -q",
+    "auto-compaction off in project settings; the hook no longer prints STATE.md and its warning no longer asks for one",
+    "63 passed; .claude/settings.json sets autoCompactEnabled and autoMemoryEnabled false (documented keys, preflight.txt)",
+    [rows_file("AC5"), f"{EV}/preflight.txt"],
+    [".claude/hooks/ctx.py", ".claude/settings.json", "api/tests/test_context_hook.py"],
+    M_GATE1,
+)
+row(
+    "AC6",
+    "uv run python scripts/jira_fetch.py issue CC-N --md; uv run python scripts/closure.py check evidence/closure/CC-N.toml (fresh agent, fresh worktree, CC-145 and CC-144)",
+    "before anything is deleted, a fresh agent given only a ticket key states the approved criteria and decisions, the commit tested, stale or missing evidence and the next step, once for an in-progress and once for a closed ticket",
+    "CC-145 (6d415de) and CC-144 (6d415de, then 1794e8d after fixing the two defects run 1 found) before the deletion commit 9bdd13f; a supplemental CC-144 run on the final code (01a3b1e) read it as closed, CLOSURE OK. Replies saved verbatim",
+    [f"{EV}/ac6-handoff-cc-145.txt", f"{EV}/ac6-handoff-cc-144.txt", f"{EV}/ac6-handoff-cc-144-r2.txt", f"{EV}/ac6-handoff-cc-144-r3.txt"],
+    ["scripts/brief.py", "scripts/jira_fetch.py", "AGENTS.md"],
+    None,
+)
+row(
+    "AC8",
+    "uv run python scripts/check_invariants.py --base origin/main",
+    "offline: a STATE.md or plan file under evidence/ fails; status words or metric numbers in .claude/PLAN.md or docs/slices.md fail",
+    "All invariants held on the branch; 25 passed (status files, status words, decimals, whole-word matching, both files)",
+    [rows_file("AC8")],
+    ["scripts/check_invariants.py", "api/tests/test_invariants.py", ".claude/PLAN.md", "docs/slices.md"],
+    M_GATE1,
+)
+row(
+    "AC11",
+    "uv run python scripts/check_budgets.py --structural-only",
+    "prescriptive docs at or under 1820 lines; no budget raised",
+    "doc lines 1805 <= 1820; budgets.toml unchanged against origin/main",
+    [rows_file("AC11")],
+    ["budgets.toml", "CLAUDE.md", ".claude/PLAN.md", "docs/slices.md", "docs/playbooks/run-slice.md"],
+    None,
+)
+row(
+    "AC12",
+    "git worktree list",
+    "the owner receives a list of worktrees that still serve the old host files; none is removed without the owner naming it",
+    ".worktrees/cc-104 and .worktrees/cc-127 serve gate.sh, gate.ps1 and the old pointers (and the main checkout until merge); listed to the owner in chat 2026-11-26 and in ac12-worktrees.txt; none removed",
+    [rows_file("AC12"), f"{EV}/ac12-worktrees.txt"],
+    ["scripts/brief.py"],
+    None,
+)
+row(
+    "AC13",
+    "uv run python scripts/brief.py preflight CC-145",
+    "the closure file records a sha256 of the approved criteria text; the phase-start comparison fails when the text changed with the ids unchanged and no owner amendment row",
+    "live fingerprint equals approved_sha256 (c38c9650...); 24 passed, including the four real Jira fixtures (one block per id, rewording moves the hash) and sub-items, hard breaks, table rows, id headings, attribute text",
+    [rows_file("AC13")],
+    ["scripts/closure.py", "scripts/brief.py", "api/tests/test_brief.py", "api/tests/test_closure_gate.py"],
+    M_R2,
+)
+row(
+    "AC14",
+    "uv run python scripts/brief.py gate2 CC-145",
+    "when the change touches a prescriptive rule file, the gate2 brief adds an instruction to read all of them and list contradictions; decided from the change itself",
+    "the live gate2 brief lists the 11 rule files this branch touches and adds the instruction; 14 passed (rule file, api/src only, renames, spaces, non-ASCII paths, unknown base)",
+    [rows_file("AC14")],
+    ["scripts/brief.py", "scripts/check_budgets.py", "api/tests/test_brief.py"],
+    M_R2,
+)
+row(
+    "AC15",
+    "uv run pytest api/tests/test_process.py -q",
+    "one rule file, and no other, states what .claude/PLAN.md holds; CLAUDE.md, AGENTS.md, docs/slices.md and the playbook point to it",
+    "6 passed; 'Jira alone says' appears in .claude/PLAN.md only",
+    [rows_file("AC15")],
+    [".claude/PLAN.md", "CLAUDE.md", "AGENTS.md", "docs/slices.md", "docs/playbooks/run-slice.md", "api/tests/test_process.py"],
+    M_GATE1,
+)
+row(
+    "TC1",
+    "uv run pytest api/tests/test_invariants.py -q -k 'status_or_plan_file or other_evidence_files'",
+    "a new evidence/slice-9/cc-999/STATE.md fails the invariant check",
+    "6 passed (STATE.md, plan.md, *-plan.md fail; other evidence names pass)",
+    [rows_file("TC1")],
+    ["scripts/check_invariants.py", "api/tests/test_invariants.py"],
+    M_GATE1,
+)
+row(
+    "TC2",
+    "uv run pytest api/tests/test_invariants.py -q -k 'measured_number or integer_targets'",
+    "a metric number added to .claude/PLAN.md fails the invariant check",
+    "14 passed (decimals and status words fail in both files; integer targets pass)",
+    [rows_file("TC2")],
+    ["scripts/check_invariants.py", "api/tests/test_invariants.py"],
+    M_GATE1,
+)
+row(
+    "TC3",
+    "uv run pytest api/tests/test_jira_fetch.py -q -k unreachable",
+    "with Jira unreachable, jira_fetch.py exits non-zero and prints no ticket text",
+    "4 passed (no route and a timeout, on the issue call and on the comments call after it)",
+    [rows_file("TC3")],
+    ["scripts/jira_fetch.py", "api/tests/test_jira_fetch.py"],
+    M_GATE1,
+)
+row(
+    "TC4",
+    "uv run pytest api/tests/test_brief.py -q -k 'added_in_jira or reapproval or incomplete_amendment or main_command'",
+    "a criterion id added in Jira without an amendment row fails the phase-start comparison",
+    "7 passed (added id stops; only a complete re-approval naming the live ids lets it through; main prints no brief)",
+    [rows_file("TC4")],
+    ["scripts/brief.py", "scripts/closure.py", "api/tests/test_brief.py"],
+    M_R2,
+)
+row(
+    "TC5",
+    "make check",
+    "make check passes after the deletions, including the CC-138 closure file",
+    "every recipe step exit 0 at ef21320 (2303 passed, 112 web tests, invariants, client, budgets); CC-138 reads CLOSURE OK under --closed with its renamed path",
+    [f"{EV}/make-check-r3.txt"],
+    ["scripts", "api/tests", "evidence/closure/CC-138.toml", "Makefile"],
+    None,
+)
+row(
+    "TC6",
+    "uv run pytest api/tests/test_brief.py api/tests/test_closure_gate.py -q -k 'reworded or rewording'",
+    "a criterion reworded in Jira with its id unchanged fails the phase-start comparison",
+    "9 passed, including the four real Jira fixtures",
+    [rows_file("TC6")],
+    ["scripts/closure.py", "scripts/brief.py", "api/tests/test_brief.py", "api/tests/test_closure_gate.py"],
+    M_R2,
+)
+row(
+    "TC7",
+    "uv run pytest api/tests/test_brief.py -q -k contradiction",
+    "the gate2 brief carries the contradiction instruction for a change touching CLAUDE.md and omits it for api/src only",
+    "6 passed",
+    [rows_file("TC7")],
+    ["scripts/brief.py", "scripts/check_budgets.py", "api/tests/test_brief.py"],
+    M_R2,
+)
+row(
+    "TC8",
+    "uv run pytest api/tests/test_invariants.py -q -k evidence_path",
+    "a closure line carrying an evidence/ path added to .claude/PLAN.md fails; reduced to the key and its Jira link it passes",
+    "2 passed",
+    [rows_file("TC8")],
+    ["scripts/check_invariants.py", "api/tests/test_invariants.py"],
+    M_GATE1,
+)
+
+print(json.dumps(R))
