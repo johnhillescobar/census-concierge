@@ -263,6 +263,20 @@ def test_a_rerun_brief_names_new_evidence_files_and_never_an_earlier_round(taken
     assert all(f"e/{name} " not in text and f"e/{name}." not in text for name in taken)
 
 
+def test_the_printed_brief_names_the_round_after_the_files_in_the_evidence_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "evidence" / "slice-9" / "cc-9"
+    folder.mkdir(parents=True)
+    (folder / "gate1.txt").write_bytes(b"round one\n")
+    sha = closure.criteria_fingerprint(DESCRIPTION)
+    manifest = f'approved_ids = ["AC1", "AC2", "TC1"]\napproved_sha256 = "{sha}"\n'
+    fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+    assert run_main(tmp_path, monkeypatch, fields, manifest, "gate1", "CC-9") == 0
+    out = capsys.readouterr().out
+    assert "evidence/slice-9/cc-9/gate1-r2.txt" in out and "cc-9/gate1.txt" not in out
+
+
 def test_a_third_round_is_r3() -> None:
     taken = {"gate1.txt", "gate1-r2.txt"}
     assert "e/gate1-r3.txt" in brief.brief("gate1", "CC-9", [], "e", existing=taken)

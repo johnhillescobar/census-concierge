@@ -1295,6 +1295,17 @@ def test_a_reapproval_without_its_ids_is_incomplete() -> None:
     assert closure.amendment_problems(reapproval) == []  # a scope removal needs no id list
 
 
+@pytest.mark.parametrize(("flags", "closed"), [([], False), (["--closed"], True)])
+def test_the_closed_flag_on_the_command_line_reaches_the_check(
+    monkeypatch: pytest.MonkeyPatch, flags: list[str], closed: bool
+) -> None:
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(closure, "check_file", lambda path, **kwargs: seen.update(kwargs) or [])
+    monkeypatch.setattr(sys, "argv", ["closure.py", "check", "CC-9.toml", *flags])
+    assert closure.main() == 0
+    assert seen.get("closed") is closed
+
+
 @pytest.mark.parametrize("branch", ["feat/cc-²", "feat/cc¹²-x"])
 def test_a_superscript_digit_is_no_ticket_number(branch: str) -> None:
     key, why = closure.branch_ticket(branch)
