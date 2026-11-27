@@ -1,0 +1,93 @@
+CC-145 AC10 on main, HEAD 117d08b545c085b4738072772a1a988b2f3ccdc1 (origin/main), 2026-11-27T02:11:58+00:00
+Owner split: evidence/slice-6/cc-145/preflight.txt lines 69-82 (16 rules moved into repo rule files,
+7 deleted as stated in the repo or obsolete, files deleted only after merge). The county "known limit"
+move was then removed on the owner's instruction (gate2-fixes.txt C2). ".claude/agents not counted"
+lives in scripts/check_budgets.py:148, the code that defines the count, not in a prose rule file.
+Memory directory: ~/.claude/projects/<this project>/memory/ (outside the repo; not in git).
+
+$ grep -n 'autoMemoryEnabled\|autoCompactEnabled' .claude/settings.json
+2:  "autoCompactEnabled": false,
+3:  "autoMemoryEnabled": false,
+exit 0
+
+$ cd '~/.claude/projects/<this project>/memory' && ls -1 | wc -l && sha256sum *
+24
+8e27a7eee8c2c51ca169b9770a0590b9ab9e78655aa22de7eeb097cb32254111 *feedback_all_expected_urls_shown.md
+6117fbafb4d65fbf0c2e5046fba8ae84fefa012e066c2c67f7bafb45512f6636 *feedback_cleanup_commits_no_ticket.md
+3f9b691701ed4534a030e222ad66a45cb2faf5bc0fa9d86499d1c20873c30fb5 *feedback_dont_open_pr_before_ready.md
+a17f22a2312fc2d4842a84b358b5f3eccaad135254756d881ee7fc4e1b6e6c64 *feedback_e2e_in_isolated_worktree.md
+74c58f3db930833520755b247673646b7d7df92126880dd45bba2eda8db78da9 *feedback_epic_scope_discipline.md
+ddcc13f197077dd744641809bf47b2d019125ce478368fa3ac80d7f835a90162 *feedback_follow_playbook_dont_ask.md
+f4a633f7a0c48d6855d1266a22351fd5e96933c80e788616858e7a3514349080 *feedback_gates_state_file.md
+a0bde60d5e9cd55dfadb6b1e771e6c024c39ab99c92347b685adba89746f91ce *feedback_geography_level_completeness.md
+3d7f56ac3a7478980f832320de93e5b20b97fd3ebbecedc129faa5048498e16b *feedback_llm_over_regex.md
+e4e83b8cb23a38c5d45a8414df59af366fe0369270ea17eba873737208885999 *feedback_never_guess_ambiguous_geography.md
+baeb33edbea687b77cc973bb1d542574020817fb0a6513403dd051ae07745b83 *feedback_phase1_yardstick_url_is_product.md
+44fc1b1fa1d4cb04d49dcf8491eacad10acd5246ee5ed070b7bf835b3da385c4 *feedback_pr_title_conventional_ticket_last.md
+aac321820e1c02215602b54eb8731a35a8e65d0196f090bb79fd09a353857d70 *feedback_preflight_check_epic_tickets.md
+c7f04138936ae62d4de6b88d6e191c289b16cc0cda3d146175430fc26e864b5f *feedback_read_playbook_fully_waiver_is_human_commit.md
+815f67f5baf8deff250f699d9b28c708374f0ea3dc26d9bb89b4bb6816005360 *feedback_ticket_is_context_plan_is_contract.md
+ca6ff13459fb13bfc3fb341ec279eaed61f07dfa14e8f28e86cdb4ea60b279f2 *MEMORY.md
+86b85e999a66cfad8fa29f028734208af86056236a21f8ef8e658c2e463d6b4f *project_agents_dir_not_in_doc_lines.md
+88376dbda492a64d3a83bcccc7b251087a443250fbbd69a087e0d25224fd3925 *project_cc121_answer_figures.md
+0e79eb86c749bd993c4859a9cf41563324309f00541718eb025ce763168c3647 *project_cc121_stays_open.md
+4bbade9de0763b5e86385433b5e00657151f36b249880acc2a03b1b97423ffaa *project_long_term_vision_and_regex_concern.md
+d3255b53c8eea6317531a7779aedd911a575c2cde58e4554737258d15e5ebe85 *project_phase2_foundations.md
+421c76d5ebe897ee16588707dfd37d1eb9bb9dc257176f5f8607413ba66614b4 *project_slice6_anti_overfit.md
+0e86c887dc98467288f37d04df9d1eab73204ee26af6d9a49bcdaf894208283f *reference_bash_heredoc_backslashes.md
+81a64d4cac2e4332e33bb1c500464516ba6d6ae4b04da8ece715821c1b8e11e4 *reference_census_api_preflight_2026_10_04.md
+exit 0
+
+$ cd '~/.claude/projects/<this project>/memory' && rm -v -- *.md
+removed 'feedback_all_expected_urls_shown.md'
+removed 'feedback_cleanup_commits_no_ticket.md'
+removed 'feedback_dont_open_pr_before_ready.md'
+removed 'feedback_e2e_in_isolated_worktree.md'
+removed 'feedback_epic_scope_discipline.md'
+removed 'feedback_follow_playbook_dont_ask.md'
+removed 'feedback_gates_state_file.md'
+removed 'feedback_geography_level_completeness.md'
+removed 'feedback_llm_over_regex.md'
+removed 'feedback_never_guess_ambiguous_geography.md'
+removed 'feedback_phase1_yardstick_url_is_product.md'
+removed 'feedback_pr_title_conventional_ticket_last.md'
+removed 'feedback_preflight_check_epic_tickets.md'
+removed 'feedback_read_playbook_fully_waiver_is_human_commit.md'
+removed 'feedback_ticket_is_context_plan_is_contract.md'
+removed 'MEMORY.md'
+removed 'project_agents_dir_not_in_doc_lines.md'
+removed 'project_cc121_answer_figures.md'
+removed 'project_cc121_stays_open.md'
+removed 'project_long_term_vision_and_regex_concern.md'
+removed 'project_phase2_foundations.md'
+removed 'project_slice6_anti_overfit.md'
+removed 'reference_bash_heredoc_backslashes.md'
+removed 'reference_census_api_preflight_2026_10_04.md'
+exit 0
+
+$ ls -A '~/.claude/projects/<this project>/memory' | wc -l
+0
+exit 0
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1805 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+
+exit 0
+
+HEAD at end 117d08b545c085b4738072772a1a988b2f3ccdc1
