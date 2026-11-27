@@ -59,7 +59,8 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 - Do not reinterpret question wording with regex, keyword, substring, or equivalent semantic heuristics, including legacy fallbacks. Downstream code must consume and validate structured intent (CLAUDE.md).
 - Do not ship with unverified AC/TC or failed cumulative metric gates; follow PLAN and the canonical run-slice evidence matrix.
 - Do not ask a blocking clarification question. Users who do not know the ecosystem
-  **cannot answer one.** Show candidates as results plus an editable plan strip.
+  **cannot answer one.** A complete question gets its pick plus candidates as results and an
+  editable plan strip; why, and the incomplete case: `CLAUDE.md` (Alternatives; Geography).
 - Do not add a graph node for branching. Nodes are durable checkpoints only.
 - Do not create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
   `*_strategy`, or `*_service`.

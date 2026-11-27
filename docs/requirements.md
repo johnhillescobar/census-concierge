@@ -11,7 +11,7 @@ None of these block except an incomplete geography (below): warn (or decline a c
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
 | **GEOID** | AFFGEOID `GEO_ID` on fetched `rows[]`. Calculated totals have no Census GEOID and travel in `combined_rows[]`. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
-| **Alternatives** | Related tables with title, universe, and why they differ. |
+| **Alternatives** | Related tables with title, universe, and why they differ, on every complete answer: retrieval can miss the right table (`CLAUDE.md`, Alternatives). An incomplete question gets none. |
 | **Plan** | `ResultPlan` from executed artifacts (table, estimate IDs, years, `GeoSpec`s). Never parsed from answer prose. Optional `AskRequest.plan` pins the next `POST /ask`. |
 
 A silently short series is the same failure as a wrong one: dropped years, geographies, or variables are named, with a reason.

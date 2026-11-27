@@ -15,6 +15,16 @@ owner  Closed tickets remain closed. A regression in a closed ticket's work is t
        agent whose change caused it, who fixes it at once; no coding agent may degrade what was
        achieved.
 owner  No Jira writes until the epic is finished ("focus on this ticket").
+owner  Candidates (approved verbatim, later the same day): "Candidates exist because retrieval can be
+       wrong. On the long tail, the right table is often among the top 10 but not ranked first. A
+       complete question gets the best pick plus the candidate alternatives, so the user can switch
+       tables from the plan strip. That's also why the URL matters: a wrong table gets fixed in
+       seconds." Candidates are for complete questions whose answer may not be exact; an incomplete
+       or ambiguous-geography question gets none. Stated once, in CLAUDE.md (Alternatives);
+       00-guardrails.mdc, 10-api-python.mdc:219 and requirements.md (Alternatives row) point to it.
+       The 10-api-python.mdc line is fixed here, not left to CC-104: .mdc bodies are read by every
+       host (AGENTS.md), and this ticket's rule edits made it contradict. CC-104 keeps only the
+       prompt text in api/src.
 
 == Finding -> fix -> test ==
 M1  criteria fingerprint covered only the id line.
@@ -72,8 +82,8 @@ U1  not reproduced, now settled live (read-only), 2026-11-26, CC-144 (5 comments
 C1  docs/requirements.md said ambiguous places get "no URL until the user names one" beside
     rules saying candidates. Now the owner's rule above, in requirements.md (Geography
     completeness and the ambiguous_place row), CLAUDE.md "Geography is level-complete" and
-    40-census-domain.mdc. Not changed: 10-api-python.mdc:219 describes the prompt's ambiguity
-    rule (candidates as results), which is api/src, outside this ticket; CC-104 owns it.
+    40-census-domain.mdc; the candidates rule above separates the two cases in CLAUDE.md,
+    00-guardrails.mdc, 10-api-python.mdc:219 and requirements.md.
 C2  the county "known limit" line described today's code; removed (owner: requirements are the
     product we want).
 C3  run-slice.md and 00-guardrails.mdc restated where status lives; both now point at PLAN.md.

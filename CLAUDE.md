@@ -51,7 +51,12 @@ Also non-negotiable in every answer that returns data:
 - **Universe.** "Households" vs "families" vs "population" vs "housing units"
   is the most common silent wrong answer in Census work.
 - **Alternatives.** Show related tables, not just the pick. That is the whole
-  concierge value, and it teaches the ecosystem one answer at a time.
+  concierge value, and it teaches the ecosystem one answer at a time. Candidates exist
+  because retrieval can be wrong: on the long tail the right table is often in the top 10
+  but not ranked first. A complete question gets the best pick plus the candidate
+  alternatives, so the user can switch tables from the plan strip; that is also why the URL
+  matters, since a wrong table gets fixed in seconds. An incomplete question gets none (next
+  section).
 
 ## Geography is level-complete
 
@@ -63,17 +68,17 @@ without its parents. A place name several states share with no state the user wr
 Cook County; a state the model adds is not the user's), or a question whose level is unclear, carries
 less too; a unique place (Chicago, Washington DC) does not. A question that carries less
 cannot be answered: say immediately that it is incomplete and cannot be searched, name what
-is missing, and return **no URL**, no
-candidates and no fetch; a refusal returns no rows, so the four fields above do not apply to
-it. A question asking which table holds something is not a search by geography: answer it. The
+is missing and ask for it, and return **no URL**, no candidates and no fetch; a refusal returns
+no rows, so the four fields above do not apply to it. A question asking which table holds something is not a search by geography: answer it. The
 model reports the level, what the question names and what it asks for; code compares that
 with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
 
 ## Do not
 
 - Ask a blocking clarification question. Users who do not know the ecosystem
-  **cannot answer one.** Show candidates as results with an editable plan strip.
-  Clarification machinery ate a third of the predecessor's codebase.
+  **cannot answer one.** A complete question gets its pick plus candidates as results with
+  an editable plan strip (Alternatives, above); an incomplete one is the geography section's
+  case. Clarification machinery ate a third of the predecessor's codebase.
 - Add a graph node for branching. Nodes are durable checkpoints only.
 - Create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
   `*_strategy`, or `*_service`.
