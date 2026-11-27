@@ -4,8 +4,9 @@ required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10
 # the live Jira description with these two; a difference with no complete owner re-approval stops the phase.
 approved_ids = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
 approved_sha256 = "c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f"
-# No post-merge E2E is owed: no api/src, evals/ or run-harness file changes (CC-143 AC11). AC7, AC10 and
-# AC16 are checked on main after the merge; AC9 on the pull request.
+# Correction: a post-merge E2E was owed. The merge touched the Makefile (the gate -> brief recipe), a
+# run-harness file in closure.py E2E_PATHS, though no eval or demo recipe line changed; it ran on main
+# 117d08b ([post_merge], below). AC7, AC10 and AC16 were checked on main 117d08b; AC9 on the pull request.
 
 [[row]]
 id = "AC1"
@@ -86,9 +87,15 @@ reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/
 
 [[row]]
 id = "AC7"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
-observed = "the deletions and wording removal are on this branch (rows/AC7.txt); the criterion says on main, so it is run there after the merge"
+expected = "on main: the two STATE.md files and the plan files under evidence/ are gone (cc-138/plan.md renamed, its two closure paths updated); status and plan wording removed from the listed rule files; 'When unsure: stop and ask' stays"
+observed = "on main 117d08b (PR #153 merged): All invariants held, exit 0; no STATE.md, plan.md or *-plan.md under evidence/ (git ls-files, no match); cc-138/scope-record.md present and CC-138.toml cites it twice; git grep for STATE.md, plan file, close pointer in the listed files finds nothing; 'stop and ask' still in 00-guardrails.mdc. Branch run: rows/AC7.txt"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC7-main.txt", sha256 = "bdea901cb38ebb229188857855997368489a4758574e83dfd032cb030f606da5" }]
+tested_head = "117d08b545c085b4738072772a1a988b2f3ccdc1"
+affects = ["scripts/check_invariants.py", "evidence/closure/CC-138.toml", "evidence/slice-6/cc-138/scope-record.md", ".claude/PLAN.md", "AGENTS.md", "docs/slices.md", "docs/ARCHITECTURE.md", "README.md", ".cursor/rules/00-guardrails.mdc", "docs/playbooks", "CLAUDE.md", ".github"]
+new_tests = false
+reviewer = "the Gate 2 reviews of PR #153 (see AC8's reviewer); this row is the on-main run the criterion's wording requires, taken after the merge"
 
 [[row]]
 id = "AC8"
@@ -118,9 +125,15 @@ reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/
 
 [[row]]
 id = "AC10"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/check_budgets.py --structural-only"
-observed = "the 16 rules are in the repo and auto-memory is off in project settings (gate2-fixes.txt, rows/AC5.txt); the memory files are deleted only after the merge (owner, 2026-11-26)"
+expected = "each auto-memory rule is moved into a repo rule file or deleted, and auto-memory is off in the project settings"
+observed = "on main 117d08b: autoMemoryEnabled false in .claude/settings.json; the owner's split (preflight.txt 69-82: 16 moved, 7 deleted; the county known-limit move then removed by the owner, gate2-fixes.txt C2) is on main; after the merge the 23 memory files and their MEMORY.md index were deleted (sha256 list kept in the evidence), the directory is empty; check_budgets --structural-only: All budgets met, doc lines 1805 <= 1820. '.claude/agents not counted' lives in scripts/check_budgets.py:148, the code that defines the count, not a prose rule file (gate2.txt AC10 gap c)"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC10-main.txt", sha256 = "b2517f4d8daca00f48e06642f32127728bab8846a61976babf43e21926e32726" }, { path = "evidence/slice-6/cc-145/preflight.txt", sha256 = "70e461fd7bdc1e4822ead07f6df0e3c4ac05d2b3947adefb96ea38089109499c" }]
+tested_head = "117d08b545c085b4738072772a1a988b2f3ccdc1"
+affects = [".claude/settings.json", "CLAUDE.md", "docs/playbooks/run-slice.md", "docs/requirements.md", ".cursor/rules/40-census-domain.mdc", ".claude/PLAN.md", "scripts/check_budgets.py"]
+new_tests = false
+reviewer = "the Gate 2 reviews of PR #153 (see AC8's reviewer; gate2.txt AC10 listed the gaps this row closes); the deletion is the post-merge step the owner set"
 
 [[row]]
 id = "AC11"
@@ -187,9 +200,15 @@ reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/
 
 [[row]]
 id = "AC16"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
-observed = "PLAN.md is reduced on this branch (rows/AC16.txt); the criterion says on main, so it is run there after the merge"
+expected = "no rule file asks for a close pointer, floors or numbers in .claude/PLAN.md; on main its closure paragraphs, baseline numbers and Done lists are one-line Jira links; an evidence/ path in it fails the offline check"
+observed = "on main 117d08b: All invariants held, exit 0; 18 passed (evidence_path, plan_doc, plan_scope); no evidence/ path or close pointer in .claude/PLAN.md, and no rule file says close pointer or floors met; PLAN.md read whole in the evidence: finished work is two lines of Jira links, the rest is plan scope with integer targets. Branch run: rows/AC16.txt"
+evidence = [{ path = "evidence/slice-6/cc-145/rows/AC16-main.txt", sha256 = "9c5631baa4171835150ded2c08f70d329eb53cd072b1949a99f1f549035232cb" }]
+tested_head = "117d08b545c085b4738072772a1a988b2f3ccdc1"
+affects = [".claude/PLAN.md", "scripts/check_invariants.py", "api/tests/test_invariants.py", "CLAUDE.md", "AGENTS.md", "docs/slices.md", "docs/playbooks/run-slice.md"]
+new_tests = false
+reviewer = "the Gate 2 reviews of PR #153 (see AC8's reviewer); this row is the on-main run the criterion's wording requires, taken after the merge"
 
 [[row]]
 id = "TC1"
@@ -293,3 +312,7 @@ affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-145/gate1.txt", sha256 = "b9af0da42c5e2444a328cd636e461958d3f224031e1d65efc38c93ab4f2415f8" }
 reviewer = "evidence/slice-6/cc-145/gate2-cold.txt (cold, 1f38280) and evidence/slice-6/cc-145/gate2.txt (invariants, 702f2a6), fixes in evidence/slice-6/cc-145/gate2-fixes.txt; the one re-run evidence/slice-6/cc-145/gate2-cold-r2.txt (7949261) and evidence/slice-6/cc-145/gate2-r2.txt (c5b91c1), verdict Not yet, its findings fixed in adbebe6 and 6a9a605 (gate2-fixes.txt, round 2). No cold review has read adbebe6..6a9a605 (the one re-run was spent); they are mutation-checked (evidence/slice-6/cc-145/gate2-fixes-r2-mutations.txt, evidence/slice-6/cc-145/attrs-fix-mutations.txt) and the full suite passes at ef21320 (evidence/slice-6/cc-145/make-check-r3.txt)"
+
+[post_merge]
+e2e = { path = "evidence/slice-6/cc-145/e2e-post/log.txt", sha256 = "f8f63c025f75e0a755ccf594573bc6c6153f895937b43e1b4fb016d5f2cbe25c" }
+main_head = "117d08b545c085b4738072772a1a988b2f3ccdc1"

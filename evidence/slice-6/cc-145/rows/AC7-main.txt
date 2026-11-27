@@ -1,0 +1,88 @@
+CC-145 AC7 on main, HEAD 117d08b545c085b4738072772a1a988b2f3ccdc1 (origin/main), 2026-11-27T02:08:35+00:00
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    status or plan files           
+  ok    status in PLAN.md and slices.md
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+
+$ git ls-files evidence | grep -i -E '(^|/)(state\.md|plan\.md|[^/]*-plan\.md)$'
+exit 1
+
+$ git ls-files evidence/slice-6/cc-138
+evidence/slice-6/cc-138/ac2-a0-preflight.md
+evidence/slice-6/cc-138/baseline-scoreboard.json
+evidence/slice-6/cc-138/baseline-setup-failed-scoreboard.json
+evidence/slice-6/cc-138/baseline.md
+evidence/slice-6/cc-138/copilot-gate1-final.txt
+evidence/slice-6/cc-138/copilot-gate1.txt
+evidence/slice-6/cc-138/copilot-gate2-final.txt
+evidence/slice-6/cc-138/copilot-gate2.txt
+evidence/slice-6/cc-138/e2e-baseline-setup-failed.txt
+evidence/slice-6/cc-138/e2e-baseline.txt
+evidence/slice-6/cc-138/e2e-post-pr135.txt
+evidence/slice-6/cc-138/e2e-pre-commands.txt
+evidence/slice-6/cc-138/e2e-pre-grid-after.json
+evidence/slice-6/cc-138/e2e-pre-scoreboard.json
+evidence/slice-6/cc-138/e2e-pre.txt
+evidence/slice-6/cc-138/gate1-encrypted-replay.txt
+evidence/slice-6/cc-138/gate1-final.txt
+evidence/slice-6/cc-138/gate1-fixes.txt
+evidence/slice-6/cc-138/gate1-replay.txt
+evidence/slice-6/cc-138/gate1.txt
+evidence/slice-6/cc-138/gate2-candidate.txt
+evidence/slice-6/cc-138/gate2-final.txt
+evidence/slice-6/cc-138/gate2.txt
+evidence/slice-6/cc-138/metric-compare-pre.txt
+evidence/slice-6/cc-138/post-merge-handoff.md
+evidence/slice-6/cc-138/repair-window-comparison.txt
+evidence/slice-6/cc-138/scope-record.md
+exit 0
+
+$ grep -n 'cc-138/' evidence/closure/CC-138.toml
+20:evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+29:evidence = [{ path = "evidence/slice-6/cc-138/repair-window-comparison.txt", sha256 = "6f3e4572948a3bc6e077875d1cd7822ccd69600ce1dfe20d9cdd14aaba7cdd97" }]
+40:evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+43:mutation = { path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }
+53:evidence = [{ path = "evidence/slice-6/cc-138/scope-record.md", sha256 = "975c68ae3f5a83b4a5d6e882aee52d40f3ad6bc0eac3fe9cbf176fc4db4cf478" }, { path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+64:evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+75:evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+86:evidence = [{ path = "evidence/slice-6/cc-138/scope-record.md", sha256 = "975c68ae3f5a83b4a5d6e882aee52d40f3ad6bc0eac3fe9cbf176fc4db4cf478" }]
+97:evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+102:e2e = { path = "evidence/slice-6/cc-138/e2e-post-pr135.txt", sha256 = "0e785dbc51b189182582d309eab1278d2fbd0a043bcdced19482c90e0a65f124" }
+exit 0
+
+$ git grep -n -i -e 'STATE.md' -e 'plan file' -e 'close pointer' -- .claude/PLAN.md AGENTS.md docs/slices.md docs/ARCHITECTURE.md README.md .cursor/rules/00-guardrails.mdc docs/playbooks CLAUDE.md .github
+exit 1
+
+$ git grep -n -i 'stop and ask' -- .cursor/rules/00-guardrails.mdc
+.cursor/rules/00-guardrails.mdc:81:Stop and ask. Do not invent a subsystem to cover an ambiguity — that is exactly
+exit 0
+
+HEAD at end 117d08b545c085b4738072772a1a988b2f3ccdc1

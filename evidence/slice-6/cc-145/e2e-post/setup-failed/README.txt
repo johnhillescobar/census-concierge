@@ -1,0 +1,1 @@
+First attempt, 2026-11-27T02:17Z-02:26Z at 117d08b: index_store/ absent in the fresh worktree, so retrieval scored the stub and score_synthetic and run_demo exited 1. Not a measurement. The index was then copied from .worktrees/cc-104/index_store (index_hash 377cd59fe62a, the hash of the stored reference runs) and the driver re-run into the parent folder.

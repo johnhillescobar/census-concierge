@@ -1,0 +1,19 @@
+LOST, 2026-11-27T04:11Z: a filing script (an agent's, PowerShell variable names are case-insensitive) copied
+run 3's files over this folder. Removed again; these attempt-2 originals are gone from the worktree (they may
+survive in Dropbox version history): a.err, a.out, b.err, b.out, c.err, c.out, d.err, d.out, e.err.summary.txt, e.out, f.err, f.out, g.err, g.out, grid-latest.json, grid-trials.jsonl, log.txt, n1.err, n1.out, n2.err, n2.out, s.err, s.out, v.err, v.out.
+Kept, original: README.txt, e.err (summarised in e.err.summary.txt), latest-after-demo.json, latest-after-grid.json
+(all of attempt 2's demo trials and aggregates: answered 0.0, http_ok 1.0, every miss geography_unsupported).
+Log lines of attempt 2 that the agent read during the session, verbatim:
+  HEAD start 117d08b545c085b4738072772a1a988b2f3ccdc1 branch  status: 1 changed
+  s START 2026-11-27T02:30:18Z :: uv sync / s END 2026-11-27T02:30:19Z rc=0
+  v START 2026-11-27T02:30:19Z / v END 2026-11-27T02:30:33Z rc=0
+  n1 START 2026-11-27T02:30:34Z / n1 END 2026-11-27T02:31:40Z rc=0
+  n2 START 2026-11-27T02:31:40Z / n2 END 2026-11-27T02:31:57Z rc=0
+  a START 2026-11-27T02:31:57Z / a END 2026-11-27T02:32:25Z rc=0
+  b START 2026-11-27T02:32:26Z / b END 2026-11-27T02:33:57Z rc=0
+  c START 2026-11-27T02:33:58Z / c END 2026-11-27T02:34:05Z rc=0
+  d START 2026-11-27T02:34:06Z :: uv run python scripts/run_demo.py --repeat 3 / d END 2026-11-27T03:03:46Z rc=1
+  e START 2026-11-27T03:03:46Z :: uv run python scripts/run_grid.py --repeat 3 / e END 2026-11-27T03:08:35Z rc=127 (stopped)
+  f START 2026-11-27T03:08:37Z :: uv run python scripts/check_budgets.py / f END 2026-11-27T03:08:39Z rc=1
+  g START 2026-11-27T03:08:39Z :: uv run python scripts/check_invariants.py --base origin/main / g END 2026-11-27T03:09:03Z rc=0
+  HEAD end 117d08b545c085b4738072772a1a988b2f3ccdc1 status: 0 measured paths changed / DONE
