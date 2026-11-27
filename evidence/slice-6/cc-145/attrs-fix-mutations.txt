@@ -1,0 +1,10 @@
+CC-145 attrs fix mutation check, HEAD 6a9a605f51e71d3075050c5508373179053d49b1, 2026-11-27T01:33:36Z
+GOOD  default-reads-attribute-text (CC-144's gate line must not see hidden attrs)
+      $ uv run pytest -q api/tests/test_jira_gate_line.py -k test_a_copy_carrying_what_its_text_does_not_show
+      2 failed, 3 passed, 423 deselected, 1 warning in 1.21s  (exit 1)
+GOOD  criteria-ignore-attribute-text (F9: a date in a criterion must move the fingerprint)
+      $ uv run pytest -q api/tests/test_closure_gate.py -k test_a_text_kept_in_an_attribute_is_part_of_a_criterion
+      1 failed, 185 deselected, 1 warning in 0.40s  (exit 1)
+restored=yes
+exit 0
+?? evidence/slice-6/cc-145/attrs-fix-mutations.txt
